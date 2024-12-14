@@ -21,6 +21,7 @@ from autogen.oai.client_utils import logging_formatter
 from autogen.oai.openai_utils import OAI_PRICE1K, get_key, is_valid_api_key
 from autogen.runtime_logging import log_chat_completion, log_new_client, log_new_wrapper, logging_enabled
 from autogen.token_count_utils import count_token
+from autogen.formatting_utils import CMBAGENTSummary
 
 TOOL_ENABLED = False
 try:
@@ -420,6 +421,14 @@ class OpenAIClient:
             # If streaming is not enabled, send a regular chat completion request
             params = params.copy()
             params["stream"] = False
+            ### formatted output for cmbagent 
+            ## call the oai client with the response_format
+            if "response_format" in params and isinstance(params["response_format"], type):
+                params.pop("stream")
+                params["response_format"] = CMBAGENTSummary
+                response = self._oai_client.beta.chat.completions.parse(**params)
+                return response
+
             response = create_or_parse(**params)
 
         return response
@@ -929,7 +938,7 @@ class OpenAIWrapper:
                 total_usage = actual_usage.copy() if actual_usage is not None else total_usage
                 self._update_usage(actual_usage=actual_usage, total_usage=total_usage)
 
-                if cache_client is not None:
+                if cache_client is not None  and not hasattr(response.choices[0].message, "parsed"):
                     # Cache the response
                     with cache_client as cache:
                         cache.set(key, response)
@@ -1165,6 +1174,28 @@ class OpenAIWrapper:
         else:
             raise ValueError(f'Invalid mode: {mode}, choose from "actual", "total", ["actual", "total"]')
         iostream.print("-" * 100, flush=True)
+
+
+    def return_usage_summary(self, mode: str = "actual") -> None:
+        """Return the usage summary items."""
+        if mode == 'actual':
+            usage_summary = self.actual_usage_summary
+        elif mode == 'total':
+            usage_summary = self.total_usage_summary
+        else:
+            raise ValueError(f'Invalid mode: {mode}, choose from "actual" or "total"')
+        if usage_summary is None:
+            return None
+        total_cost = usage_summary['total_cost']
+        prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+        for model, counts in usage_summary.items():
+            if model == "total_cost":
+                continue
+            prompt_tokens += counts['prompt_tokens']
+            completion_tokens += counts['completion_tokens']
+            total_tokens += counts['total_tokens']
+        return total_cost, prompt_tokens, completion_tokens, total_tokens
+
 
     def clear_usage_summary(self) -> None:
         """Clear the usage summary."""

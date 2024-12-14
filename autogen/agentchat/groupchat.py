@@ -276,6 +276,9 @@ class GroupChat:
         if self.select_speaker_auto_verbose is None or not isinstance(self.select_speaker_auto_verbose, bool):
             raise ValueError("select_speaker_auto_verbose cannot be None or non-bool")
 
+        self.new_conversable_agents = [] # conversable agents that are part of admin and added here
+
+
     @property
     def agent_names(self) -> List[str]:
         """Return the names of the agents in the group chat."""
@@ -723,6 +726,9 @@ class GroupChat:
             agents, max_attempts, messages, validate_speaker_name, selector
         )
 
+        self.new_conversable_agents.append(checking_agent)
+        self.new_conversable_agents.append(speaker_selection_agent)
+
         # Create the starting message
         if self.select_speaker_prompt_template is not None:
             start_message = {
@@ -805,6 +811,9 @@ class GroupChat:
         checking_agent, speaker_selection_agent = self._create_internal_agents(
             agents, max_attempts, messages, validate_speaker_name, selector
         )
+
+        self.new_conversable_agents.append(checking_agent)
+        self.new_conversable_agents.append(speaker_selection_agent)
 
         # Create the starting message
         if self.select_speaker_prompt_template is not None:
@@ -1166,7 +1175,13 @@ class GroupChatManager(ConversableAgent):
                 break
             try:
                 # select the next speaker
-                speaker = groupchat.select_speaker(speaker, self)
+                # constrain to planner for the first round
+                if i == 0:
+                    speaker = groupchat.agent_by_name("planner")
+                else:
+                    speaker = groupchat.select_speaker(speaker, self)
+          
+
                 if not silent:
                     iostream = IOStream.get_default()
                     iostream.print(colored(f"\nNext speaker: {speaker.name}\n", "green"), flush=True)

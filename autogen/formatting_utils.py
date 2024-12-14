@@ -6,7 +6,8 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-from typing import Iterable, Literal
+from typing import Iterable, Literal, List
+from pydantic import BaseModel
 
 try:
     from termcolor import colored
@@ -74,3 +75,16 @@ except ImportError:
         force_color: bool | None = None,
     ) -> str:
         return str(text)
+
+
+
+class SummarySubTask(BaseModel):
+    sub_task: str
+    result: str
+    feedback: str
+    agent: str
+
+class CMBAGENTSummary(BaseModel):
+    main_task: str
+    results: str
+    summary: List[SummarySubTask]

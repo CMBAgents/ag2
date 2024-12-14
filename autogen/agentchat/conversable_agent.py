@@ -12,6 +12,10 @@ import json
 import logging
 import re
 import warnings
+
+import pandas as pd
+from IPython.display import display
+
 from collections import defaultdict
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, TypeVar, Union
 
@@ -180,6 +184,9 @@ class ConversableAgent(LLMAgent):
         # Initialize standalone client cache object.
         self.client_cache = None
 
+        # response_format is used to specify the response format for the agent
+        self.response_format = None
+
         self.human_input_mode = human_input_mode
         self._max_consecutive_auto_reply = (
             max_consecutive_auto_reply if max_consecutive_auto_reply is not None else self.MAX_CONSECUTIVE_AUTO_REPLY
@@ -265,6 +272,10 @@ class ConversableAgent(LLMAgent):
             "process_all_messages_before_reply": [],
             "process_message_before_send": [],
         }
+
+        # set up dictionary attribute for cost summary
+        self.cost_dict = {'Agent': [], 'Cost': [], 'Prompt Tokens': [], 'Completion Tokens': [], 'Total Tokens': []}
+
 
     def _validate_llm_config(self, llm_config):
         assert llm_config in (None, False) or isinstance(
@@ -1126,10 +1137,18 @@ class ConversableAgent(LLMAgent):
         _chat_info = locals().copy()
         _chat_info["sender"] = self
         consolidate_chat_info(_chat_info, uniform_sender=self)
+
+        if 'response_format' in kwargs:
+            self.response_format = kwargs['response_format']
+        else:
+            self.response_format = None
+
         for agent in [self, recipient]:
             agent._raise_exception_on_async_reply_functions()
             agent.previous_cache = agent.client_cache
             agent.client_cache = cache
+            agent.response_format = self.response_format
+
         if isinstance(max_turns, int):
             self._prepare_chat(recipient, clear_history, reply_at_receive=False)
             for _ in range(max_turns):
@@ -1464,6 +1483,7 @@ class ConversableAgent(LLMAgent):
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
         config: Optional[OpenAIWrapper] = None,
+        response_format: Optional[BaseModel] = None,
     ) -> Tuple[bool, Union[str, Dict, None]]:
         """Generate a reply using autogen.oai."""
         client = self.client if config is None else config
@@ -1472,11 +1492,11 @@ class ConversableAgent(LLMAgent):
         if messages is None:
             messages = self._oai_messages[sender]
         extracted_response = self._generate_oai_reply_from_client(
-            client, self._oai_system_message + messages, self.client_cache
+            client, self._oai_system_message + messages, self.client_cache, self.response_format
         )
         return (False, None) if extracted_response is None else (True, extracted_response)
 
-    def _generate_oai_reply_from_client(self, llm_client, messages, cache) -> Union[str, Dict, None]:
+    def _generate_oai_reply_from_client(self, llm_client, messages, cache, response_format=None) -> Union[str, Dict, None, None]:
         # unroll tool_responses
         all_messages = []
         for message in messages:
@@ -1490,12 +1510,43 @@ class ConversableAgent(LLMAgent):
                 all_messages.append(message)
 
         # TODO: #1143 handle token limit exceeded error
+        ## Key part for formatting
         response = llm_client.create(
             context=messages[-1].pop("context", None),
             messages=all_messages,
             cache=cache,
             agent=self,
+            response_format=response_format
         )
+
+        # llm_client.print_usage_summary(mode="actual")  # print actual usage summary, i.e., excluding cached usage
+        # Update dictionary containing all costs
+        usage_summary = llm_client.return_usage_summary(mode="actual")
+        if usage_summary is not None:
+            cost, prompt_tokens, completion_tokens, total_tokens = usage_summary
+            if self.name in ['planner', 'engineer']:
+                name = self.name
+            else:
+                name = 'admin (' + self.name + ')'
+        
+            # Restructure tokens_dict to create a DataFrame
+            df = pd.DataFrame([{
+                "Model": response.model,
+                "agent": self.name,
+                "Cost": f"{cost:.5f}",
+                "Prompt Tokens": prompt_tokens,
+                "Completion Tokens": completion_tokens,
+                "Total Tokens": total_tokens,
+            }])
+            display(df.style.hide(axis="index"))
+            
+            self.cost_dict['Agent'].append(name)
+            self.cost_dict['Cost'].append(cost) 
+            self.cost_dict['Prompt Tokens'].append(prompt_tokens)
+            self.cost_dict['Completion Tokens'].append(completion_tokens)
+            self.cost_dict['Total Tokens'].append(total_tokens)
+
+
         extracted_response = llm_client.extract_text_or_completion_object(response)[0]
 
         if extracted_response is None:

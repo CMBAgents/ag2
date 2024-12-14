@@ -27,6 +27,7 @@ NON_CACHE_KEY = [
     "azure_ad_token",
     "azure_ad_token_provider",
     "credentials",
+    "response_format",
 ]
 DEFAULT_AZURE_API_VERSION = "2024-02-01"
 OAI_PRICE1K = {
@@ -791,17 +792,27 @@ def update_gpt_assistant(client: OpenAI, assistant_id: str, assistant_config: Di
     if assistant_config.get("tools") is not None:
         assistant_update_kwargs["tools"] = assistant_config["tools"]
 
+    if assistant_config.get("temperature") is not None:
+        assistant_update_kwargs["temperature"] = assistant_config["temperature"]
+
+    if assistant_config.get("top_p") is not None:
+        assistant_update_kwargs["top_p"] = assistant_config["top_p"]
+
     if assistant_config.get("instructions") is not None:
         assistant_update_kwargs["instructions"] = assistant_config["instructions"]
 
-    if gpt_assistant_api_version == "v2":
-        if assistant_config.get("tool_resources") is not None:
-            assistant_update_kwargs["tool_resources"] = assistant_config["tool_resources"]
-    else:
-        if assistant_config.get("file_ids") is not None:
-            assistant_update_kwargs["file_ids"] = assistant_config["file_ids"]
+    if assistant_config.get("tool_resources") is not None:   
+        assistant_update_kwargs["tool_resources"] = assistant_config["tool_resources"]
 
-    return client.beta.assistants.update(assistant_id=assistant_id, **assistant_update_kwargs)
+    try:
+        return client.beta.assistants.update(assistant_id=assistant_id, **assistant_update_kwargs)
+    except Exception as e:
+        # Capture the error message and print it
+        # Access the first argument of the exception, which should contain the error details
+        error_details = e.args[0]
+        return error_details 
+
+
 
 
 def _satisfies(config_value: Any, acceptable_values: Any) -> bool:

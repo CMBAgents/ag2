@@ -14,8 +14,13 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from autogen import OpenAIWrapper
 from autogen.agentchat.agent import Agent
 from autogen.agentchat.assistant_agent import AssistantAgent, ConversableAgent
-from autogen.oai.openai_utils import create_gpt_assistant, retrieve_assistants_by_name, update_gpt_assistant
+from autogen.oai.openai_utils import create_gpt_assistant, retrieve_assistants_by_name, update_gpt_assistant, OAI_PRICE1K
 from autogen.runtime_logging import log_new_agent, logging_enabled
+
+import re
+import sys
+import pandas as pd
+from IPython.display import display
 
 logger = logging.getLogger(__name__)
 
@@ -170,17 +175,29 @@ class GPTAssistantAgent(ConversableAgent):
                     assistant_config={
                         "tools": specified_tools,
                         "tool_resources": openai_assistant_cfg.get("tool_resources", None),
+                        "temperature": openai_assistant_cfg.get("temperature",None),
+                        "top_p": openai_assistant_cfg.get("top_p",None),
                     },
                 )
             else:
                 # Tools are specified but overwrite_tools is False; do not update the assistant's tools
                 logger.warning("overwrite_tools is False. Using existing tools from assistant API.")
 
-        self.update_system_message(self._openai_assistant.instructions)
-        # lazily create threads
-        self._openai_threads = {}
-        self._unread_index = defaultdict(int)
-        self.register_reply([Agent, None], GPTAssistantAgent._invoke_assistant, position=2)
+        # relay error message if assistant not set-up properly
+        if 'error' in self._openai_assistant:
+            print('assistant not set-up properly, relaying error message')
+            self._assistant_error = self._openai_assistant
+
+        else:
+            self.update_system_message(self._openai_assistant.instructions)
+            # lazily create threads
+            self._openai_threads = {}
+            self._unread_index = defaultdict(int)
+            self.register_reply([Agent, None], GPTAssistantAgent._invoke_assistant, position=2)
+            self._assistant_error = None
+
+        # set up dictionary attribute for cost summary
+        self.cost_dict = {'Agent': [], 'Cost': [], 'Prompt Tokens': [], 'Completion Tokens': [], 'Total Tokens': []}
 
     def _invoke_assistant(
         self,
@@ -270,6 +287,72 @@ class GPTAssistantAgent(ConversableAgent):
             # Default to 'assistant' for any other roles not recognized by the API
             return "assistant"
 
+    def remove_numerical_references(self,text):
+        # Remove numerical references of format [0], [1], etc.
+        cleaned_text = re.sub(r'\[\d+\]', '', text)
+        return cleaned_text
+    
+    def cost(self, run):
+        """Calculate the cost of the run."""
+        model = run.model
+        if model not in OAI_PRICE1K:
+            # log warning that the model is not found
+            logger.warning(
+                f'Model {model} is not found. The cost will be 0. In your config_list, add field {{"price" : [prompt_price_per_1k, completion_token_price_per_1k]}} for customized pricing.'
+            )
+            return 0
+
+        n_input_tokens = run.usage.prompt_tokens if run.usage is not None else 0  # type: ignore [union-attr]
+        n_output_tokens = run.usage.completion_tokens if run.usage is not None else 0  # type: ignore [union-attr]
+        if n_output_tokens is None:
+            n_output_tokens = 0
+        tmp_price1K = OAI_PRICE1K[model]
+        # First value is input token rate, second value is output token rate
+        if isinstance(tmp_price1K, tuple):
+            return (tmp_price1K[0] * n_input_tokens + tmp_price1K[1] * n_output_tokens) / 1000  # type: ignore [no-any-return]
+        return tmp_price1K * (n_input_tokens + n_output_tokens) / 1000  # type: ignore [operator]
+
+    def print_usage_summary(self, tokens_dict):
+        """
+        Prints a summary of token usage and costs for the current run.
+
+        Args:
+            tokens_dict (dict): Dictionary containing token usage information with keys:
+                - model: Name of the model used
+                - prompt_tokens: Number of prompt tokens used
+                - completion_tokens: Number of completion tokens used  
+                - total_tokens: Total number of tokens used
+                - cost: Total cost of the run
+
+        Updates the agent's cost_dict attribute with the usage information and prints
+        a formatted summary to stdout.
+        """
+        # Extracting values from the dictionary
+        model = tokens_dict["model"]
+        prompt_tokens = tokens_dict["prompt_tokens"]
+        completion_tokens = tokens_dict["completion_tokens"]
+        total_tokens = tokens_dict["total_tokens"]
+        cost = tokens_dict["cost"]
+        
+
+        # Restructure tokens_dict to create a DataFrame
+        df = pd.DataFrame([{
+            "Model": model,
+            "Cost": f"{cost:.5f}",
+            "Prompt Tokens": prompt_tokens,
+            "Completion Tokens": completion_tokens,
+            "Total Tokens": total_tokens,
+        }])
+        display(df.style.hide(axis="index"))
+
+        # Update dictionary containing all costs
+        self.cost_dict['Agent'].append(self.name.replace('_agent', ''))
+        self.cost_dict['Cost'].append(cost) 
+        self.cost_dict['Prompt Tokens'].append(prompt_tokens)
+        self.cost_dict['Completion Tokens'].append(completion_tokens)
+        self.cost_dict['Total Tokens'].append(total_tokens)
+
+
     def _get_run_response(self, thread, run):
         """
         Waits for and processes the response of a run from the OpenAI assistant.
@@ -285,13 +368,31 @@ class GPTAssistantAgent(ConversableAgent):
             if run.status == "completed":
                 response_messages = self._openai_client.beta.threads.messages.list(thread.id, order="asc")
 
+                # register cost 
+                prompt_tokens = run.usage.prompt_tokens
+                completion_tokens = run.usage.completion_tokens
+                total_tokens = run.usage.total_tokens
+
+                cost = self.cost(run)
+                tokens_dict = {
+                    "model": run.model,
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": total_tokens,
+                    "cost": cost
+                }
+                self.print_usage_summary(tokens_dict)
+
+
                 new_messages = []
                 for msg in response_messages:
                     if msg.run_id == run.id:
                         for content in msg.content:
                             if content.type == "text":
+                                # Remove numerical references from the content
+                                cleaned_content = self.remove_numerical_references(self._format_assistant_message(content.text))
                                 new_messages.append(
-                                    {"role": msg.role, "content": self._format_assistant_message(content.text)}
+                                    {"role": msg.role, "content": cleaned_content}
                                 )
                             elif content.type == "image_file":
                                 new_messages.append(
