@@ -126,7 +126,7 @@ extra_require = {
 }
 
 setuptools.setup(
-    name="pyautogen",
+    name="pyautogen_cmbagent",
     version=__version__,
     author="Chi Wang & Qingyun Wu",
     author_email="support@ag2.ai",
