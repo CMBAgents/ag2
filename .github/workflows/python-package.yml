@@ -7,6 +7,7 @@ name: python-package
 on:
   release:
     types: [published]
+  workflow_dispatch:
 permissions: {}
   # actions: read
   # checks: read
@@ -50,27 +51,27 @@ jobs:
           python setup.py sdist bdist_wheel
       - name: Publish pyautogen to PyPI
         env:
-          TWINE_USERNAME: ${{ secrets.PYAUTOGEN_PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PYAUTOGEN_PYPI_PASSWORD }}
+          TWINE_USERNAME: "__token__"
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         shell: pwsh
-        run: twine upload dist/*pyautogen*
-      - name: Build autogen
-        shell: pwsh
-        run: |
-          python setup_autogen.py sdist bdist_wheel
-      - name: Publish autogen to PyPI
-        env:
-          TWINE_USERNAME: ${{ secrets.AUTOGEN_PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.AUTOGEN_PYPI_PASSWORD }}
-        shell: pwsh
-        run: twine upload dist/autogen*
-      - name: Build ag2
-        shell: pwsh
-        run: |
-          python setup_ag2.py sdist bdist_wheel
-      - name: Publish ag2 to PyPI
-        env:
-          TWINE_USERNAME: ${{ secrets.AUTOGEN_PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.AUTOGEN_PYPI_PASSWORD }}
-        shell: pwsh
-        run: twine upload dist/ag2*
+        run: twine upload dist/*cmbagent_autogen*
+      # - name: Build autogen
+      #   shell: pwsh
+      #   run: |
+      #     python setup_autogen.py sdist bdist_wheel
+      # - name: Publish autogen to PyPI
+      #   env:
+      #     TWINE_USERNAME: ${{ secrets.AUTOGEN_PYPI_USERNAME }}
+      #     TWINE_PASSWORD: ${{ secrets.AUTOGEN_PYPI_PASSWORD }}
+      #   shell: pwsh
+      #   run: twine upload dist/autogen*
+      # - name: Build ag2
+      #   shell: pwsh
+      #   run: |
+      #     python setup_ag2.py sdist bdist_wheel
+      # - name: Publish ag2 to PyPI
+      #   env:
+      #     TWINE_USERNAME: ${{ secrets.AUTOGEN_PYPI_USERNAME }}
+      #     TWINE_PASSWORD: ${{ secrets.AUTOGEN_PYPI_PASSWORD }}
+      #   shell: pwsh
+      #   run: twine upload dist/ag2*

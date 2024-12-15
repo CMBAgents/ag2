@@ -126,14 +126,14 @@ extra_require = {
 }
 
 setuptools.setup(
-    name="pyautogen_cmbagent",
+    name="cmbagent_autogen",
     version=__version__,
     author="Chi Wang & Qingyun Wu",
     author_email="support@ag2.ai",
     description="A programming framework for agentic AI",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/ag2ai/ag2",
+    url="https://github.com/CMBAgents/ag2",
     packages=setuptools.find_namespace_packages(
         include=[
             "autogen*",
