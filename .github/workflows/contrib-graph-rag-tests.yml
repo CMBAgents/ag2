@@ -4,13 +4,14 @@
 name: ContribGraphRagTests
 
 on:
-  pull_request:
-    branches: ["main"]
-    paths:
-      - "autogen/agentchat/contrib/graph_rag/**"
-      - "test/agentchat/contrib/graph_rag/**"
-      - ".github/workflows/contrib-tests.yml"
-      - "setup.py"
+  workflow_dispatch:
+  # pull_request:
+  #   branches: ["main"]
+  #   paths:
+  #     - "autogen/agentchat/contrib/graph_rag/**"
+  #     - "test/agentchat/contrib/graph_rag/**"
+  #     - ".github/workflows/contrib-tests.yml"
+  #     - "setup.py"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}

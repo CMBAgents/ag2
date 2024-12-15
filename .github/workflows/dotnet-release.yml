@@ -5,9 +5,9 @@ name: dotnet-release
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - release/dotnet/**
+  # push:
+  #   branches:
+  #     - release/dotnet/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}

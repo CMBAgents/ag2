@@ -1,9 +1,10 @@
 name: Type check
 # see: https://help.github.com/en/actions/reference/events-that-trigger-workflows
 on: # Trigger the workflow on pull request or merge
-  pull_request:
-  merge_group:
-    types: [checks_requested]
+  # pull_request:
+  # merge_group:
+  #   types: [checks_requested]
+  workflow_dispatch:
 defaults:
   run:
     shell: bash

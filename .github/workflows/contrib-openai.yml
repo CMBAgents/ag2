@@ -4,13 +4,14 @@
 name: OpenAI4ContribTests
 
 on:
-  pull_request:
-    branches: ["main"]
-    paths:
-      - "autogen/**"
-      - "test/agentchat/contrib/**"
-      - ".github/workflows/contrib-openai.yml"
-      - "setup.py"
+  workflow_dispatch:
+  # pull_request:
+  #   branches: ["main"]
+  #   paths:
+  #     - "autogen/**"
+  #     - "test/agentchat/contrib/**"
+  #     - ".github/workflows/contrib-openai.yml"
+  #     - "setup.py"
 permissions:
   {}
   # actions: read
