@@ -178,6 +178,9 @@ class ConversableAgent(LLMAgent):
 
         self._validate_llm_config(llm_config)
 
+        ## cmbagent print to help debug
+        #print('in conversable_agent.py llm_config after validation: ',self.llm_config)
+
         if logging_enabled():
             log_new_agent(self, locals())
 
@@ -1511,16 +1514,21 @@ class ConversableAgent(LLMAgent):
 
         # TODO: #1143 handle token limit exceeded error
         ## Key part for formatting
-        print('in conversable_agent.py all_messages: ',all_messages)
-        print('response_format: ',response_format)
-        print('agent: ',self.name)
+        # print('in conversable_agent.py all_messages: ',all_messages)
+        # print('in conversable_agent.py response_format: ',response_format)
+        # print('in conversable_agent.py agent: ',self.name)
         response = llm_client.create(
             context=messages[-1].pop("context", None),
             messages=all_messages,
             cache=cache,
             agent=self,
-            response_format=response_format
+            # response_format=response_format
         )
+
+        ## cmbagent modif print to help debug: 
+        ## print full raw response here
+        ## print('\n\nin conversable_agent.py response: ',response)
+        ## print('\n\n')
 
         # llm_client.print_usage_summary(mode="actual")  # print actual usage summary, i.e., excluding cached usage
         # Update dictionary containing all costs
@@ -1551,6 +1559,8 @@ class ConversableAgent(LLMAgent):
 
 
         extracted_response = llm_client.extract_text_or_completion_object(response)[0]
+        # print('\n\nin conversable_agent.py extracted_response: \n\n',extracted_response)
+        # print('\n\n')
 
         if extracted_response is None:
             warnings.warn(f"Extracted_response from {response} is None.", UserWarning)

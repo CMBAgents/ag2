@@ -294,6 +294,9 @@ class OpenAIClient:
 
         if self.response_format is not None:
 
+            ## cmbagent print to help debug
+            ## print('in oai/client.py self.response_format: ',self.response_format)
+
             def _create_or_parse(*args, **kwargs):
                 if "stream" in kwargs:
                     kwargs.pop("stream")
@@ -313,6 +316,8 @@ class OpenAIClient:
 
             # Set the terminal text color to green
             iostream.print("\033[32m", end="")
+
+            print('in ModelClient client.py:',params)
 
             # Prepare for potential function call
             full_function_call: Optional[Dict[str, Any]] = None
@@ -421,13 +426,20 @@ class OpenAIClient:
             # If streaming is not enabled, send a regular chat completion request
             params = params.copy()
             params["stream"] = False
+
+            ### start of cmbagent changes for memory formatted output, by hand. Not right way to do it.
             ### formatted output for cmbagent 
             ## call the oai client with the response_format
-            if "response_format" in params and isinstance(params["response_format"], type):
-                params.pop("stream")
-                params["response_format"] = CMBAGENTSummary
-                response = self._oai_client.beta.chat.completions.parse(**params)
-                return response
+            # if "response_format" in params and isinstance(params["response_format"], type):
+            #     params.pop("stream")
+            #     print('in oai/client.py params["response_format"]: ',params["response_format"])
+            #     params["response_format"] = CMBAGENTSummary
+            #     response = self._oai_client.beta.chat.completions.parse(**params)
+            #     return response
+            # print('\n\n in oai/client.py params: ',params)
+            # print('----> now creating response')
+            ### end of cmbagent changes.
+            
 
             response = create_or_parse(**params)
 
@@ -600,6 +612,12 @@ class OpenAIWrapper:
         api_type = config.get("api_type")
         model_client_cls_name = config.get("model_client_cls")
         response_format = config.get("response_format")
+
+        ## cmbagent modif print to help debug: 
+        ## print('\n\n')
+        ## print('in oai/client.py response_format: ',response_format)
+        ## print('\n\n')
+
         if model_client_cls_name is not None:
             # a config for a custom client is set
             # adding placeholder until the register_model_client is called with the appropriate class
