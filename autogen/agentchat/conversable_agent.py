@@ -1511,6 +1511,9 @@ class ConversableAgent(LLMAgent):
 
         # TODO: #1143 handle token limit exceeded error
         ## Key part for formatting
+        print('in conversable_agent.py all_messages: ',all_messages)
+        print('response_format: ',response_format)
+        print('agent: ',self.name)
         response = llm_client.create(
             context=messages[-1].pop("context", None),
             messages=all_messages,
