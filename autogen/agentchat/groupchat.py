@@ -1050,6 +1050,8 @@ class GroupChatManager(ConversableAgent):
         self._last_speaker = None
         self._silent = silent
 
+        self.cmbagent_summarizer = None
+
         # Order of register_reply is important.
         # Allow sync chat if initiated using initiate_chat
         self.register_reply(Agent, GroupChatManager.run_chat, config=groupchat, reset_config=GroupChat.reset)
@@ -1174,13 +1176,24 @@ class GroupChatManager(ConversableAgent):
                 # The conversation is over or it's the last round
                 break
             try:
-                # select the next speaker
-                # constrain to planner for the first round
-                if i == 0:
+                # Initialize a toggle flag to track alternation between admin and summarizer
+                if not hasattr(self, 'last_admin_summarizer_speaker'):
+                    self.last_admin_summarizer_speaker = "admin"  # Ensure summarizer starts first
+
+                # Select the next speaker
+                # If summarizer is needed (i.e., when we need to summarize the session), alternate between admin and summarizer
+                if self.cmbagent_summarizer is not None:
+                    # Alternate between 'admin' and 'summarizer'
+                    if i==0 or self.last_admin_summarizer_speaker == "admin":
+                        speaker = groupchat.agent_by_name("summarizer")
+                        self.last_admin_summarizer_speaker = "summarizer"
+                    else:
+                        speaker = groupchat.agent_by_name("admin")
+                        self.last_admin_summarizer_speaker = "admin"
+                elif i == 0:  # Default to 'planner' in standard case
                     speaker = groupchat.agent_by_name("planner")
                 else:
                     speaker = groupchat.select_speaker(speaker, self)
-          
 
                 if not silent:
                     iostream = IOStream.get_default()

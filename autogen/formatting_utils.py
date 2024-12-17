@@ -76,15 +76,3 @@ except ImportError:
     ) -> str:
         return str(text)
 
-
-
-class SummarySubTask(BaseModel):
-    sub_task: str
-    result: str
-    feedback: str
-    agent: str
-
-class CMBAGENTSummary(BaseModel):
-    main_task: str
-    results: str
-    summary: List[SummarySubTask]

@@ -1526,8 +1526,8 @@ class ConversableAgent(LLMAgent):
         )
 
         ## cmbagent modif print to help debug: 
-        ## print full raw response here
-        ## print('\n\nin conversable_agent.py response: ',response)
+        # print full raw response here
+        # print('\n\nin conversable_agent.py response: ',response)
         ## print('\n\n')
 
         # llm_client.print_usage_summary(mode="actual")  # print actual usage summary, i.e., excluding cached usage
@@ -1535,7 +1535,7 @@ class ConversableAgent(LLMAgent):
         usage_summary = llm_client.return_usage_summary(mode="actual")
         if usage_summary is not None:
             cost, prompt_tokens, completion_tokens, total_tokens = usage_summary
-            if self.name in ['planner', 'engineer']:
+            if self.name in ['planner', 'engineer', 'summarizer']:
                 name = self.name
             else:
                 name = 'admin (' + self.name + ')'
@@ -1557,8 +1557,15 @@ class ConversableAgent(LLMAgent):
             self.cost_dict['Completion Tokens'].append(completion_tokens)
             self.cost_dict['Total Tokens'].append(total_tokens)
 
+        if name == 'summarizer':
 
-        extracted_response = llm_client.extract_text_or_completion_object(response)[0]
+            content = response.choices[0].message.content
+            extracted_response = content
+
+            print('\n\n'+llm_client.extract_text_or_completion_object(response)[0])
+
+        else:
+            extracted_response = llm_client.extract_text_or_completion_object(response)[0]
         # print('\n\nin conversable_agent.py extracted_response: \n\n',extracted_response)
         # print('\n\n')
 
