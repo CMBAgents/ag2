@@ -71,6 +71,9 @@ class GPTAssistantAgent(ConversableAgent):
 
         self._verbose = kwargs.pop("verbose", False)
         openai_client_cfg, openai_assistant_cfg = self._process_assistant_config(llm_config, assistant_config)
+        ## cmbagent debug print: 
+        # print('in gpt_assistant_agent.py openai_client_cfg: ', openai_client_cfg)
+        # print('in gpt_assistant_agent.py openai_assistant_cfg: ', openai_assistant_cfg)
 
         super().__init__(
             name=name, system_message=instructions, human_input_mode="NEVER", llm_config=openai_client_cfg, **kwargs
@@ -129,6 +132,14 @@ class GPTAssistantAgent(ConversableAgent):
         else:
             # retrieve an existing assistant
             self._openai_assistant = self._openai_client.beta.assistants.retrieve(openai_assistant_id)
+            ## cmbagent debug print: 
+#             print('in gpt_assistant_agent.py self._openai_assistant.response_format: ', self._openai_assistant.response_format)
+#             if self._openai_assistant.response_format != openai_client_cfg['config_list'][0]['response_format']:
+#                 print("""
+# The response format of the found assistant does not match the one provided in the config. 
+# You must delete the assistant and create a new one with the correct response format.
+# Terminating the program.""")
+#                 sys.exit()
             # if no instructions are provided, set the instructions to the existing instructions
             if instructions is None:
                 logger.warning(
@@ -169,6 +180,9 @@ class GPTAssistantAgent(ConversableAgent):
                 logger.warning(
                     "overwrite_tools is True. Provided tools will be used and will modify the assistant in the API"
                 )
+                ## cmbagent debug print: 
+                # print('in gpt_assistant_agent.py specified_tools: ', specified_tools)
+                # this seems to not be called as of 18 dec 2024
                 self._openai_assistant = update_gpt_assistant(
                     self._openai_client,
                     assistant_id=openai_assistant_id,
@@ -230,16 +244,23 @@ class GPTAssistantAgent(ConversableAgent):
         assistant_thread = self._openai_threads[sender]
         # Process each unread message
         for message in pending_messages:
+            ## cmbagent debug print: 
+            # print('in gpt_assistant_agent.py message in pending_messages: ', message)
+            # print('in gpt assistant agent.py:', self.llm_config)
             if message["content"].strip() == "":
                 continue
             # Convert message roles to 'user' or 'assistant', by calling _map_role_for_api, to comply with OpenAI API spec
             api_role = self._map_role_for_api(message["role"])
+            ## cmbagent debug print: 
+            # print('in gpt_assistant_agent.py api_role: ', api_role)
             self._openai_client.beta.threads.messages.create(
                 thread_id=assistant_thread.id,
                 content=message["content"],
                 role=api_role,
             )
 
+        ## cmbagent debug print: 
+        # print('in gpt_assistant_agent.py running with system message: ', self.system_message)
         # Create a new run to get responses from the assistant
         run = self._openai_client.beta.threads.runs.create(
             thread_id=assistant_thread.id,
@@ -247,8 +268,14 @@ class GPTAssistantAgent(ConversableAgent):
             # pass the latest system message as instructions
             instructions=self.system_message,
         )
+        ## cmbagent debug print: 
+        # print('in gpt_assistant_agent.py run done. calling _get_run_response')
 
         run_response_messages = self._get_run_response(assistant_thread, run)
+
+        ## cmbagent debug print: 
+        # print('in gpt_assistant_agent.py run_response_messages: ', run_response_messages)
+
         assert len(run_response_messages) > 0, "No response from the assistant."
 
         response = {

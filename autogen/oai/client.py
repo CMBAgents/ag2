@@ -427,7 +427,7 @@ class OpenAIClient:
             params = params.copy()
             params["stream"] = False
 
-            ### start of cmbagent changes for memory formatted output, by hand. Not right way to do it.
+            ### start of cmbagent changes for structured output for summary agents by hand. Not
             ### formatted output for cmbagent 
             ## call the oai client with the response_format
             # if "response_format" in params and isinstance(params["response_format"], type):

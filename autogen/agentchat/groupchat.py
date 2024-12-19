@@ -964,6 +964,9 @@ class GroupChat:
 
         roles = []
         for agent in agents:
+            ## cmbagent modify:
+            if agent.name == "rag_software_formatter":
+                continue
             if agent.description.strip() == "":
                 logger.warning(
                     f"The agent '{agent.name}' has an empty description, and may not work well with GroupChat."
@@ -1176,6 +1179,7 @@ class GroupChatManager(ConversableAgent):
                 # The conversation is over or it's the last round
                 break
             try:
+                ### cmbagent 
                 # Initialize a toggle flag to track alternation between admin and summarizer
                 if not hasattr(self, 'last_admin_summarizer_speaker'):
                     self.last_admin_summarizer_speaker = "admin"  # Ensure summarizer starts first
@@ -1193,11 +1197,33 @@ class GroupChatManager(ConversableAgent):
                 elif i == 0:  # Default to 'planner' in standard case
                     speaker = groupchat.agent_by_name("planner")
                 else:
-                    speaker = groupchat.select_speaker(speaker, self)
+                    if groupchat.verbose:
+                        print("--> in groupchat.py speaker.name: ", speaker.name)
+                        print("--> in groupchat.py groupchat.agents names: ", [agent.name for agent in groupchat.agents])
+                        
+                    if groupchat.rag_agents is not None:
+                        if groupchat.verbose:
+                            print("--> in groupchat.py groupchat.rag_agents names: ", [agent.name for agent in groupchat.rag_agents])
+                        if speaker.name in [agent.name for agent in groupchat.rag_agents]:
+                            if groupchat.verbose:
+                                print("switching to rag_software_formatter")
+                            speaker = groupchat.agent_by_name("rag_software_formatter")
 
+                        elif speaker.name == "rag_software_formatter":
+                            speaker = groupchat.agent_by_name("admin")
+                        
+                        else:
+                            speaker = groupchat.select_speaker(speaker, self)
+                    
+                    else:
+                        speaker = groupchat.select_speaker(speaker, self)
+
+                    if groupchat.verbose:
+                        print("--> in groupchat.py speaker.name after select_speaker: ", speaker.name)
+                
                 if not silent:
                     iostream = IOStream.get_default()
-                    iostream.print(colored(f"\nNext speaker: {speaker.name}\n", "green"), flush=True)
+                    iostream.print(colored(f"\nCalling {speaker.name}...\n", "green"), flush=True)
                 # let the speaker speak
                 reply = speaker.generate_reply(sender=self)
             except KeyboardInterrupt:

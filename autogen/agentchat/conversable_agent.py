@@ -15,6 +15,7 @@ import warnings
 
 import pandas as pd
 from IPython.display import display
+from IPython.display import Markdown
 
 from collections import defaultdict
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, TypeVar, Union
@@ -226,6 +227,8 @@ class ConversableAgent(LLMAgent):
 
             # We have got a valid code_execution_config.
             self._code_execution_config = code_execution_config
+            ## cmbagent debug print: 
+            # print('in conversable_agent.py self._code_execution_config start: ', self._code_execution_config)
 
             if self._code_execution_config.get("executor") is not None:
                 if "use_docker" in self._code_execution_config:
@@ -857,8 +860,13 @@ class ConversableAgent(LLMAgent):
     def _print_received_message(self, message: Union[Dict, str], sender: Agent, skip_head: bool = False):
         iostream = IOStream.get_default()
         # print the message received
+        ## cmbagent debug print: 
+        # print('in conversable_agent.py _print_received_message: ', message)
         if not skip_head:
-            iostream.print(colored(sender.name, "yellow"), "(to", f"{self.name}):\n", flush=True)
+            if sender.name == 'classy_sz_agent':
+                iostream.print(colored(f"Sending message from {sender.name} to rag_software_formatter...\n", "yellow"), flush=True)
+            else:
+                iostream.print(colored(f"Message from {sender.name}:\n", "yellow"), flush=True)
         message = self._message_to_dict(message)
 
         if message.get("tool_responses"):  # Handle tool multi-call responses
@@ -868,6 +876,8 @@ class ConversableAgent(LLMAgent):
                 return  # If role is tool, then content is just a concatenation of all tool_responses
 
         if message.get("role") in ["function", "tool"]:
+            ## cmbagent debug print: 
+            print('in conversable_agent.py message role: ', message["role"])
             if message["role"] == "function":
                 id_key = "name"
             else:
@@ -881,12 +891,19 @@ class ConversableAgent(LLMAgent):
             content = message.get("content")
             if content is not None:
                 if "context" in message:
+                    ## cmbagent debug print: 
+                    print('in conversable_agent.py message context: ', message["context"])
                     content = OpenAIWrapper.instantiate(
                         content,
                         message["context"],
                         self.llm_config and self.llm_config.get("allow_format_str_template", False),
                     )
-                iostream.print(content_str(content), flush=True)
+                ## cmbagent modification
+                if sender.name not in ['classy_sz_agent']:
+                    if sender.name in ["planner", "rag_software_formatter", "engineer"]:
+                        display(Markdown(content))
+                    else:
+                        iostream.print(content_str(content), flush=True)
             if "function_call" in message and message["function_call"]:
                 function_call = dict(message["function_call"])
                 func_print = (
@@ -914,7 +931,10 @@ class ConversableAgent(LLMAgent):
                     )
                     iostream.print(colored("*" * len(func_print), "green"), flush=True)
 
-        iostream.print("\n", "-" * 80, flush=True, sep="")
+        ## cmbagent removing line break after each message: 
+        # iostream.print("\n", "-" * 80, flush=True, sep="")
+        ## cmbagent debug print: 
+        # print('in conversable_agent.py _print_received_message: ', message)
 
     def _process_received_message(self, message: Union[Dict, str], sender: Agent, silent: bool):
         # When the agent receives a message, the role of the message is "user". (If 'role' exists and is 'function', it will remain unchanged.)
@@ -1514,6 +1534,7 @@ class ConversableAgent(LLMAgent):
 
         # TODO: #1143 handle token limit exceeded error
         ## Key part for formatting
+        ## cmbagent debug print to see what's in all_messages: 
         # print('in conversable_agent.py all_messages: ',all_messages)
         # print('in conversable_agent.py response_format: ',response_format)
         # print('in conversable_agent.py agent: ',self.name)
@@ -1521,8 +1542,7 @@ class ConversableAgent(LLMAgent):
             context=messages[-1].pop("context", None),
             messages=all_messages,
             cache=cache,
-            agent=self,
-            # response_format=response_format
+            agent=self
         )
 
         ## cmbagent modif print to help debug: 
@@ -1621,13 +1641,28 @@ class ConversableAgent(LLMAgent):
         """Generate a reply using code executor."""
         iostream = IOStream.get_default()
 
+        ## cmbagent debug print: 
+        # print('in conversable_agent.py _generate_code_execution_reply_using_executor messages: ', messages)
+        # print('in conversable_agent.py _generate_code_execution_reply_using_executor sender: ', sender.name)
+        # print('in conversable_agent.py _generate_code_execution_reply_using_executor config: ', config)
+
         if config is not None:
             raise ValueError("config is not supported for _generate_code_execution_reply_using_executor.")
         if self._code_execution_config is False:
             return False, None
         if messages is None:
             messages = self._oai_messages[sender]
+
+        ## cmbagent debug print: 
+        # print('in conversable_agent.py  self._code_execution_config: ', self._code_execution_config)
+
+        ## cmbagent modify: 
+        ## control last_n_messages from the instance of the agent
+        # print('in conversable_agent.py self._code_execution_config: ', self._code_execution_config)
         last_n_messages = self._code_execution_config.get("last_n_messages", "auto")
+
+        ## cmbagent debug print: 
+        # print('in conversable_agent.py _generate_code_execution_reply_using_executor last_n_messages: ', last_n_messages)
 
         if not (isinstance(last_n_messages, (int, float)) and last_n_messages >= 0) and last_n_messages != "auto":
             raise ValueError("last_n_messages must be either a non-negative integer, or the string 'auto'.")
@@ -1643,6 +1678,7 @@ class ConversableAgent(LLMAgent):
                     break
                 else:
                     num_messages_to_scan += 1
+
         num_messages_to_scan = min(len(messages), num_messages_to_scan)
         messages_to_scan = messages[-num_messages_to_scan:]
 
@@ -1652,7 +1688,11 @@ class ConversableAgent(LLMAgent):
         for message in reversed(messages_to_scan):
             if not message["content"]:
                 continue
+            ## cmbagent 
+            ## scanning code blocks in the last n messages
+            # print('in conversable_agent.py message["content"]: ', message["content"])
             code_blocks = self._code_executor.code_extractor.extract_code_blocks(message["content"])
+            # print('in conversable_agent.py code_blocks: ', code_blocks)
             if len(code_blocks) == 0:
                 continue
 
@@ -1676,8 +1716,20 @@ class ConversableAgent(LLMAgent):
 
             # found code blocks, execute code.
             code_result = self._code_executor.execute_code_blocks(code_blocks)
-            exitcode2str = "execution succeeded" if code_result.exit_code == 0 else "execution failed"
-            return True, f"exitcode: {code_result.exit_code} ({exitcode2str})\nCode output: {code_result.output}"
+            exitcode2str = "EXECUTION SUCCEEDED" if code_result.exit_code == 0 else "EXECUTION FAILED"
+            exitcode2str_to_print = colored(
+                    f"\n>>>>>>>> {exitcode2str}",
+                    "green" if code_result.exit_code == 0 else "red"
+                )
+
+            ## cmbagent tuned output: 
+            if code_result.output is not None and len(code_result.output) > 0:
+                # print('in conversable agent.py len(code_result.output): ', len(code_result.output))
+                # print('in conversable_agent.py code_result.output: ', code_result.output)
+                return_message = f"{exitcode2str_to_print}\nCode output: {code_result.output}"
+            else:
+                return_message = f"{exitcode2str_to_print}"
+            return True, return_message
 
         return False, None
 
