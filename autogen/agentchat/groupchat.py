@@ -24,6 +24,30 @@ from .agent import Agent
 from .contrib.capabilities import transform_messages
 from .conversable_agent import ConversableAgent
 
+## cmbagent addition:
+def extract_next_agent_suggestion(message):
+    """
+    Extracts the text under '**Next Agent Suggestion:**' from the given message.
+
+    Args:
+        message (str): The input message string.
+
+    Returns:
+        str or None: The extracted agent name if found, otherwise None.
+    """
+    # Define a regex pattern to match '**Next Agent Suggestion:**' followed by the agent name
+    pattern = r'\*\*Next Agent Suggestion:\*\*\s*(.+)'
+    
+    # Search for the pattern in the message
+    match = re.search(pattern, message, re.IGNORECASE)
+    
+    if match:
+        # Return the captured group, stripped of leading/trailing whitespace
+        return match.group(1).strip()
+    else:
+        # Return None if the pattern is not found
+        return None
+
 logger = logging.getLogger(__name__)
 
 
@@ -654,6 +678,9 @@ class GroupChat:
         # Override the selector's config if one was passed as a parameter to this class
         speaker_selection_llm_config = self.select_speaker_auto_llm_config or selector.llm_config
 
+        ## cmbagent debug print: 
+        # print('in groupchat.py speaker_selection_llm_config: ', speaker_selection_llm_config)
+
         # Agent for selecting a single agent name from the response
         speaker_selection_agent = ConversableAgent(
             "speaker_selection_agent",
@@ -1053,6 +1080,7 @@ class GroupChatManager(ConversableAgent):
         self._last_speaker = None
         self._silent = silent
 
+        ## cmbagent addition:
         self.cmbagent_summarizer = None
 
         # Order of register_reply is important.
@@ -1194,14 +1222,32 @@ class GroupChatManager(ConversableAgent):
                     else:
                         speaker = groupchat.agent_by_name("admin")
                         self.last_admin_summarizer_speaker = "admin"
+
                 elif i == 0:  # Default to 'planner' in standard case
                     speaker = groupchat.agent_by_name("planner")
+
                 else:
                     if groupchat.verbose:
                         print("--> in groupchat.py speaker.name: ", speaker.name)
                         print("--> in groupchat.py groupchat.agents names: ", [agent.name for agent in groupchat.agents])
-                        
-                    if groupchat.rag_agents is not None:
+                    
+                    if speaker.name == "admin":
+                        # selected_agent, agents, messages = self._prepare_and_select_agents(last_speaker)
+                        # print("--> in groupchat.py selected_agent: ", selected_agent)
+                        # print("--> in groupchat.py agents: ", agents)
+                        # print("--> in groupchat.py message by admin: ", message)
+                        # print("--> in groupchat.py message by admin: ", message["content"])
+                        if message["content"] == "proceed":
+                            # print("--> in groupchat.py previous message:",messages[-2])
+                            # print("--> in groupchat.py previous message content:",messages[-2]["content"])
+                            if "**Next Agent Suggestion:**" in messages[-2]["content"]:
+                                next_agent_suggestion = extract_next_agent_suggestion(messages[-2]["content"])
+                                # print("--> in groupchat.py next_agent_suggestion: ", next_agent_suggestion)
+                                speaker = groupchat.agent_by_name(next_agent_suggestion)
+                            else:
+                                speaker = groupchat.select_speaker(speaker, self)
+
+                    elif groupchat.rag_agents is not None:
                         if groupchat.verbose:
                             print("--> in groupchat.py groupchat.rag_agents names: ", [agent.name for agent in groupchat.rag_agents])
                         if speaker.name in [agent.name for agent in groupchat.rag_agents]:
