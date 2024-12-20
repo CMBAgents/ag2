@@ -1535,7 +1535,7 @@ class ConversableAgent(LLMAgent):
         # TODO: #1143 handle token limit exceeded error
         ## Key part for formatting
         ## cmbagent debug print to see what's in all_messages: 
-        # print('in conversable_agent.py all_messages: ',all_messages)
+        print('in conversable_agent.py all_messages: ',all_messages)
         # print('in conversable_agent.py response_format: ',response_format)
         # print('in conversable_agent.py agent: ',self.name)
         response = llm_client.create(
@@ -1982,7 +1982,7 @@ class ConversableAgent(LLMAgent):
         sender_name = "the sender" if sender is None else sender.name
         if self.human_input_mode == "ALWAYS":
             reply = self.get_human_input(
-                f"Replying as {self.name}. Provide feedback to {sender_name}. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
+                f"Provide feedback to {sender_name}. Type 'proceed' to continue as suggested or type your suggestion, or type 'exit' to end the conversation: "
             )
             no_human_input_msg = "NO HUMAN INPUT RECEIVED." if not reply else ""
             # if the human input is empty, and the message is a termination message, then we will terminate the conversation
