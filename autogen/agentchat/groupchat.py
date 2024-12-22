@@ -1072,6 +1072,7 @@ class GroupChatManager(ConversableAgent):
             system_message=system_message,
             **kwargs,
         )
+
         if logging_enabled():
             log_new_agent(self, locals())
         # Store groupchat
@@ -1224,7 +1225,10 @@ class GroupChatManager(ConversableAgent):
                         self.last_admin_summarizer_speaker = "admin"
 
                 elif i == 0:  # Default to 'planner' in standard case
-                    speaker = groupchat.agent_by_name("planner")
+                    if "memory_agent" in [agent.name for agent in groupchat.agents]:
+                        speaker = groupchat.agent_by_name("memory_agent")
+                    else:
+                        speaker = groupchat.agent_by_name("planner")
 
                 else:
                     if groupchat.verbose:

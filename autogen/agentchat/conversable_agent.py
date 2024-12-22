@@ -877,7 +877,7 @@ class ConversableAgent(LLMAgent):
 
         if message.get("role") in ["function", "tool"]:
             ## cmbagent debug print: 
-            print('in conversable_agent.py message role: ', message["role"])
+            # print('in conversable_agent.py message role: ', message["role"])
             if message["role"] == "function":
                 id_key = "name"
             else:
@@ -892,7 +892,7 @@ class ConversableAgent(LLMAgent):
             if content is not None:
                 if "context" in message:
                     ## cmbagent debug print: 
-                    print('in conversable_agent.py message context: ', message["context"])
+                    # print('in conversable_agent.py message context: ', message["context"])
                     content = OpenAIWrapper.instantiate(
                         content,
                         message["context"],
@@ -1535,7 +1535,7 @@ class ConversableAgent(LLMAgent):
         # TODO: #1143 handle token limit exceeded error
         ## Key part for formatting
         ## cmbagent debug print to see what's in all_messages: 
-        print('in conversable_agent.py all_messages: ',all_messages)
+        # print('in conversable_agent.py all_messages: ',all_messages)
         # print('in conversable_agent.py response_format: ',response_format)
         # print('in conversable_agent.py agent: ',self.name)
         response = llm_client.create(
