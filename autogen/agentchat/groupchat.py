@@ -1251,6 +1251,11 @@ class GroupChatManager(ConversableAgent):
                             else:
                                 speaker = groupchat.select_speaker(speaker, self)
 
+                        else:
+
+                            speaker = groupchat.select_speaker(speaker, self)
+                    
+
                     elif groupchat.rag_agents is not None:
                         if groupchat.verbose:
                             print("--> in groupchat.py groupchat.rag_agents names: ", [agent.name for agent in groupchat.rag_agents])
