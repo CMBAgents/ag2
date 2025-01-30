@@ -708,6 +708,9 @@ class SwarmAgent(ConversableAgent):
         2. register the schema with the agent, description set to the condition
         """
         # Ensure that hand_to is a list or ON_CONDITION or AFTER_WORK
+        
+        print("\n in swarm_agent.py register_hand_off")
+
         if not isinstance(hand_to, (list, ON_CONDITION, AFTER_WORK)):
             raise ValueError("hand_to must be a list of ON_CONDITION or AFTER_WORK")
 

@@ -512,7 +512,7 @@ class GroupChatRunChatMessage(BaseMessage):
     def print(self, f: Optional[Callable[..., Any]] = None) -> None:
         f = f or print
 
-        f(colored(f"\nNext speaker: {self.speaker_name}\n", "green"), flush=True)
+        f(colored(f"\nCalling: {self.speaker_name}...\n", "green"), flush=True)
 
 
 @wrap_message

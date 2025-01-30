@@ -1189,8 +1189,11 @@ class GroupChatManager(ConversableAgent):
         silent = getattr(self, "_silent", False)
 
         if send_introductions:
+            print("\n in groupchat.py send_introductions: ", send_introductions)
+            
             # Broadcast the intro
             intro = groupchat.introductions_msg()
+            print("\n in groupchat.py intro: ", intro)
             for agent in groupchat.agents:
                 self.send(intro, agent, request_reply=False, silent=True)
             # NOTE: We do not also append to groupchat.messages,
@@ -1201,6 +1204,7 @@ class GroupChatManager(ConversableAgent):
                 a.previous_cache = a.client_cache
                 a.client_cache = self.client_cache
         for i in range(groupchat.max_round):
+            print("\n in groupchat.py i: ", i)
             self._last_speaker = speaker
             groupchat.append(message, speaker)
             # broadcast the message to all agents except the speaker
@@ -1228,6 +1232,7 @@ class GroupChatManager(ConversableAgent):
                         self.last_admin_summarizer_speaker = "admin"
 
                 elif i == 0:  # Default to 'planner' in standard case
+                    print("\n in groupchat.py, i == 0")
                     if "memory_agent" in [agent.name for agent in groupchat.agents]:
                         speaker = groupchat.agent_by_name("memory_agent")
                     else:
@@ -1243,8 +1248,9 @@ class GroupChatManager(ConversableAgent):
                         # print("--> in groupchat.py selected_agent: ", selected_agent)
                         # print("--> in groupchat.py agents: ", agents)
                         # print("--> in groupchat.py message by admin: ", message)
-                        # print("--> in groupchat.py message by admin: ", message["content"])
+                        print("--> in groupchat.py message by admin: ", message["content"])
                         if message["content"] == "proceed":
+                            print("\n in groupchat.py proceed")
                             # print("--> in groupchat.py previous message:",messages[-2])
                             # print("--> in groupchat.py previous message content:",messages[-2]["content"])
                             if "**Next Agent Suggestion:**" in messages[-2]["content"]:
@@ -1265,6 +1271,7 @@ class GroupChatManager(ConversableAgent):
                         if speaker.name in [agent.name for agent in groupchat.rag_agents]:
                             if groupchat.verbose:
                                 print("switching to rag_software_formatter")
+                            print("switching to rag_software_formatter, message: ", messages)
                             speaker = groupchat.agent_by_name("rag_software_formatter")
 
                         elif speaker.name == "rag_software_formatter":
