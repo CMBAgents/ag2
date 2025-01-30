@@ -1,37 +1,24 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 import os
-import re
-import sys
 
 import pytest
 
-from autogen import AssistantAgent, UserProxyAgent, config_list_from_json
-from autogen.agentchat.contrib.captainagent import CaptainAgent
-from autogen.agentchat.contrib.tool_retriever import ToolBuilder
+from autogen import UserProxyAgent
+from autogen.agentchat.contrib.captainagent.captainagent import CaptainAgent
+from autogen.import_utils import optional_import_block, skip_on_missing_imports
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from conftest import MOCK_OPEN_AI_API_KEY, reason, skip_openai  # noqa: E402
+from ...conftest import KEY_LOC, OAI_CONFIG_LIST, Credentials
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST  # noqa: E402
-
-try:
-    import chromadb
-    import huggingface_hub
-except ImportError:
-    skip = True
-else:
-    skip = False
+with optional_import_block() as result:
+    import chromadb  # noqa: F401
+    import huggingface_hub  # noqa: F401
 
 
-@pytest.mark.skipif(
-    skip_openai,
-    reason=reason,
-)
-def test_captain_agent_from_scratch():
-    config_list = config_list_from_json(OAI_CONFIG_LIST, file_location=KEY_LOC)
+@pytest.mark.openai
+def test_captain_agent_from_scratch(credentials_all: Credentials):
+    config_list = credentials_all.config_list
     llm_config = {
         "temperature": 0,
         "config_list": config_list,
@@ -68,13 +55,10 @@ def test_captain_agent_from_scratch():
     print(result)
 
 
-@pytest.mark.skipif(
-    skip_openai or skip,
-    reason=reason,
-)
-def test_captain_agent_with_library():
-
-    config_list = config_list_from_json(OAI_CONFIG_LIST, file_location=KEY_LOC)
+@pytest.mark.openai
+@skip_on_missing_imports(["chromadb", "huggingface_hub"], "autobuild")
+def test_captain_agent_with_library(credentials_all: Credentials):
+    config_list = credentials_all.config_list
     llm_config = {
         "temperature": 0,
         "config_list": config_list,

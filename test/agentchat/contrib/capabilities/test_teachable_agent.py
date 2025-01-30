@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,48 +6,28 @@
 # SPDX-License-Identifier: MIT
 #!/usr/bin/env python3 -m pytest
 
-import os
-import sys
-
 import pytest
 
-from autogen import ConversableAgent, config_list_from_json
+from autogen import ConversableAgent
+from autogen.agentchat.contrib.capabilities.teachability import Teachability
 from autogen.formatting_utils import colored
+from autogen.import_utils import skip_on_missing_imports
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from conftest import skip_openai  # noqa: E402
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST  # noqa: E402
-
-try:
-    from autogen.agentchat.contrib.capabilities.teachability import Teachability
-except ImportError:
-    skip = True
-else:
-    skip = skip_openai
-
+from ....conftest import Credentials
 
 # Specify the model to use by uncommenting one of the following lines.
 # filter_dict={"model": ["gpt-4-1106-preview"]}
 # filter_dict={"model": ["gpt-4-0613"]}
-# filter_dict={"model": ["gpt-3.5-turbo-1106"]}
-# filter_dict={"model": ["gpt-3.5-turbo-0613"]}
 # filter_dict={"model": ["gpt-4"]}
-filter_dict = {"tags": ["gpt-35-turbo-16k", "gpt-3.5-turbo-16k"]}
+filter_dict = {"tags": ["gpt-4o-mini"]}
 
 
-def create_teachable_agent(reset_db=False, verbosity=0):
+def create_teachable_agent(credentials: Credentials, reset_db=False, verbosity=0):
     """Instantiates a teachable agent using the settings from the top of this file."""
-    # Load LLM inference endpoints from an env variable or a file
-    # See https://ag2ai.github.io/ag2/docs/FAQ#set-your-api-endpoints
-    # and OAI_CONFIG_LIST_sample
-    config_list = config_list_from_json(env_or_file=OAI_CONFIG_LIST, filter_dict=filter_dict, file_location=KEY_LOC)
-
     # Start by instantiating any agent that inherits from ConversableAgent.
     teachable_agent = ConversableAgent(
         name="teachable_agent",
-        llm_config={"config_list": config_list, "timeout": 120, "cache_seed": None},  # Disable caching.
+        llm_config={"config_list": credentials.config_list, "timeout": 120, "cache_seed": None},  # Disable caching.
     )
 
     # Instantiate the Teachability capability. Its parameters are all optional.
@@ -75,11 +55,12 @@ def check_agent_response(teachable_agent, user, correct_answer):
         return 0
 
 
-def use_question_answer_phrasing():
+def use_question_answer_phrasing(credentials: Credentials):
     """Tests whether the teachable agent can answer a question after being taught the answer in a previous chat."""
     print(colored("\nTEST QUESTION-ANSWER PHRASING", "light_cyan"))
     num_errors, num_tests = 0, 0
     teachable_agent, teachability = create_teachable_agent(
+        credentials,
         reset_db=True,
         verbosity=0,  # 0 for basic info, 1 to add memory operations, 2 for analyzer messages, 3 for memo lists.
     )  # For a clean test, clear the agent's memory.
@@ -109,11 +90,12 @@ def use_question_answer_phrasing():
     return num_errors, num_tests
 
 
-def use_task_advice_pair_phrasing():
+def use_task_advice_pair_phrasing(credentials: Credentials):
     """Tests whether the teachable agent can demonstrate a new skill after being taught a task-advice pair in a previous chat."""
     print(colored("\nTEST TASK-ADVICE PHRASING", "light_cyan"))
     num_errors, num_tests = 0, 0
     teachable_agent, teachability = create_teachable_agent(
+        credentials,
         reset_db=True,  # For a clean test, clear the teachable agent's memory.
         verbosity=3,  # 0 for basic info, 1 to add memory operations, 2 for analyzer messages, 3 for memo lists.
     )
@@ -140,21 +122,19 @@ def use_task_advice_pair_phrasing():
     return num_errors, num_tests
 
 
-@pytest.mark.skipif(
-    skip,
-    reason="do not run if dependency is not installed or requested to skip",
-)
-def test_teachability_code_paths():
+@pytest.mark.openai
+@skip_on_missing_imports(["chromadb"], "teachable")
+def test_teachability_code_paths(credentials_gpt_4o_mini: Credentials):
     """Runs this file's unit tests."""
     total_num_errors, total_num_tests = 0, 0
 
     num_trials = 1  # Set to a higher number to get a more accurate error rate.
     for trial in range(num_trials):
-        num_errors, num_tests = use_question_answer_phrasing()
+        num_errors, num_tests = use_question_answer_phrasing(credentials_gpt_4o_mini)
         total_num_errors += num_errors
         total_num_tests += num_tests
 
-        num_errors, num_tests = use_task_advice_pair_phrasing()
+        num_errors, num_tests = use_task_advice_pair_phrasing(credentials_gpt_4o_mini)
         total_num_errors += num_errors
         total_num_tests += num_tests
 
@@ -171,18 +151,16 @@ def test_teachability_code_paths():
         )
 
 
-@pytest.mark.skipif(
-    skip,
-    reason="do not run if dependency is not installed or requested to skip",
-)
-def test_teachability_accuracy():
+@pytest.mark.openai
+@skip_on_missing_imports(["chromadb"], "teachable")
+def test_teachability_accuracy(credentials_gpt_4o_mini: Credentials):
     """A very cheap and fast test of teachability accuracy."""
     print(colored("\nTEST TEACHABILITY ACCURACY", "light_cyan"))
 
     num_trials = 10  # The expected probability of failure is about 0.3 on each trial.
     for trial in range(num_trials):
         teachable_agent, teachability = create_teachable_agent(
-            reset_db=True, verbosity=0
+            credentials_gpt_4o_mini, reset_db=True, verbosity=0
         )  # For a clean test, clear the agent's memory.
         user = ConversableAgent("user", max_consecutive_auto_reply=0, llm_config=False, human_input_mode="NEVER")
 
@@ -204,7 +182,7 @@ def test_teachability_accuracy():
             return
 
     # All trials failed.
-    assert False, "test_teachability_accuracy() failed on all {} trials.".format(num_trials)
+    assert False, f"test_teachability_accuracy() failed on all {num_trials} trials."
 
 
 if __name__ == "__main__":

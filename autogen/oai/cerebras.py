@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -7,15 +7,13 @@
 """Create an OpenAI-compatible client using Cerebras's API.
 
 Example:
-    llm_config={
-        "config_list": [{
-            "api_type": "cerebras",
-            "model": "llama3.1-8b",
-            "api_key": os.environ.get("CEREBRAS_API_KEY")
-        }]
+    ```python
+    llm_config = {
+        "config_list": [{"api_type": "cerebras", "model": "llama3.1-8b", "api_key": os.environ.get("CEREBRAS_API_KEY")}]
     }
 
     agent = autogen.AssistantAgent("my_agent", llm_config=llm_config)
+    ```
 
 Install Cerebras's python library using: pip install --upgrade cerebras_cloud_sdk
 
@@ -29,20 +27,22 @@ import copy
 import os
 import time
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from cerebras.cloud.sdk import Cerebras, Stream
 from openai.types.chat import ChatCompletion, ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
 from openai.types.completion_usage import CompletionUsage
-from pydantic import BaseModel
 
-from autogen.oai.client_utils import should_hide_tools, validate_parameter
+from ..import_utils import optional_import_block, require_optional_import
+from .client_utils import should_hide_tools, validate_parameter
+
+with optional_import_block():
+    from cerebras.cloud.sdk import Cerebras, Stream
 
 CEREBRAS_PRICING_1K = {
     # Convert pricing per million to per thousand tokens.
     "llama3.1-8b": (0.10 / 1000, 0.10 / 1000),
-    "llama3.1-70b": (0.60 / 1000, 0.60 / 1000),
+    "llama-3.3-70b": (0.85 / 1000, 1.20 / 1000),
 }
 
 
@@ -60,16 +60,15 @@ class CerebrasClient:
         if not self.api_key:
             self.api_key = os.getenv("CEREBRAS_API_KEY")
 
-        assert (
-            self.api_key
-        ), "Please include the api_key in your config list entry for Cerebras or set the CEREBRAS_API_KEY env variable."
+        assert self.api_key, (
+            "Please include the api_key in your config list entry for Cerebras or set the CEREBRAS_API_KEY env variable."
+        )
 
         if "response_format" in kwargs and kwargs["response_format"] is not None:
             warnings.warn("response_format is not supported for Crebras, it will be ignored.", UserWarning)
 
-    def message_retrieval(self, response: ChatCompletion) -> List:
-        """
-        Retrieve and return a list of strings or a list of Choice.Message from the response.
+    def message_retrieval(self, response: ChatCompletion) -> list:
+        """Retrieve and return a list of strings or a list of Choice.Message from the response.
 
         NOTE: if a list of Choice.Message is returned, it currently needs to contain the fields of OpenAI's ChatCompletion Message object,
         since that is expected for function or tool calling in the rest of the codebase at the moment, unless a custom agent is being used.
@@ -81,7 +80,7 @@ class CerebrasClient:
         return response.cost
 
     @staticmethod
-    def get_usage(response: ChatCompletion) -> Dict:
+    def get_usage(response: ChatCompletion) -> dict:
         """Return usage summary of the response using RESPONSE_USAGE_KEYS."""
         # ...  # pragma: no cover
         return {
@@ -92,16 +91,16 @@ class CerebrasClient:
             "model": response.model,
         }
 
-    def parse_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_params(self, params: dict[str, Any]) -> dict[str, Any]:
         """Loads the parameters for Cerebras API from the passed in parameters and returns a validated set. Checks types, ranges, and sets defaults"""
         cerebras_params = {}
 
         # Check that we have what we need to use Cerebras's API
         # We won't enforce the available models as they are likely to change
-        cerebras_params["model"] = params.get("model", None)
-        assert cerebras_params[
-            "model"
-        ], "Please specify the 'model' in your config list entry to nominate the Cerebras model to use."
+        cerebras_params["model"] = params.get("model")
+        assert cerebras_params["model"], (
+            "Please specify the 'model' in your config list entry to nominate the Cerebras model to use."
+        )
 
         # Validate allowed Cerebras parameters
         # https://inference-docs.cerebras.ai/api-reference/chat-completions
@@ -115,7 +114,8 @@ class CerebrasClient:
 
         return cerebras_params
 
-    def create(self, params: Dict) -> ChatCompletion:
+    @require_optional_import("cerebras", "cerebras")
+    def create(self, params: dict) -> ChatCompletion:
         messages = params.get("messages", [])
 
         # Convert AutoGen messages to Cerebras messages
@@ -243,11 +243,10 @@ class CerebrasClient:
         return response_oai
 
 
-def oai_messages_to_cerebras_messages(messages: list[Dict[str, Any]]) -> list[dict[str, Any]]:
+def oai_messages_to_cerebras_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Convert messages from OAI format to Cerebras's format.
     We correct for any specific role orders and types.
     """
-
     cerebras_messages = copy.deepcopy(messages)
 
     # Remove the name field

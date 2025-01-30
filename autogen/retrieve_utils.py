@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,34 +6,35 @@
 # SPDX-License-Identifier: MIT
 import glob
 import hashlib
+import logging
 import os
 import re
-from typing import Callable, List, Tuple, Union
+from typing import Callable, Union
 from urllib.parse import urlparse
 
-import chromadb
-import markdownify
 import requests
-from bs4 import BeautifulSoup
 
-if chromadb.__version__ < "0.4.15":
-    from chromadb.api import API
-else:
-    from chromadb.api import ClientAPI as API
-import logging
+from .import_utils import optional_import_block, require_optional_import
+from .token_count_utils import count_token
 
-import chromadb.utils.embedding_functions as ef
-import pypdf
-from chromadb.api.types import QueryResult
+with optional_import_block():
+    import chromadb
+    import markdownify
+    from bs4 import BeautifulSoup
 
-from autogen.token_count_utils import count_token
+    if chromadb.__version__ < "0.4.15":
+        from chromadb.api import API
+    else:
+        from chromadb.api import ClientAPI as API  # noqa: N814
+    import chromadb.utils.embedding_functions as ef
+    import pypdf
+    from chromadb.api.types import QueryResult
 
-try:
+
+with optional_import_block() as result:
     from unstructured.partition.auto import partition
 
-    HAS_UNSTRUCTURED = True
-except ImportError:
-    HAS_UNSTRUCTURED = False
+HAS_UNSTRUCTURED = result.is_successful
 
 logger = logging.getLogger(__name__)
 TEXT_FORMATS = [
@@ -52,6 +53,7 @@ TEXT_FORMATS = [
     "yaml",
     "yml",
     "pdf",
+    "mdx",
 ]
 UNSTRUCTURED_FORMATS = [
     "doc",
@@ -96,10 +98,7 @@ def split_text_to_chunks(
     lines_tokens = [count_token(line) for line in lines]
     sum_tokens = sum(lines_tokens)
     while sum_tokens > max_tokens:
-        if chunk_mode == "one_line":
-            estimated_line_cut = 2
-        else:
-            estimated_line_cut = max(int(max_tokens / sum_tokens * len(lines)), 2)
+        estimated_line_cut = 2 if chunk_mode == "one_line" else max(int(max_tokens / sum_tokens * len(lines)), 2)
         cnt = 0
         prev = ""
         for cnt in reversed(range(estimated_line_cut)):
@@ -135,6 +134,7 @@ def split_text_to_chunks(
     return chunks
 
 
+@require_optional_import("pypdf", "retrievechat")
 def extract_text_from_pdf(file: str) -> str:
     """Extract text from PDF files"""
     text = ""
@@ -163,9 +163,8 @@ def split_files_to_chunks(
     chunk_mode: str = "multi_lines",
     must_break_at_empty_line: bool = True,
     custom_text_split_function: Callable = None,
-) -> Tuple[List[str], List[dict]]:
+) -> tuple[list[str], list[dict]]:
     """Split a list of files into chunks of max_tokens."""
-
     chunks = []
     sources = []
 
@@ -184,7 +183,7 @@ def split_files_to_chunks(
         elif file_extension == ".pdf":
             text = extract_text_from_pdf(file)
         else:  # For non-PDF text-based files
-            with open(file, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file, encoding="utf-8", errors="ignore") as f:
                 text = f.read()
 
         if not text.strip():  # Debugging line to check if text is empty after reading
@@ -201,7 +200,7 @@ def split_files_to_chunks(
     return chunks, sources
 
 
-def get_files_from_dir(dir_path: Union[str, List[str]], types: list = TEXT_FORMATS, recursive: bool = True):
+def get_files_from_dir(dir_path: Union[str, list[str]], types: list = TEXT_FORMATS, recursive: bool = True):
     """Return a list of all the files in a given directory, a url, a file path or a list of them."""
     if len(types) == 0:
         raise ValueError("types cannot be empty.")
@@ -251,6 +250,7 @@ def get_files_from_dir(dir_path: Union[str, List[str]], types: list = TEXT_FORMA
     return files
 
 
+@require_optional_import(["markdownify", "bs4"], "retrievechat")
 def parse_html_to_markdown(html: str, url: str = None) -> str:
     """Parse HTML to markdown."""
     soup = BeautifulSoup(html, "html.parser")
@@ -287,11 +287,13 @@ def _generate_file_name_from_url(url: str, max_length=255) -> str:
     hash = hashlib.blake2b(url_bytes).hexdigest()
     parsed_url = urlparse(url)
     file_name = os.path.basename(url)
-    file_name = f"{parsed_url.netloc}_{file_name}_{hash[:min(8, max_length-len(parsed_url.netloc)-len(file_name)-1)]}"
+    file_name = (
+        f"{parsed_url.netloc}_{file_name}_{hash[: min(8, max_length - len(parsed_url.netloc) - len(file_name) - 1)]}"
+    )
     return file_name
 
 
-def get_file_from_url(url: str, save_path: str = None) -> Tuple[str, str]:
+def get_file_from_url(url: str, save_path: str = None) -> tuple[str, str]:
     """Download a file from a URL."""
     if save_path is None:
         save_path = "tmp/chromadb"
@@ -337,10 +339,11 @@ def is_url(string: str):
         return False
 
 
+@require_optional_import("chromadb", "retrievechat")
 def create_vector_db_from_dir(
-    dir_path: Union[str, List[str]],
+    dir_path: Union[str, list[str]],
     max_tokens: int = 4000,
-    client: API = None,
+    client: "API" = None,
     db_path: str = "tmp/chromadb.db",
     collection_name: str = "all-my-documents",
     get_or_create: bool = False,
@@ -349,10 +352,10 @@ def create_vector_db_from_dir(
     embedding_model: str = "all-MiniLM-L6-v2",
     embedding_function: Callable = None,
     custom_text_split_function: Callable = None,
-    custom_text_types: List[str] = TEXT_FORMATS,
+    custom_text_types: list[str] = TEXT_FORMATS,
     recursive: bool = True,
     extra_docs: bool = False,
-) -> API:
+) -> "API":
     """Create a vector db from all the files in a given directory, the directory can also be a single file or a url to
         a single file. We support chromadb compatible APIs to create the vector db, this function is not required if
         you prepared your own vector db.
@@ -361,7 +364,7 @@ def create_vector_db_from_dir(
         dir_path (Union[str, List[str]]): the path to the directory, file, url or a list of them.
         max_tokens (Optional, int): the maximum number of tokens per chunk. Default is 4000.
         client (Optional, API): the chromadb client. Default is None.
-        db_path (Optional, str): the path to the chromadb. Default is "tmp/chromadb.db". The default was `/tmp/chromadb.db` for version <=0.2.24.
+        db_path (Optional, str): the path to the chromadb. Default is "tmp/chromadb.db". The default was `/tmp/chromadb.db` for version `<=0.2.24`.
         collection_name (Optional, str): the name of the collection. Default is "all-my-documents".
         get_or_create (Optional, bool): Whether to get or create the collection. Default is False. If True, the collection
             will be returned if it already exists. Will raise ValueError if the collection already exists and get_or_create is False.
@@ -379,7 +382,6 @@ def create_vector_db_from_dir(
         extra_docs (Optional, bool): whether to add more documents in the collection. Default is False
 
     Returns:
-
     The chromadb client.
     """
     if client is None:
@@ -422,7 +424,7 @@ def create_vector_db_from_dir(
             end_idx = i + min(40000, len(chunks) - i)
             collection.upsert(
                 documents=chunks[i:end_idx],
-                ids=[f"doc_{j+length}" for j in range(i, end_idx)],  # unique for each doc
+                ids=[f"doc_{j + length}" for j in range(i, end_idx)],  # unique for each doc
                 metadatas=sources[i:end_idx],
             )
     except ValueError as e:
@@ -430,16 +432,17 @@ def create_vector_db_from_dir(
     return client
 
 
+@require_optional_import("chromadb", "retrievechat")
 def query_vector_db(
-    query_texts: List[str],
+    query_texts: list[str],
     n_results: int = 10,
-    client: API = None,
+    client: "API" = None,
     db_path: str = "tmp/chromadb.db",
     collection_name: str = "all-my-documents",
     search_string: str = "",
     embedding_model: str = "all-MiniLM-L6-v2",
     embedding_function: Callable = None,
-) -> QueryResult:
+) -> "QueryResult":
     """Query a vector db. We support chromadb compatible APIs, it's not required if you prepared your own vector db
         and query function.
 
@@ -447,7 +450,7 @@ def query_vector_db(
         query_texts (List[str]): the list of strings which will be used to query the vector db.
         n_results (Optional, int): the number of results to return. Default is 10.
         client (Optional, API): the chromadb compatible client. Default is None, a chromadb client will be used.
-        db_path (Optional, str): the path to the vector db. Default is "tmp/chromadb.db". The default was `/tmp/chromadb.db` for version <=0.2.24.
+        db_path (Optional, str): the path to the vector db. Default is "tmp/chromadb.db". The default was `/tmp/chromadb.db` for version `<=0.2.24`.
         collection_name (Optional, str): the name of the collection. Default is "all-my-documents".
         search_string (Optional, str): the search string. Only docs that contain an exact match of this string will be retrieved. Default is "".
         embedding_model (Optional, str): the embedding model to use. Default is "all-MiniLM-L6-v2". Will be ignored if
@@ -457,7 +460,6 @@ def query_vector_db(
             functions, you can pass it here, follow the examples in `https://docs.trychroma.com/embeddings`.
 
     Returns:
-
         The query result. The format is:
 
     ```python

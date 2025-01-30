@@ -1,41 +1,30 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 
-import os
-import sys
-from typing import List
 from unittest.mock import MagicMock
 
 import pytest
 from openai.types.chat.parsed_chat_completion import ChatCompletion, ChatCompletionMessage, Choice
 from pydantic import BaseModel, ValidationError
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
 
 import autogen
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from conftest import MOCK_OPEN_AI_API_KEY, reason, skip_openai  # noqa: E402
+from ..conftest import Credentials
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
-def test_structured_output():
-    config_list = autogen.config_list_from_json(
-        OAI_CONFIG_LIST,
-        file_location=KEY_LOC,
-        filter_dict={
-            "model": ["gpt-4o", "gpt-4o-mini"],
-        },
-    )
-
+@pytest.mark.openai
+def test_structured_output(credentials_gpt_4o: Credentials):
     class ResponseModel(BaseModel):
         question: str
         short_answer: str
         reasoning: str
         difficulty: float
+
+    config_list = credentials_gpt_4o.config_list
 
     for config in config_list:
         config["response_format"] = ResponseModel
@@ -73,7 +62,7 @@ class Step(BaseModel):
 
 
 class MathReasoning(BaseModel):
-    steps: List[Step]
+    steps: list[Step]
     final_answer: str
 
     def format(self) -> str:
@@ -84,9 +73,13 @@ class MathReasoning(BaseModel):
 
 
 @pytest.fixture
-def mock_assistant():
+def mock_assistant(mock_credentials: Credentials) -> autogen.AssistantAgent:
     """Set up a mocked AssistantAgent with a predefined response format."""
-    config_list = [{"model": "gpt-4o", "api_key": MOCK_OPEN_AI_API_KEY, "response_format": MathReasoning}]
+    config_list = mock_credentials.config_list
+
+    for config in config_list:
+        config["response_format"] = MathReasoning
+
     llm_config = {"config_list": config_list, "cache_seed": 43}
 
     assistant = autogen.AssistantAgent(
@@ -116,7 +109,7 @@ def mock_assistant():
     return assistant
 
 
-def test_structured_output_formatting(mock_assistant):
+def test_structured_output_formatting(mock_assistant: autogen.AssistantAgent) -> None:
     """Test that the AssistantAgent correctly formats structured output."""
     user_proxy = autogen.UserProxyAgent(
         name="User_proxy",

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,16 +6,17 @@
 # SPDX-License-Identifier: MIT
 import abc
 import logging
-import os
-from typing import Callable, List, Optional, Sequence, Tuple, Union
+from collections.abc import Sequence
+from typing import Optional, Union
 
+from ....import_utils import optional_import_block, require_optional_import
 from .base import Document, ItemID, QueryResults, VectorDB
 from .utils import get_logger
 
-try:
+with optional_import_block():
+    from fastembed import TextEmbedding
     from qdrant_client import QdrantClient, models
-except ImportError:
-    raise ImportError("Please install qdrant-client: `pip install qdrant-client`")
+
 
 logger = get_logger(__name__)
 
@@ -24,10 +25,11 @@ Embeddings = Union[Sequence[float], Sequence[int]]
 
 class EmbeddingFunction(abc.ABC):
     @abc.abstractmethod
-    def __call__(self, inputs: List[str]) -> List[Embeddings]:
+    def __call__(self, inputs: list[str]) -> list[Embeddings]:
         raise NotImplementedError
 
 
+@require_optional_import("fastembed", "retrievechat-qdrant")
 class FastEmbedEmbeddingFunction(EmbeddingFunction):
     """Embedding function implementation using FastEmbed - https://qdrant.github.io/fastembed."""
 
@@ -55,28 +57,21 @@ class FastEmbedEmbeddingFunction(EmbeddingFunction):
                                       Defaults to None.
             **kwargs: Additional options to pass to fastembed.TextEmbedding
         Raises:
-            ValueError: If the model_name is not in the format <org>/<model> e.g. BAAI/bge-small-en-v1.5.
+            ValueError: If the model_name is not in the format `<org>/<model>` e.g. BAAI/bge-small-en-v1.5.
         """
-        try:
-            from fastembed import TextEmbedding
-        except ImportError as e:
-            raise ValueError(
-                "The 'fastembed' package is not installed. Please install it with `pip install fastembed`",
-            ) from e
         self._batch_size = batch_size
         self._parallel = parallel
         self._model = TextEmbedding(model_name=model_name, cache_dir=cache_dir, threads=threads, **kwargs)
 
-    def __call__(self, inputs: List[str]) -> List[Embeddings]:
+    def __call__(self, inputs: list[str]) -> list[Embeddings]:
         embeddings = self._model.embed(inputs, batch_size=self._batch_size, parallel=self._parallel)
 
         return [embedding.tolist() for embedding in embeddings]
 
 
+@require_optional_import("qdrant_client", "retrievechat-qdrant")
 class QdrantVectorDB(VectorDB):
-    """
-    A vector database implementation that uses Qdrant as the backend.
-    """
+    """A vector database implementation that uses Qdrant as the backend."""
 
     def __init__(
         self,
@@ -88,8 +83,7 @@ class QdrantVectorDB(VectorDB):
         collection_options: dict = {},
         **kwargs,
     ) -> None:
-        """
-        Initialize the vector database.
+        """Initialize the vector database.
 
         Args:
             client: qdrant_client.QdrantClient | An instance of QdrantClient.
@@ -106,8 +100,7 @@ class QdrantVectorDB(VectorDB):
         self.type = "qdrant"
 
     def create_collection(self, collection_name: str, overwrite: bool = False, get_or_create: bool = True) -> None:
-        """
-        Create a collection in the vector database.
+        """Create a collection in the vector database.
         Case 1. if the collection does not exist, create the collection.
         Case 2. the collection exists, if overwrite is True, it will overwrite the collection.
         Case 3. the collection exists and overwrite is False, if get_or_create is True, it will get the collection,
@@ -136,8 +129,7 @@ class QdrantVectorDB(VectorDB):
             raise ValueError(f"Collection {collection_name} already exists.")
 
     def get_collection(self, collection_name: str = None):
-        """
-        Get the collection from the vector database.
+        """Get the collection from the vector database.
 
         Args:
             collection_name: str | The name of the collection.
@@ -161,9 +153,8 @@ class QdrantVectorDB(VectorDB):
         """
         return self.client.delete_collection(collection_name)
 
-    def insert_docs(self, docs: List[Document], collection_name: str = None, upsert: bool = False) -> None:
-        """
-        Insert documents into the collection of the vector database.
+    def insert_docs(self, docs: list[Document], collection_name: str = None, upsert: bool = False) -> None:
+        """Insert documents into the collection of the vector database.
 
         Args:
             docs: List[Document] | A list of documents. Each document is a TypedDict `Document`.
@@ -186,7 +177,7 @@ class QdrantVectorDB(VectorDB):
 
         self.client.upsert(collection_name, points=self._documents_to_points(docs))
 
-    def update_docs(self, docs: List[Document], collection_name: str = None) -> None:
+    def update_docs(self, docs: list[Document], collection_name: str = None) -> None:
         if not docs:
             return
         if any(doc.get("id") is None for doc in docs):
@@ -198,9 +189,8 @@ class QdrantVectorDB(VectorDB):
 
         raise ValueError("Some IDs do not exist. Skipping update")
 
-    def delete_docs(self, ids: List[ItemID], collection_name: str = None, **kwargs) -> None:
-        """
-        Delete documents from the collection of the vector database.
+    def delete_docs(self, ids: list[ItemID], collection_name: str = None, **kwargs) -> None:
+        """Delete documents from the collection of the vector database.
 
         Args:
             ids: List[ItemID] | A list of document ids. Each id is a typed `ItemID`.
@@ -214,21 +204,20 @@ class QdrantVectorDB(VectorDB):
 
     def retrieve_docs(
         self,
-        queries: List[str],
+        queries: list[str],
         collection_name: str = None,
         n_results: int = 10,
         distance_threshold: float = 0,
         **kwargs,
     ) -> QueryResults:
-        """
-        Retrieve documents from the collection of the vector database based on the queries.
+        """Retrieve documents from the collection of the vector database based on the queries.
 
         Args:
             queries: List[str] | A list of queries. Each query is a string.
             collection_name: str | The name of the collection. Default is None.
             n_results: int | The number of relevant documents to return. Default is 10.
             distance_threshold: float | The threshold for the distance score, only distance smaller than it will be
-                returned. Don't filter with it if < 0. Default is 0.
+                returned. Don't filter with it if `< 0`. Default is 0.
             kwargs: Dict | Additional keyword arguments.
 
         Returns:
@@ -251,10 +240,9 @@ class QdrantVectorDB(VectorDB):
         return [self._scored_points_to_documents(results) for results in batch_results]
 
     def get_docs_by_ids(
-        self, ids: List[ItemID] = None, collection_name: str = None, include=True, **kwargs
-    ) -> List[Document]:
-        """
-        Retrieve documents from the collection of the vector database based on the ids.
+        self, ids: list[ItemID] = None, collection_name: str = None, include=True, **kwargs
+    ) -> list[Document]:
+        """Retrieve documents from the collection of the vector database based on the ids.
 
         Args:
             ids: List[ItemID] | A list of document ids. If None, will return all the documents. Default is None.
@@ -280,13 +268,13 @@ class QdrantVectorDB(VectorDB):
             "embedding": point.vector,
         }
 
-    def _points_to_documents(self, points) -> List[Document]:
+    def _points_to_documents(self, points) -> list[Document]:
         return [self._point_to_document(point) for point in points]
 
-    def _scored_point_to_document(self, scored_point: models.ScoredPoint) -> Tuple[Document, float]:
+    def _scored_point_to_document(self, scored_point: "models.ScoredPoint") -> tuple[Document, float]:
         return self._point_to_document(scored_point), scored_point.score
 
-    def _documents_to_points(self, documents: List[Document]):
+    def _documents_to_points(self, documents: list[Document]):
         contents = [document["content"] for document in documents]
         embeddings = self.embedding_function(contents)
         points = [
@@ -302,13 +290,11 @@ class QdrantVectorDB(VectorDB):
         ]
         return points
 
-    def _scored_points_to_documents(self, scored_points: List[models.ScoredPoint]) -> List[Tuple[Document, float]]:
+    def _scored_points_to_documents(self, scored_points: list["models.ScoredPoint"]) -> list[tuple[Document, float]]:
         return [self._scored_point_to_document(scored_point) for scored_point in scored_points]
 
-    def _validate_update_ids(self, collection_name: str, ids: List[str]) -> bool:
-        """
-        Validates all the IDs exist in the collection
-        """
+    def _validate_update_ids(self, collection_name: str, ids: list[str]) -> bool:
+        """Validates all the IDs exist in the collection"""
         retrieved_ids = [
             point.id for point in self.client.retrieve(collection_name, ids=ids, with_payload=False, with_vectors=False)
         ]
@@ -319,10 +305,8 @@ class QdrantVectorDB(VectorDB):
 
         return True
 
-    def _validate_upsert_ids(self, collection_name: str, ids: List[str]) -> bool:
-        """
-        Validate none of the IDs exist in the collection
-        """
+    def _validate_upsert_ids(self, collection_name: str, ids: list[str]) -> bool:
+        """Validate none of the IDs exist in the collection"""
         retrieved_ids = [
             point.id for point in self.client.retrieve(collection_name, ids=ids, with_payload=False, with_vectors=False)
         ]

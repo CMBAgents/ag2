@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -9,28 +9,33 @@ import sys
 import urllib.parse
 
 import pytest
-from conftest import reason
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from autogen.agentchat.contrib.vectordb.pgvectordb import PGVectorDB
+from autogen.import_utils import optional_import_block, skip_on_missing_imports
 
-try:
-    import pgvector
+from ....conftest import reason
+
+with optional_import_block() as result:
     import psycopg
-    import sentence_transformers
 
-    from autogen.agentchat.contrib.vectordb.pgvectordb import PGVectorDB
-except ImportError:
-    skip = True
-else:
-    skip = False
 
 reason = "do not run on MacOS or windows OR dependency is not installed OR " + reason
 
 
+def is_postgres_accessible():
+    try:
+        conn = psycopg.connect("postgresql://postgres:postgres@localhost:5432/postgres")
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
 @pytest.mark.skipif(
-    sys.platform in ["darwin", "win32"] or skip,
+    sys.platform in ["darwin", "win32"] or not is_postgres_accessible(),
     reason=reason,
 )
+@skip_on_missing_imports(["pgvector", "psycopg", "sentence_transformers"], "retrievechat-pgvector")
 def test_pgvector():
     # test db config
     db_config = {
@@ -133,7 +138,7 @@ def test_pgvector():
     res = db.get_docs_by_ids(["1", "2"], collection_name)
     assert [r["id"] for r in res] == ["2"]  # "1" has been deleted
     res = db.get_docs_by_ids(collection_name=collection_name)
-    assert set([r["id"] for r in res]) == set(["2", "3"])  # All Docs returned
+    assert {r["id"] for r in res} == {"2", "3"}  # All Docs returned
 
 
 if __name__ == "__main__":

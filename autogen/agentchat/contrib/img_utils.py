@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -10,12 +10,16 @@ import os
 import re
 from io import BytesIO
 from math import ceil
-from typing import Dict, List, Tuple, Union
+from typing import Union
 
 import requests
-from PIL import Image
 
-from autogen.agentchat import utils
+from ...import_utils import optional_import_block, require_optional_import
+from .. import utils
+
+with optional_import_block():
+    from PIL import Image
+
 
 # Parameters for token counting for images for different models
 MODEL_PARAMS = {
@@ -37,9 +41,9 @@ MODEL_PARAMS = {
 }
 
 
-def get_pil_image(image_file: Union[str, Image.Image]) -> Image.Image:
-    """
-    Loads an image from a file and returns a PIL Image object.
+@require_optional_import("PIL", "unknown")
+def get_pil_image(image_file: Union[str, "Image.Image"]) -> "Image.Image":
+    """Loads an image from a file and returns a PIL Image object.
 
     Parameters:
         image_file (str, or Image): The filename, URL, URI, or base64 string of the image file.
@@ -76,9 +80,9 @@ def get_pil_image(image_file: Union[str, Image.Image]) -> Image.Image:
     return image.convert("RGB")
 
 
-def get_image_data(image_file: Union[str, Image.Image], use_b64=True) -> bytes:
-    """
-    Loads an image and returns its data either as raw bytes or in base64-encoded format.
+@require_optional_import("PIL", "unknown")
+def get_image_data(image_file: Union[str, "Image.Image"], use_b64=True) -> bytes:
+    """Loads an image and returns its data either as raw bytes or in base64-encoded format.
 
     This function first loads an image from the specified file, URL, or base64 string using
     the `get_pil_image` function. It then saves this image in memory in PNG format and
@@ -107,19 +111,18 @@ def get_image_data(image_file: Union[str, Image.Image], use_b64=True) -> bytes:
         return content
 
 
-def llava_formatter(prompt: str, order_image_tokens: bool = False) -> Tuple[str, List[str]]:
-    """
-    Formats the input prompt by replacing image tags and returns the new prompt along with image locations.
+@require_optional_import("PIL", "unknown")
+def llava_formatter(prompt: str, order_image_tokens: bool = False) -> tuple[str, list[str]]:
+    """Formats the input prompt by replacing image tags and returns the new prompt along with image locations.
 
     Parameters:
-        - prompt (str): The input string that may contain image tags like <img ...>.
+        - prompt (str): The input string that may contain image tags like `<img ...>`.
         - order_image_tokens (bool, optional): Whether to order the image tokens with numbers.
             It will be useful for GPT-4V. Defaults to False.
 
     Returns:
         - Tuple[str, List[str]]: A tuple containing the formatted string and a list of images (loaded in b64 format).
     """
-
     # Initialize variables
     new_prompt = prompt
     image_locations = []
@@ -153,9 +156,9 @@ def llava_formatter(prompt: str, order_image_tokens: bool = False) -> Tuple[str,
     return new_prompt, images
 
 
-def pil_to_data_uri(image: Image.Image) -> str:
-    """
-    Converts a PIL Image object to a data URI.
+@require_optional_import("PIL", "unknown")
+def pil_to_data_uri(image: "Image.Image") -> str:
+    """Converts a PIL Image object to a data URI.
 
     Parameters:
         image (Image.Image): The PIL Image object.
@@ -189,12 +192,12 @@ def convert_base64_to_data_uri(base64_image):
     return data_uri
 
 
-def gpt4v_formatter(prompt: str, img_format: str = "uri") -> List[Union[str, dict]]:
-    """
-    Formats the input prompt by replacing image tags and returns a list of text and images.
+@require_optional_import("PIL", "unknown")
+def gpt4v_formatter(prompt: str, img_format: str = "uri") -> list[Union[str, dict]]:
+    """Formats the input prompt by replacing image tags and returns a list of text and images.
 
     Args:
-        - prompt (str): The input string that may contain image tags like <img ...>.
+        - prompt (str): The input string that may contain image tags like `<img ...>`.
         - img_format (str): what image format should be used. One of "uri", "url", "pil".
 
     Returns:
@@ -239,8 +242,7 @@ def gpt4v_formatter(prompt: str, img_format: str = "uri") -> List[Union[str, dic
 
 
 def extract_img_paths(paragraph: str) -> list:
-    """
-    Extract image paths (URLs or local paths) from a text paragraph.
+    """Extract image paths (URLs or local paths) from a text paragraph.
 
     Parameters:
         paragraph (str): The input text paragraph.
@@ -258,9 +260,9 @@ def extract_img_paths(paragraph: str) -> list:
     return img_paths
 
 
-def _to_pil(data: str) -> Image.Image:
-    """
-    Converts a base64 encoded image data string to a PIL Image object.
+@require_optional_import("PIL", "unknown")
+def _to_pil(data: str) -> "Image.Image":
+    """Converts a base64 encoded image data string to a PIL Image object.
 
     This function first decodes the base64 encoded string to bytes, then creates a BytesIO object from the bytes,
     and finally creates and returns a PIL Image object from the BytesIO object.
@@ -274,9 +276,9 @@ def _to_pil(data: str) -> Image.Image:
     return Image.open(BytesIO(base64.b64decode(data)))
 
 
-def message_formatter_pil_to_b64(messages: List[Dict]) -> List[Dict]:
-    """
-    Converts the PIL image URLs in the messages to base64 encoded data URIs.
+@require_optional_import("PIL", "unknown")
+def message_formatter_pil_to_b64(messages: list[dict]) -> list[dict]:
+    """Converts the PIL image URLs in the messages to base64 encoded data URIs.
 
     This function iterates over a list of message dictionaries. For each message,
     if it contains a 'content' key with a list of items, it looks for items
@@ -293,24 +295,28 @@ def message_formatter_pil_to_b64(messages: List[Dict]) -> List[Dict]:
                     'image_url' key converted to base64 encoded data URIs.
 
     Example Input:
+        ```python
         [
             {'content': [{'type': 'text', 'text': 'You are a helpful AI assistant.'}], 'role': 'system'},
             {'content': [
-                {'type': 'text', 'text': "What's the breed of this dog here? \n"},
+                {'type': 'text', 'text': "What's the breed of this dog here?"},
                 {'type': 'image_url', 'image_url': {'url': a PIL.Image.Image}},
                 {'type': 'text', 'text': '.'}],
             'role': 'user'}
         ]
+        ```
 
     Example Output:
+        ```python
         [
             {'content': [{'type': 'text', 'text': 'You are a helpful AI assistant.'}], 'role': 'system'},
             {'content': [
-                {'type': 'text', 'text': "What's the breed of this dog here? \n"},
+                {'type': 'text', 'text': "What's the breed of this dog here?"},
                 {'type': 'image_url', 'image_url': {'url': a B64 Image}},
                 {'type': 'text', 'text': '.'}],
             'role': 'user'}
         ]
+        ```
     """
     new_messages = []
     for message in messages:
@@ -326,11 +332,11 @@ def message_formatter_pil_to_b64(messages: List[Dict]) -> List[Dict]:
     return new_messages
 
 
+@require_optional_import("PIL", "unknown")
 def num_tokens_from_gpt_image(
-    image_data: Union[str, Image.Image], model: str = "gpt-4-vision", low_quality: bool = False
+    image_data: Union[str, "Image.Image"], model: str = "gpt-4-vision", low_quality: bool = False
 ) -> int:
-    """
-    Calculate the number of tokens required to process an image based on its dimensions
+    """Calculate the number of tokens required to process an image based on its dimensions
     after scaling for different GPT models. Supports "gpt-4-vision", "gpt-4o", and "gpt-4o-mini".
     This function scales the image so that its longest edge is at most 2048 pixels and its shortest
     edge is at most 768 pixels (for "gpt-4-vision"). It then calculates the number of 512x512 tiles
@@ -349,11 +355,10 @@ def num_tokens_from_gpt_image(
     Examples:
     --------
     >>> from PIL import Image
-    >>> img = Image.new('RGB', (2500, 2500), color = 'red')
+    >>> img = Image.new("RGB", (2500, 2500), color="red")
     >>> num_tokens_from_gpt_image(img, model="gpt-4-vision")
     765
     """
-
     image = get_pil_image(image_data)  # PIL Image
     width, height = image.size
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -8,43 +8,45 @@ import asyncio
 import datetime
 import logging
 import warnings
-from collections import abc, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
-from ..formatting_utils import colored
+from ..doc_utils import export_module
 from ..io.base import IOStream
+from ..messages.agent_messages import PostCarryoverProcessingMessage
 from .utils import consolidate_chat_info
 
 logger = logging.getLogger(__name__)
-Prerequisite = Tuple[int, int]
+Prerequisite = tuple[int, int]
+
+__all__ = ["ChatResult", "a_initiate_chats", "initiate_chats"]
 
 
 @dataclass
+@export_module("autogen")
 class ChatResult:
     """(Experimental) The result of a chat. Almost certain to be changed."""
 
     chat_id: int = None
     """chat id"""
-    chat_history: List[Dict[str, Any]] = None
+    chat_history: list[dict[str, Any]] = None
     """The chat history."""
     summary: str = None
     """A summary obtained from the chat."""
-    cost: Dict[str, dict] = None  # keys: "usage_including_cached_inference", "usage_excluding_cached_inference"
+    cost: dict[str, dict] = None  # keys: "usage_including_cached_inference", "usage_excluding_cached_inference"
     """The cost of the chat.
        The value for each usage type is a dictionary containing cost information for that specific type.
            - "usage_including_cached_inference": Cost information on the total usage, including the tokens in cached inference.
            - "usage_excluding_cached_inference": Cost information on the usage of tokens, excluding the tokens in cache. No larger than "usage_including_cached_inference".
     """
-    human_input: List[str] = None
+    human_input: list[str] = None
     """A list of human input solicited during the chat."""
 
 
-def _validate_recipients(chat_queue: List[Dict[str, Any]]) -> None:
-    """
-    Validate recipients exits and warn repetitive recipients.
-    """
+def _validate_recipients(chat_queue: list[dict[str, Any]]) -> None:
+    """Validate recipients exits and warn repetitive recipients."""
     receipts_set = set()
     for chat_info in chat_queue:
         assert "recipient" in chat_info, "recipient must be provided."
@@ -56,10 +58,8 @@ def _validate_recipients(chat_queue: List[Dict[str, Any]]) -> None:
         )
 
 
-def __create_async_prerequisites(chat_queue: List[Dict[str, Any]]) -> List[Prerequisite]:
-    """
-    Create list of Prerequisite (prerequisite_chat_id, chat_id)
-    """
+def __create_async_prerequisites(chat_queue: list[dict[str, Any]]) -> list[Prerequisite]:
+    """Create list of Prerequisite (prerequisite_chat_id, chat_id)"""
     prerequisites = []
     for chat_info in chat_queue:
         if "chat_id" not in chat_info:
@@ -73,14 +73,14 @@ def __create_async_prerequisites(chat_queue: List[Dict[str, Any]]) -> List[Prere
     return prerequisites
 
 
-def __find_async_chat_order(chat_ids: Set[int], prerequisites: List[Prerequisite]) -> List[int]:
+def __find_async_chat_order(chat_ids: set[int], prerequisites: list[Prerequisite]) -> list[int]:
     """Find chat order for async execution based on the prerequisite chats
 
-    args:
+    Args:
         num_chats: number of chats
         prerequisites: List of Prerequisite (prerequisite_chat_id, chat_id)
 
-    returns:
+    Returns:
         list: a list of chat_id in order.
     """
     edges = defaultdict(set)
@@ -122,7 +122,7 @@ def _post_process_carryover_item(carryover_item):
         return str(carryover_item)
 
 
-def __post_carryover_processing(chat_info: Dict[str, Any]) -> None:
+def __post_carryover_processing(chat_info: dict[str, Any]) -> None:
     iostream = IOStream.get_default()
 
     if "message" not in chat_info:
@@ -130,41 +130,19 @@ def __post_carryover_processing(chat_info: Dict[str, Any]) -> None:
             "message is not provided in a chat_queue entry. input() will be called to get the initial message.",
             UserWarning,
         )
-    print_carryover = (
-        ("\n").join([_post_process_carryover_item(t) for t in chat_info["carryover"]])
-        if isinstance(chat_info["carryover"], list)
-        else chat_info["carryover"]
-    )
-    message = chat_info.get("message")
-    if isinstance(message, str):
-        print_message = message
-    elif callable(message):
-        print_message = "Callable: " + message.__name__
-    elif isinstance(message, dict):
-        print_message = "Dict: " + str(message)
-    elif message is None:
-        print_message = "None"
-    iostream.print(colored("\n" + "*" * 80, "blue"), flush=True, sep="")
-    iostream.print(
-        colored(
-            "Starting a new chat....",
-            "blue",
-        ),
-        flush=True,
-    )
-    if chat_info.get("verbose", False):
-        iostream.print(colored("Message:\n" + print_message, "blue"), flush=True)
-        iostream.print(colored("Carryover:\n" + print_carryover, "blue"), flush=True)
-    iostream.print(colored("\n" + "*" * 80, "blue"), flush=True, sep="")
+
+    iostream.send(PostCarryoverProcessingMessage(chat_info=chat_info))
 
 
-def initiate_chats(chat_queue: List[Dict[str, Any]]) -> List[ChatResult]:
+@export_module("autogen")
+def initiate_chats(chat_queue: list[dict[str, Any]]) -> list[ChatResult]:
     """Initiate a list of chats.
+
     Args:
         chat_queue (List[Dict]): A list of dictionaries containing the information about the chats.
 
         Each dictionary should contain the input arguments for
-        [`ConversableAgent.initiate_chat`](/docs/reference/agentchat/conversable_agent#initiate_chat).
+        [`ConversableAgent.initiate_chat`](/reference/autogen/ConversableAgent#initiate-chat).
         For example:
             - `"sender"` - the sender agent.
             - `"recipient"` - the recipient agent.
@@ -189,10 +167,10 @@ def initiate_chats(chat_queue: List[Dict[str, Any]]) -> List[ChatResult]:
             - `"finished_chat_indexes_to_exclude_from_carryover"` - It can be used by specifying a list of indexes of the finished_chats list,
                from which to exclude the summaries for carryover. If 'finished_chat_indexes_to_exclude_from_carryover' is not provided or an empty list,
                then summary from all the finished chats will be taken.
+
     Returns:
         (list): a list of ChatResult objects corresponding to the finished chats in the chat_queue.
     """
-
     consolidate_chat_info(chat_queue)
     _validate_recipients(chat_queue)
     current_chat_queue = chat_queue.copy()
@@ -225,20 +203,16 @@ def __system_now_str():
 
 
 def _on_chat_future_done(chat_future: asyncio.Future, chat_id: int):
-    """
-    Update ChatResult when async Task for Chat is completed.
-    """
+    """Update ChatResult when async Task for Chat is completed."""
     logger.debug(f"Update chat {chat_id} result on task completion." + __system_now_str())
     chat_result = chat_future.result()
     chat_result.chat_id = chat_id
 
 
 async def _dependent_chat_future(
-    chat_id: int, chat_info: Dict[str, Any], prerequisite_chat_futures: Dict[int, asyncio.Future]
+    chat_id: int, chat_info: dict[str, Any], prerequisite_chat_futures: dict[int, asyncio.Future]
 ) -> asyncio.Task:
-    """
-    Create an async Task for each chat.
-    """
+    """Create an async Task for each chat."""
     logger.debug(f"Create Task for chat {chat_id}." + __system_now_str())
     _chat_carryover = chat_info.get("carryover", [])
     finished_chat_indexes_to_exclude_from_carryover = chat_info.get(
@@ -272,14 +246,14 @@ async def _dependent_chat_future(
     return chat_res_future
 
 
-async def a_initiate_chats(chat_queue: List[Dict[str, Any]]) -> Dict[int, ChatResult]:
+async def a_initiate_chats(chat_queue: list[dict[str, Any]]) -> dict[int, ChatResult]:
     """(async) Initiate a list of chats.
 
-    args:
+    Args:
         - Please refer to `initiate_chats`.
 
 
-    returns:
+    Returns:
         - (Dict): a dict of ChatId: ChatResult corresponding to the finished chats in the chat_queue.
     """
     consolidate_chat_info(chat_queue)

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -9,11 +9,8 @@
 Triangular inequality is not required in this problem.
 """
 
-import math
-import pdb
 import random
-import sys
-from itertools import combinations, permutations
+from itertools import permutations
 
 
 def solve_tsp(dists: dict) -> float:
@@ -28,7 +25,7 @@ def solve_tsp(dists: dict) -> float:
     """
     # Get the unique nodes from the distance matrix
     nodes = set()
-    for pair in dists.keys():
+    for pair in dists:
         nodes.add(pair[0])
         nodes.add(pair[1])
 

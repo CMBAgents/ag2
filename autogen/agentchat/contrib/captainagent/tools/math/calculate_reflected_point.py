@@ -1,9 +1,8 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 def calculate_reflected_point(point):
-    """
-    Calculates the reflection point of a given point about the line y=x.
+    """Calculates the reflection point of a given point about the line y=x.
 
     Args:
         point (dict): A dictionary representing the coordinates of the point.

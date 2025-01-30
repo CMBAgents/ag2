@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,28 +6,34 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
+import datetime
+import json
 import sys
+import uuid
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Any, Dict, List, Optional, Type, cast
+from typing import Any, cast
+
+from ...doc_utils import export_module
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
 
-import datetime
-import json
-import uuid
 
 import requests
-import websocket
 from requests.adapters import HTTPAdapter, Retry
-from websocket import WebSocket
 
+from ...import_utils import optional_import_block, require_optional_import
 from .base import JupyterConnectionInfo
 
+with optional_import_block():
+    import websocket
+    from websocket import WebSocket
 
+
+@export_module("autogen.coding.jupyter")
 class JupyterClient:
     def __init__(self, connection_info: JupyterConnectionInfo):
         """(Experimental) A client for communicating with a Jupyter gateway server.
@@ -40,7 +46,7 @@ class JupyterClient:
         retries = Retry(total=5, backoff_factor=0.1)
         self._session.mount("http://", HTTPAdapter(max_retries=retries))
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         if self._connection_info.token is None:
             return {}
         return {"Authorization": f"token {self._connection_info.token}"}
@@ -54,13 +60,13 @@ class JupyterClient:
         port = f":{self._connection_info.port}" if self._connection_info.port else ""
         return f"ws://{self._connection_info.host}{port}"
 
-    def list_kernel_specs(self) -> Dict[str, Dict[str, str]]:
+    def list_kernel_specs(self) -> dict[str, dict[str, str]]:
         response = self._session.get(f"{self._get_api_base_url()}/api/kernelspecs", headers=self._get_headers())
-        return cast(Dict[str, Dict[str, str]], response.json())
+        return cast(dict[str, dict[str, str]], response.json())
 
-    def list_kernels(self) -> List[Dict[str, str]]:
+    def list_kernels(self) -> list[dict[str, str]]:
         response = self._session.get(f"{self._get_api_base_url()}/api/kernels", headers=self._get_headers())
-        return cast(List[Dict[str, str]], response.json())
+        return cast(list[dict[str, str]], response.json())
 
     def start_kernel(self, kernel_spec_name: str) -> str:
         """Start a new kernel.
@@ -71,7 +77,6 @@ class JupyterClient:
         Returns:
             str: ID of the started kernel
         """
-
         response = self._session.post(
             f"{self._get_api_base_url()}/api/kernels",
             headers=self._get_headers(),
@@ -91,12 +96,14 @@ class JupyterClient:
         )
         response.raise_for_status()
 
+    @require_optional_import("websocket", "jupyter-executor")
     def get_kernel_client(self, kernel_id: str) -> JupyterKernelClient:
         ws_url = f"{self._get_ws_base_url()}/api/kernels/{kernel_id}/channels"
         ws = websocket.create_connection(ws_url, header=self._get_headers())
         return JupyterKernelClient(ws)
 
 
+@require_optional_import("websocket", "jupyter-executor")
 class JupyterKernelClient:
     """(Experimental) A client for communicating with a Jupyter kernel."""
 
@@ -109,7 +116,7 @@ class JupyterKernelClient:
 
         is_ok: bool
         output: str
-        data_items: List[DataItem]
+        data_items: list[DataItem]
 
     def __init__(self, websocket: WebSocket):
         self._session_id: str = uuid.uuid4().hex
@@ -119,14 +126,14 @@ class JupyterKernelClient:
         return self
 
     def __exit__(
-        self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> None:
         self.stop()
 
     def stop(self) -> None:
         self._websocket.close()
 
-    def _send_message(self, *, content: Dict[str, Any], channel: str, message_type: str) -> str:
+    def _send_message(self, *, content: dict[str, Any], channel: str, message_type: str) -> str:
         timestamp = datetime.datetime.now().isoformat()
         message_id = uuid.uuid4().hex
         message = {
@@ -147,17 +154,17 @@ class JupyterKernelClient:
         self._websocket.send_text(json.dumps(message))
         return message_id
 
-    def _receive_message(self, timeout_seconds: Optional[float]) -> Optional[Dict[str, Any]]:
+    def _receive_message(self, timeout_seconds: float | None) -> dict[str, Any] | None:
         self._websocket.settimeout(timeout_seconds)
         try:
             data = self._websocket.recv()
             if isinstance(data, bytes):
                 data = data.decode("utf-8")
-            return cast(Dict[str, Any], json.loads(data))
+            return cast(dict[str, Any], json.loads(data))
         except websocket.WebSocketTimeoutException:
             return None
 
-    def wait_for_ready(self, timeout_seconds: Optional[float] = None) -> bool:
+    def wait_for_ready(self, timeout_seconds: float | None = None) -> bool:
         message_id = self._send_message(content={}, channel="shell", message_type="kernel_info_request")
         while True:
             message = self._receive_message(timeout_seconds)
@@ -170,7 +177,7 @@ class JupyterKernelClient:
             ):
                 return True
 
-    def execute(self, code: str, timeout_seconds: Optional[float] = None) -> ExecutionResult:
+    def execute(self, code: str, timeout_seconds: float | None = None) -> ExecutionResult:
         message_id = self._send_message(
             content={
                 "code": code,

@@ -1,9 +1,8 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 def perform_web_search(query, count=10, offset=0):
-    """
-    Perform a web search using Bing API.
+    """Perform a web search using Bing API.
 
     Args:
         query (str): The search query.
@@ -42,7 +41,7 @@ def perform_web_search(query, count=10, offset=0):
     # Process the search results
     search_results = response.json()
     for index, result in enumerate(search_results["webPages"]["value"]):
-        print(f"Search Result {index+1}:")
+        print(f"Search Result {index + 1}:")
         print(result["name"])
         print(result["url"])
         print(result["snippet"])

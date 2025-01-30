@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -8,33 +8,31 @@ import hashlib
 import os
 import re
 import uuid
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Callable, Literal, Optional, Union
 
-from IPython import get_ipython
-
-try:
-    import chromadb
-except ImportError as e:
-    raise ImportError(f"{e}. You can try `pip install autogen[retrievechat]`, or install `chromadb` manually.")
-from autogen.agentchat import UserProxyAgent
-from autogen.agentchat.agent import Agent
-from autogen.agentchat.contrib.vectordb.base import Document, QueryResults, VectorDB, VectorDBFactory
-from autogen.agentchat.contrib.vectordb.utils import (
-    chroma_results_to_query_results,
-    filter_results_by_distance,
-    get_logger,
-)
-from autogen.code_utils import extract_code
-from autogen.retrieve_utils import (
+from ...code_utils import extract_code
+from ...formatting_utils import colored
+from ...import_utils import optional_import_block, require_optional_import
+from ...retrieve_utils import (
     TEXT_FORMATS,
     create_vector_db_from_dir,
     get_files_from_dir,
     query_vector_db,
     split_files_to_chunks,
 )
-from autogen.token_count_utils import count_token
+from ...token_count_utils import count_token
+from .. import UserProxyAgent
+from ..agent import Agent
+from ..contrib.vectordb.base import Document, QueryResults, VectorDB, VectorDBFactory
+from ..contrib.vectordb.utils import (
+    chroma_results_to_query_results,
+    filter_results_by_distance,
+    get_logger,
+)
 
-from ...formatting_utils import colored
+with optional_import_block():
+    import chromadb
+    from IPython import get_ipython
 
 logger = get_logger(__name__)
 
@@ -91,6 +89,7 @@ HASH_LENGTH = int(os.environ.get("HASH_LENGTH", 8))
 UPDATE_CONTEXT_IN_PROMPT = "you should reply exactly `UPDATE CONTEXT`"
 
 
+@require_optional_import(["chromadb", "IPython"], "retrievechat")
 class RetrieveUserProxyAgent(UserProxyAgent):
     """(In preview) The Retrieval-Augmented User Proxy retrieves document chunks based on the embedding
     similarity, and sends them along with the question to the Retrieval-Augmented Assistant
@@ -100,12 +99,11 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         self,
         name="RetrieveChatAgent",  # default set to RetrieveChatAgent
         human_input_mode: Literal["ALWAYS", "NEVER", "TERMINATE"] = "ALWAYS",
-        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
-        retrieve_config: Optional[Dict] = None,  # config for the retrieve agent
+        is_termination_msg: Optional[Callable[[dict], bool]] = None,
+        retrieve_config: Optional[dict] = None,  # config for the retrieve agent
         **kwargs,
     ):
-        r"""
-        Args:
+        r"""Args:
             name (str): name of the agent.
 
             human_input_mode (str): whether to ask for human inputs every time a message is received.
@@ -220,10 +218,9 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                 - `distance_threshold` (Optional, float) - the threshold for the distance score, only
                     distance smaller than it will be returned. Will be ignored if < 0. Default is -1.
 
-            `**kwargs` (dict): other kwargs in [UserProxyAgent](../user_proxy_agent#__init__).
+            `**kwargs` (dict): other kwargs in [UserProxyAgent](../user_proxy_agent#init).
 
         Example:
-
         Example of overriding retrieve_docs - If you have set up a customized vector db, and it's
         not compatible with chromadb, you can easily plug in it with below code.
         *[Deprecated]* use `vector_db` instead. You can extend VectorDB and pass it to the agent.
@@ -288,7 +285,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         self._custom_text_types = self._retrieve_config.get("custom_text_types", TEXT_FORMATS)
         self._recursive = self._retrieve_config.get("recursive", True)
         self._context_max_tokens = self._retrieve_config.get("context_max_tokens", self._max_tokens * 0.8)
-        self._collection = True if self._docs_path is None else False  # whether the collection is created
+        self._collection = self._docs_path is None  # whether the collection is created
         self._ipython = get_ipython()
         self._doc_idx = -1  # the index of the current used doc
         self._results = []  # the results of the current query
@@ -325,16 +322,16 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         if not self._vector_db:
             return
 
-        IS_TO_CHUNK = False  # whether to chunk the raw files
+        is_to_chunk = False  # whether to chunk the raw files
         if self._new_docs:
-            IS_TO_CHUNK = True
+            is_to_chunk = True
         if not self._docs_path:
             try:
                 self._vector_db.get_collection(self._collection_name)
                 logger.warning(f"`docs_path` is not provided. Use the existing collection `{self._collection_name}`.")
                 self._overwrite = False
                 self._get_or_create = True
-                IS_TO_CHUNK = False
+                is_to_chunk = False
             except ValueError:
                 raise ValueError(
                     "`docs_path` is not provided. "
@@ -346,16 +343,16 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                 self._vector_db.get_collection(self._collection_name)
                 logger.info(f"Use the existing collection `{self._collection_name}`.", color="green")
             except ValueError:
-                IS_TO_CHUNK = True
+                is_to_chunk = True
         else:
-            IS_TO_CHUNK = True
+            is_to_chunk = True
 
         self._vector_db.active_collection = self._vector_db.create_collection(
             self._collection_name, overwrite=self._overwrite, get_or_create=self._get_or_create
         )
 
         docs = None
-        if IS_TO_CHUNK:
+        if is_to_chunk:
             if self.custom_text_split_function is not None:
                 chunks, sources = split_files_to_chunks(
                     get_files_from_dir(self._docs_path, self._custom_text_types, self._recursive),
@@ -371,18 +368,16 @@ class RetrieveUserProxyAgent(UserProxyAgent):
             logger.info(f"Found {len(chunks)} chunks.")
 
             if self._new_docs:
-                all_docs_ids = set(
-                    [
-                        doc["id"]
-                        for doc in self._vector_db.get_docs_by_ids(ids=None, collection_name=self._collection_name)
-                    ]
-                )
+                all_docs_ids = {
+                    doc["id"]
+                    for doc in self._vector_db.get_docs_by_ids(ids=None, collection_name=self._collection_name)
+                }
             else:
                 all_docs_ids = set()
 
             chunk_ids = (
                 [hashlib.blake2b(chunk.encode("utf-8")).hexdigest()[:HASH_LENGTH] for chunk in chunks]
-                if not self._vector_db.type == "qdrant"
+                if self._vector_db.type != "qdrant"
                 else [str(uuid.UUID(hex=hashlib.md5(chunk.encode("utf-8")).hexdigest())) for chunk in chunks]
             )
             chunk_ids_set = set(chunk_ids)
@@ -422,7 +417,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         else:
             msg_text = message
 
-        if "UPDATE CONTEXT" == msg_text.strip().upper():
+        if msg_text.strip().upper() == "UPDATE CONTEXT":
             doc_contents = self._get_context(self._results)
 
             # Always use self.problem as the query text to retrieve docs, but each time we replace the context with the
@@ -525,10 +520,10 @@ class RetrieveUserProxyAgent(UserProxyAgent):
 
     def _generate_retrieve_user_reply(
         self,
-        messages: Optional[List[Dict]] = None,
+        messages: Optional[list[dict]] = None,
         sender: Optional[Agent] = None,
         config: Optional[Any] = None,
-    ) -> Tuple[bool, Union[str, Dict, None]]:
+    ) -> tuple[bool, Union[str, dict, None]]:
         """In this function, we will update the context and reset the conversation based on different conditions.
         We'll update the context and reset the conversation if update_context is True and either of the following:
         (1) the last message contains "UPDATE CONTEXT",
@@ -657,8 +652,8 @@ class RetrieveUserProxyAgent(UserProxyAgent):
 
     @staticmethod
     def message_generator(sender, recipient, context):
-        """
-        Generate an initial message with the given context for the RetrieveUserProxyAgent.
+        """Generate an initial message with the given context for the RetrieveUserProxyAgent.
+
         Args:
             sender (Agent): the sender agent. It should be the instance of RetrieveUserProxyAgent.
             recipient (Agent): the recipient agent. Usually it's the assistant agent.
@@ -666,6 +661,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                 - `problem` (str) - the problem to be solved.
                 - `n_results` (int) - the number of results to be retrieved. Default is 20.
                 - `search_string` (str) - only docs that contain an exact match of this string will be retrieved. Default is "".
+
         Returns:
             str: the generated message ready to be sent to the recipient agent.
         """
@@ -683,7 +679,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         return message
 
     def run_code(self, code, **kwargs):
-        lang = kwargs.get("lang", None)
+        lang = kwargs.get("lang")
         if code.startswith("!") or code.startswith("pip") or lang in ["bash", "shell", "sh"]:
             return (
                 0,

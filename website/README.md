@@ -1,40 +1,52 @@
 # Website
 
-This website is built using [Docusaurus 3](https://docusaurus.io/), a modern static website generator.
+This website is built using [Mintlify](https://mintlify.com/docs/quickstart), a modern website generator.
 
-## Prerequisites
+## How to get a notebook rendered on the website
 
-To build and test documentation locally, begin by downloading and installing [Node.js](https://nodejs.org/en/download/), and then installing [Yarn](https://classic.yarnpkg.com/en/).
-On Windows, you can install via the npm package manager (npm) which comes bundled with Node.js:
+See [here](https://github.com/ag2ai/ag2/blob/main/notebook/contributing.md#how-to-get-a-notebook-displayed-on-the-website) for instructions on how to get a notebook in the `notebook` directory rendered on the website.
+
+## Build documentation locally
+
+Follow these steps to build and serve the documentation on your local machine:
+
+1. Install Node.js:
+    - Download and install [Node.js](https://nodejs.org/en/download/)
+
+2.  Install Quarto:
+    - Visit the Quarto download [page](https://quarto.org/docs/download/).
+    - Click on the Pre-release tab and download the latest version of Quarto.
+    - Ensure you install version `1.5.23` or higher.
+
+3. Install Required Python Packages:
+    - From the project root directory, install the necessary Python packages by running:
+
+    ```console
+    pip install -e ".[docs]"
+    ```
+
+4. Build and Serve the Documentation:
+
+To build and serve the documentation locally, run the following command from the project root directory:
+
+    ```console
+    ./scripts/docs_serve.sh
+    ```
+
+The last command starts a local development server and opens up a browser window.
+Most changes are reflected live without having to restart the server.
+
+## Build with devcontainer
+
+To build and test documentation using devcontainer, open the project using [VSCode](https://code.visualstudio.com/), press `Ctrl+Shift+P` and select `Dev Containers: Reopen in Container`.
+
+This will open the project in a devcontainer with all the required dependencies installed.
+
+Open a terminal and run the following commands from the project root directory to build and serve the documentation:
 
 ```console
-npm install --global yarn
+pip install -e ".[docs]"
+./scripts/docs_serve.sh
 ```
 
-## Installation
-
-```console
-pip install pydoc-markdown pyyaml colored
-cd website
-yarn install
-```
-
-### Install Quarto
-
-`quarto` is used to render notebooks.
-
-Install it [here](https://github.com/quarto-dev/quarto-cli/releases).
-
-> Note: Ensure that your `quarto` version is `1.5.23` or higher.
-
-## Local Development
-
-Navigate to the `website` folder and run:
-
-```console
-pydoc-markdown
-python ./process_notebooks.py render
-yarn start
-```
-
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+Once done you should be able to access the documentation at `http://localhost:3000/`.

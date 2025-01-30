@@ -1,10 +1,9 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
-from __future__ import annotations
 
 import functools
 import importlib
@@ -12,7 +11,7 @@ import inspect
 from dataclasses import dataclass, field
 from importlib.abc import SourceLoader
 from textwrap import dedent, indent
-from typing import Any, Callable, Generic, List, Set, TypeVar, Union
+from typing import Any, Callable, Generic, TypeVar, Union
 
 from typing_extensions import ParamSpec
 
@@ -20,7 +19,7 @@ T = TypeVar("T")
 P = ParamSpec("P")
 
 
-def _to_code(func: Union[FunctionWithRequirements[T, P], Callable[P, T], FunctionWithRequirementsStr]) -> str:
+def _to_code(func: Union["FunctionWithRequirements[T, P]", Callable[P, T], "FunctionWithRequirementsStr"]) -> str:
     if isinstance(func, FunctionWithRequirementsStr):
         return func.func
 
@@ -40,7 +39,7 @@ class Alias:
 @dataclass
 class ImportFromModule:
     module: str
-    imports: List[Union[str, Alias]]
+    imports: list[Union[str, Alias]]
 
 
 Import = Union[str, ImportFromModule, Alias]
@@ -82,10 +81,10 @@ class FunctionWithRequirementsStr:
     func: str
     _compiled_func: Callable[..., Any]
     _func_name: str
-    python_packages: List[str] = field(default_factory=list)
-    global_imports: List[Import] = field(default_factory=list)
+    python_packages: list[str] = field(default_factory=list)
+    global_imports: list[Import] = field(default_factory=list)
 
-    def __init__(self, func: str, python_packages: List[str] = [], global_imports: List[Import] = []):
+    def __init__(self, func: str, python_packages: list[str] = [], global_imports: list[Import] = []):
         self.func = func
         self.python_packages = python_packages
         self.global_imports = global_imports
@@ -117,18 +116,18 @@ class FunctionWithRequirementsStr:
 @dataclass
 class FunctionWithRequirements(Generic[T, P]):
     func: Callable[P, T]
-    python_packages: List[str] = field(default_factory=list)
-    global_imports: List[Import] = field(default_factory=list)
+    python_packages: list[str] = field(default_factory=list)
+    global_imports: list[Import] = field(default_factory=list)
 
     @classmethod
     def from_callable(
-        cls, func: Callable[P, T], python_packages: List[str] = [], global_imports: List[Import] = []
-    ) -> FunctionWithRequirements[T, P]:
+        cls, func: Callable[P, T], python_packages: list[str] = [], global_imports: list[Import] = []
+    ) -> "FunctionWithRequirements[T, P]":
         return cls(python_packages=python_packages, global_imports=global_imports, func=func)
 
     @staticmethod
     def from_str(
-        func: str, python_packages: List[str] = [], global_imports: List[Import] = []
+        func: str, python_packages: list[str] = [], global_imports: list[Import] = []
     ) -> FunctionWithRequirementsStr:
         return FunctionWithRequirementsStr(func=func, python_packages=python_packages, global_imports=global_imports)
 
@@ -138,7 +137,7 @@ class FunctionWithRequirements(Generic[T, P]):
 
 
 def with_requirements(
-    python_packages: List[str] = [], global_imports: List[Import] = []
+    python_packages: list[str] = [], global_imports: list[Import] = []
 ) -> Callable[[Callable[P, T]], FunctionWithRequirements[T, P]]:
     """Decorate a function with package and import requirements
 
@@ -162,10 +161,10 @@ def with_requirements(
 
 
 def _build_python_functions_file(
-    funcs: List[Union[FunctionWithRequirements[Any, P], Callable[..., Any], FunctionWithRequirementsStr]]
+    funcs: list[Union[FunctionWithRequirements[Any, P], Callable[..., Any], FunctionWithRequirementsStr]],
 ) -> str:
     # First collect all global imports
-    global_imports: Set[str] = set()
+    global_imports: set[str] = set()
     for func in funcs:
         if isinstance(func, (FunctionWithRequirements, FunctionWithRequirementsStr)):
             global_imports.update(map(_import_to_str, func.global_imports))

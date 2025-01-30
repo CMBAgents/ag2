@@ -1,33 +1,46 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
+import json
+from pprint import pprint
 from tempfile import TemporaryDirectory
-from typing import Dict
+from typing import Any, Callable, Optional
+from unittest.mock import MagicMock
+from uuid import UUID
 
 import pytest
-from conftest import skip_openai
 
 import autogen
 from autogen.cache.cache import Cache
+from autogen.import_utils import optional_import_block, skip_on_missing_imports
 from autogen.io import IOWebsockets
-from autogen.io.base import IOStream
+from autogen.messages.base_message import BaseMessage, wrap_message
 
-KEY_LOC = "notebook"
-OAI_CONFIG_LIST = "OAI_CONFIG_LIST"
+from ..conftest import Credentials
 
 # Check if the websockets module is available
-try:
+with optional_import_block() as result:
+    from websockets.exceptions import ConnectionClosed
     from websockets.sync.client import connect as ws_connect
-except ImportError:  # pragma: no cover
-    skip_test = True
-else:
-    skip_test = False
 
 
-@pytest.mark.skipif(skip_test, reason="websockets module is not available")
+@wrap_message
+class TestTextMessage(BaseMessage):
+    text: str
+
+    def __init__(self, *, uuid: Optional[UUID] = None, text: str):
+        super().__init__(uuid=uuid, text=text)
+
+    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
+        f = f or print
+
+        f(self.text)
+
+
+@skip_on_missing_imports(["websockets"], "websockets")
 class TestConsoleIOWithWebsockets:
     def test_input_print(self) -> None:
         print()
@@ -47,7 +60,8 @@ class TestConsoleIOWithWebsockets:
             for msg in ["Hello, World!", "Over and out!"]:
                 print(f" - on_connect(): Sending message '{msg}' to client.", flush=True)
 
-                iostream.print(msg)
+                text_message = TestTextMessage(text=msg)
+                text_message.print(iostream.print)
 
             print(" - on_connect(): Receiving message from client.", flush=True)
 
@@ -79,45 +93,33 @@ class TestConsoleIOWithWebsockets:
                         f"   - Asserting received message '{message}' is the same as the expected message '{expected}'",
                         flush=True,
                     )
-                    assert message == expected
+                    try:
+                        message_dict = json.loads(message)
+                        actual = message_dict["content"]["objects"][0]
+                    except json.JSONDecodeError:
+                        actual = message
+                    assert actual == expected
 
                 print(" - Sending message 'Yes' to server.", flush=True)
                 websocket.send("Yes")
 
         print("Test passed.", flush=True)
 
-    @pytest.mark.skipif(skip_openai, reason="requested to skip")
-    def test_chat(self) -> None:
+    @pytest.mark.openai
+    def test_chat(self, credentials_gpt_4o_mini: Credentials) -> None:
         print("Testing setup", flush=True)
 
-        success_dict = {"success": False}
+        mock = MagicMock()
 
-        def on_connect(iostream: IOWebsockets, success_dict: Dict[str, bool] = success_dict) -> None:
+        def on_connect(iostream: IOWebsockets) -> None:
             print(f" - on_connect(): Connected to client using IOWebsockets {iostream}", flush=True)
 
             print(" - on_connect(): Receiving message from client.", flush=True)
 
             initial_msg = iostream.input()
 
-            config_list = autogen.config_list_from_json(
-                OAI_CONFIG_LIST,
-                filter_dict={
-                    "model": [
-                        "gpt-3.5-turbo",
-                        "gpt-3.5-turbo-16k",
-                        "gpt-4",
-                        "gpt-4-0314",
-                        "gpt4",
-                        "gpt-4-32k",
-                        "gpt-4-32k-0314",
-                        "gpt-4-32k-v0314",
-                    ],
-                },
-                file_location=KEY_LOC,
-            )
-
             llm_config = {
-                "config_list": config_list,
+                "config_list": credentials_gpt_4o_mini.config_list,
                 "stream": True,
             }
 
@@ -138,19 +140,27 @@ class TestConsoleIOWithWebsockets:
             )
 
             # we will use a temporary directory as the cache path root to ensure fresh completion each time
-            with TemporaryDirectory() as cache_path_root:
+            with TemporaryDirectory() as cache_path_root:  # noqa: SIM117
                 with Cache.disk(cache_path_root=cache_path_root) as cache:
                     print(
                         f" - on_connect(): Initiating chat with agent {agent} using message '{initial_msg}'",
                         flush=True,
                     )
-                    user_proxy.initiate_chat(  # noqa: F704
-                        agent,
-                        message=initial_msg,
-                        cache=cache,
-                    )
+                    try:
+                        user_proxy.initiate_chat(
+                            agent,
+                            message=initial_msg,
+                            cache=cache,
+                        )
+                    except Exception as e:
+                        print(f" - on_connect(): Exception {e} raised during chat.", flush=True)
+                        import traceback
 
-            success_dict["success"] = True
+                        print(traceback.format_exc())
+                        raise e
+
+            print(" - on_connect(): Chat completed with success.", flush=True)
+            mock("Success")
 
             return
 
@@ -165,18 +175,25 @@ class TestConsoleIOWithWebsockets:
                 websocket.send("Please write a poem about spring in a city of your choice.")
 
                 while True:
-                    message = websocket.recv()
-                    message = message.decode("utf-8") if isinstance(message, bytes) else message
-                    # drop the newline character
-                    if message.endswith("\n"):
-                        message = message[:-1]
+                    try:
+                        message = websocket.recv()
+                        message = message.decode("utf-8") if isinstance(message, bytes) else message
+                        message_dict = json.loads(message)
+                        # drop the newline character
+                        # if message.endswith("\n"):
+                        #     message = message[:-1]
 
-                    print(message, end="", flush=True)
-
-                    if "TERMINATE" in message:
+                        print("*" * 80)
+                        print("Received message:")
+                        pprint(message_dict)
                         print()
-                        print(" - Received TERMINATE message. Exiting.", flush=True)
+
+                        # if "TERMINATE" in message:
+                        #     print()
+                        #     print(" - Received TERMINATE message.", flush=True)
+                    except ConnectionClosed as e:
+                        print("Connection closed:", e, flush=True)
                         break
 
-        assert success_dict["success"]
+        mock.assert_called_once_with("Success")
         print("Test passed.", flush=True)

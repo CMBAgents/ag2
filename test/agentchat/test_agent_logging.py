@@ -1,26 +1,22 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 import json
-import os
 import sqlite3
-import sys
 import uuid
+from collections.abc import Generator
+from typing import Any, Optional
 
 import pytest
-
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-
-
-from conftest import skip_openai  # noqa: E402
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST  # noqa: E402
+from _pytest.mark import ParameterSet
 
 import autogen
 import autogen.runtime_logging
+
+from ..conftest import Credentials, credentials_all_llms, suppress_gemini_resource_exhausted
 
 TEACHER_MESSAGE = """
     You are roleplaying a math teacher, and your job is to help your students with linear algebra.
@@ -46,23 +42,9 @@ EVENTS_QUERY = (
     "SELECT source_id, source_name, event_name, agent_module, agent_class_name, json_state, timestamp FROM events"
 )
 
-if not skip_openai:
-    config_list = autogen.config_list_from_json(
-        OAI_CONFIG_LIST,
-        filter_dict={
-            "tags": ["gpt-3.5-turbo"],
-        },
-        file_location=KEY_LOC,
-    )
-
-    llm_config = {"config_list": config_list}
-
-    num_of_configs = len(config_list)
-###############################################################
-
 
 @pytest.fixture(scope="function")
-def db_connection():
+def db_connection() -> Generator[Optional[sqlite3.Connection], Any, None]:
     autogen.runtime_logging.start(config={"dbname": ":memory:"})
     con = autogen.runtime_logging.get_connection()
     con.row_factory = sqlite3.Row
@@ -71,18 +53,16 @@ def db_connection():
     autogen.runtime_logging.stop()
 
 
-@pytest.mark.skipif(
-    sys.platform in ["darwin", "win32"] or skip_openai,
-    reason="do not run on MacOS or windows OR dependency is not installed OR requested to skip",
-)
-def test_two_agents_logging(db_connection):
+def _test_two_agents_logging(
+    credentials: Credentials, db_connection: Generator[Optional[sqlite3.Connection], Any, None], row_classes: list[str]
+) -> None:
     cur = db_connection.cursor()
 
     teacher = autogen.AssistantAgent(
         "teacher",
         system_message=TEACHER_MESSAGE,
         is_termination_msg=lambda x: x.get("content", "").find("TERMINATE") >= 0,
-        llm_config=llm_config,
+        llm_config=credentials.llm_config,
         max_consecutive_auto_reply=2,
     )
 
@@ -90,7 +70,7 @@ def test_two_agents_logging(db_connection):
         "student",
         system_message=STUDENT_MESSAGE,
         is_termination_msg=lambda x: x.get("content", "").find("TERMINATE") >= 0,
-        llm_config=llm_config,
+        llm_config=credentials.llm_config,
         max_consecutive_auto_reply=1,
     )
 
@@ -107,9 +87,9 @@ def test_two_agents_logging(db_connection):
     session_id = rows[0]["session_id"]
 
     for idx, row in enumerate(rows):
-        assert (
-            row["invocation_id"] and str(uuid.UUID(row["invocation_id"], version=4)) == row["invocation_id"]
-        ), "invocation id is not valid uuid"
+        assert row["invocation_id"] and str(uuid.UUID(row["invocation_id"], version=4)) == row["invocation_id"], (
+            "invocation id is not valid uuid"
+        )
         assert row["client_id"], "client id is empty"
         assert row["wrapper_id"], "wrapper id is empty"
         assert row["session_id"] and row["session_id"] == session_id
@@ -166,14 +146,14 @@ def test_two_agents_logging(db_connection):
     cur.execute(OAI_CLIENTS_QUERY)
     rows = cur.fetchall()
 
-    assert len(rows) == num_of_configs * 2  # two agents
+    assert len(rows) == len(credentials.config_list) * 2  # two agents
 
     session_id = rows[0]["session_id"]
     for row in rows:
         assert row["client_id"], "client id is empty"
         assert row["wrapper_id"], "wrapper id is empty"
         assert row["session_id"] and row["session_id"] == session_id
-        assert row["class"] in ["AzureOpenAI", "OpenAI"]
+        assert row["class"] in row_classes
         init_args = json.loads(row["init_args"])
         if row["class"] == "AzureOpenAI":
             assert "api_version" in init_args
@@ -194,18 +174,36 @@ def test_two_agents_logging(db_connection):
         assert row["timestamp"], "timestamp is empty"
 
 
-@pytest.mark.skipif(
-    sys.platform in ["darwin", "win32"] or skip_openai,
-    reason="do not run on MacOS or windows OR dependency is not installed OR requested to skip",
-)
-def test_groupchat_logging(db_connection):
+@pytest.mark.parametrize("credentials_fixture", credentials_all_llms)
+@suppress_gemini_resource_exhausted
+def test_two_agents_logging(
+    credentials_fixture: ParameterSet,
+    request: pytest.FixtureRequest,
+    db_connection: Generator[Optional[sqlite3.Connection], Any, None],
+) -> None:
+    credentials = request.getfixturevalue(credentials_fixture)
+    # Determine the client classes based on the markers applied to the current test
+    applied_markers = [mark.name for mark in request.node.iter_markers()]
+    if "gemini" in applied_markers:
+        row_classes = ["GeminiClient"]
+    elif "anthropic" in applied_markers:
+        row_classes = ["AnthropicClient"]
+    elif "openai" in applied_markers:
+        row_classes = ["AzureOpenAI", "OpenAI"]
+    else:
+        raise ValueError("Unknown client class")
+
+    _test_two_agents_logging(credentials, db_connection, row_classes)
+
+
+def _test_groupchat_logging(credentials: Credentials, credentials2: Credentials, db_connection):
     cur = db_connection.cursor()
 
     teacher = autogen.AssistantAgent(
         "teacher",
         system_message=TEACHER_MESSAGE,
         is_termination_msg=lambda x: x.get("content", "").find("TERMINATE") >= 0,
-        llm_config=llm_config,
+        llm_config=credentials.llm_config,
         max_consecutive_auto_reply=2,
     )
 
@@ -213,7 +211,7 @@ def test_groupchat_logging(db_connection):
         "student",
         system_message=STUDENT_MESSAGE,
         is_termination_msg=lambda x: x.get("content", "").find("TERMINATE") >= 0,
-        llm_config=llm_config,
+        llm_config=credentials2.llm_config,
         max_consecutive_auto_reply=1,
     )
 
@@ -221,7 +219,7 @@ def test_groupchat_logging(db_connection):
         agents=[teacher, student], messages=[], max_round=3, speaker_selection_method="round_robin"
     )
 
-    group_chat_manager = autogen.GroupChatManager(groupchat=groupchat, llm_config=llm_config)
+    group_chat_manager = autogen.GroupChatManager(groupchat=groupchat, llm_config=credentials2.llm_config)
 
     student.initiate_chat(
         group_chat_manager,
@@ -246,7 +244,7 @@ def test_groupchat_logging(db_connection):
     # Verify oai clients
     cur.execute(OAI_CLIENTS_QUERY)
     rows = cur.fetchall()
-    assert len(rows) == num_of_configs * 3  # three agents
+    assert len(rows) == len(credentials2.config_list) * 2 + len(credentials.config_list)  # two agents and chat manager
 
     # Verify oai wrappers
     cur.execute(OAI_WRAPPERS_QUERY)
@@ -267,3 +265,12 @@ def test_groupchat_logging(db_connection):
     rows = cur.fetchall()
     assert len(rows) == 1
     assert rows[0]["id"] == 1 and rows[0]["version_number"] == 1
+
+
+@pytest.mark.parametrize("credentials_from_test_param", credentials_all_llms, indirect=True)
+@suppress_gemini_resource_exhausted
+def test_groupchat_logging(
+    credentials_from_test_param: Credentials,
+    db_connection: Generator[Optional[sqlite3.Connection], Any, None],
+) -> None:
+    _test_groupchat_logging(credentials_from_test_param, credentials_from_test_param, db_connection)

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -8,34 +8,36 @@ from __future__ import annotations
 
 import inspect
 import logging
+import re
 import sys
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, Union, runtime_checkable
+import warnings
+from typing import Any, Callable, Optional, Protocol, Union
 
 from pydantic import BaseModel, schema_json_of
 
-from autogen.cache import Cache
-from autogen.io.base import IOStream
-from autogen.logger.logger_utils import get_current_ts
-from autogen.oai.client_utils import logging_formatter
-from autogen.oai.openai_utils import OAI_PRICE1K, get_key, is_valid_api_key
-from autogen.runtime_logging import log_chat_completion, log_new_client, log_new_wrapper, logging_enabled
-from autogen.token_count_utils import count_token
+from ..cache import Cache
+from ..doc_utils import export_module
+from ..exception_utils import ModelToolNotSupportedError
+from ..import_utils import optional_import_block, require_optional_import
+from ..io.base import IOStream
+from ..logger.logger_utils import get_current_ts
+from ..messages.client_messages import StreamMessage, UsageSummaryMessage
+from ..runtime_logging import log_chat_completion, log_new_client, log_new_wrapper, logging_enabled
+from ..token_count_utils import count_token
+from .client_utils import FormatterProtocol, logging_formatter
+from .openai_utils import OAI_PRICE1K, get_key, is_valid_api_key
 
 
 TOOL_ENABLED = False
-try:
+with optional_import_block() as openai_result:
     import openai
-except ImportError:
-    ERROR: Optional[ImportError] = ImportError("Please install openai>=1 and diskcache to use autogen.OpenAIWrapper.")
-    OpenAI = object
-    AzureOpenAI = object
-else:
+
+if openai_result.is_successful:
     # raises exception if openai>=1 is installed and something is wrong with imports
     from openai import APIError, APITimeoutError, AzureOpenAI, OpenAI
-    from openai import __version__ as OPENAIVERSION
+    from openai import __version__ as openai_version
     from openai.lib._parsing._completions import type_to_response_format_param
-    from openai.resources import Completions
     from openai.types.chat import ChatCompletion
     from openai.types.chat.chat_completion import ChatCompletionMessage, Choice  # type: ignore [attr-defined]
     from openai.types.chat.chat_completion_chunk import (
@@ -43,130 +45,142 @@ else:
         ChoiceDeltaToolCall,
         ChoiceDeltaToolCallFunction,
     )
-    from openai.types.chat.parsed_chat_completion import ParsedChatCompletion, ParsedChatCompletionMessage
     from openai.types.completion import Completion
     from openai.types.completion_usage import CompletionUsage
 
     if openai.__version__ >= "1.1.0":
         TOOL_ENABLED = True
     ERROR = None
+else:
+    ERROR: Optional[ImportError] = ImportError("Please install openai>=1 and diskcache to use autogen.OpenAIWrapper.")
+    OpenAI = object
+    AzureOpenAI = object
 
-try:
+with optional_import_block() as cerebras_result:
     from cerebras.cloud.sdk import (  # noqa
         AuthenticationError as cerebras_AuthenticationError,
         InternalServerError as cerebras_InternalServerError,
         RateLimitError as cerebras_RateLimitError,
     )
 
-    from autogen.oai.cerebras import CerebrasClient
+    from .cerebras import CerebrasClient
 
+if cerebras_result.is_successful:
     cerebras_import_exception: Optional[ImportError] = None
-except ImportError as e:
-    cerebras_AuthenticationError = cerebras_InternalServerError = cerebras_RateLimitError = Exception
-    cerebras_import_exception = e
+else:
+    cerebras_AuthenticationError = cerebras_InternalServerError = cerebras_RateLimitError = Exception  # noqa: N816
+    cerebras_import_exception = ImportError("cerebras_cloud_sdk not found")
 
-try:
+with optional_import_block() as gemini_result:
     from google.api_core.exceptions import (  # noqa
         InternalServerError as gemini_InternalServerError,
         ResourceExhausted as gemini_ResourceExhausted,
     )
 
-    from autogen.oai.gemini import GeminiClient
+    from .gemini import GeminiClient
 
+if gemini_result.is_successful:
     gemini_import_exception: Optional[ImportError] = None
-except ImportError as e:
-    gemini_InternalServerError = gemini_ResourceExhausted = Exception
-    gemini_import_exception = e
+else:
+    gemini_InternalServerError = gemini_ResourceExhausted = Exception  # noqa: N816
+    gemini_import_exception = ImportError("google-genai not found")
 
-try:
+with optional_import_block() as anthropic_result:
     from anthropic import (  # noqa
         InternalServerError as anthorpic_InternalServerError,
         RateLimitError as anthorpic_RateLimitError,
     )
 
-    from autogen.oai.anthropic import AnthropicClient
+    from .anthropic import AnthropicClient
 
+if anthropic_result.is_successful:
     anthropic_import_exception: Optional[ImportError] = None
-except ImportError as e:
-    anthorpic_InternalServerError = anthorpic_RateLimitError = Exception
-    anthropic_import_exception = e
+else:
+    anthorpic_InternalServerError = anthorpic_RateLimitError = Exception  # noqa: N816
+    anthropic_import_exception = ImportError("anthropic not found")
 
-try:
+with optional_import_block() as mistral_result:
     from mistralai.models import (  # noqa
         HTTPValidationError as mistral_HTTPValidationError,
         SDKError as mistral_SDKError,
     )
 
-    from autogen.oai.mistral import MistralAIClient
+    from .mistral import MistralAIClient
 
+if mistral_result.is_successful:
     mistral_import_exception: Optional[ImportError] = None
-except ImportError as e:
-    mistral_SDKError = mistral_HTTPValidationError = Exception
-    mistral_import_exception = e
+else:
+    mistral_SDKError = mistral_HTTPValidationError = Exception  # noqa: N816
+    mistral_import_exception = ImportError("mistralai not found")
 
-try:
+with optional_import_block() as together_result:
     from together.error import TogetherException as together_TogetherException
 
-    from autogen.oai.together import TogetherClient
+    from .together import TogetherClient
 
+if together_result.is_successful:
     together_import_exception: Optional[ImportError] = None
-except ImportError as e:
-    together_TogetherException = Exception
-    together_import_exception = e
+else:
+    together_TogetherException = Exception  # noqa: N816
+    together_import_exception = ImportError("together not found")
 
-try:
+with optional_import_block() as groq_result:
     from groq import (  # noqa
         APIConnectionError as groq_APIConnectionError,
         InternalServerError as groq_InternalServerError,
         RateLimitError as groq_RateLimitError,
     )
 
-    from autogen.oai.groq import GroqClient
+    from .groq import GroqClient
 
+if groq_result.is_successful:
     groq_import_exception: Optional[ImportError] = None
-except ImportError as e:
-    groq_InternalServerError = groq_RateLimitError = groq_APIConnectionError = Exception
-    groq_import_exception = e
+else:
+    groq_InternalServerError = groq_RateLimitError = groq_APIConnectionError = Exception  # noqa: N816
+    groq_import_exception = ImportError("groq not found")
 
-try:
+with optional_import_block() as cohere_result:
     from cohere.errors import (  # noqa
         InternalServerError as cohere_InternalServerError,
         ServiceUnavailableError as cohere_ServiceUnavailableError,
         TooManyRequestsError as cohere_TooManyRequestsError,
     )
 
-    from autogen.oai.cohere import CohereClient
+    from .cohere import CohereClient
 
+if cohere_result.is_successful:
     cohere_import_exception: Optional[ImportError] = None
-except ImportError as e:
-    cohere_InternalServerError = cohere_TooManyRequestsError = cohere_ServiceUnavailableError = Exception
-    cohere_import_exception = e
+else:
+    cohere_InternalServerError = cohere_TooManyRequestsError = cohere_ServiceUnavailableError = Exception  # noqa: N816
+    cohere_import_exception = ImportError("cohere not found")
 
-try:
+with optional_import_block() as ollama_result:
     from ollama import (  # noqa
         RequestError as ollama_RequestError,
         ResponseError as ollama_ResponseError,
     )
 
-    from autogen.oai.ollama import OllamaClient
+    from .ollama import OllamaClient
 
+if ollama_result.is_successful:
     ollama_import_exception: Optional[ImportError] = None
-except ImportError as e:
-    ollama_RequestError = ollama_ResponseError = Exception
-    ollama_import_exception = e
+else:
+    ollama_RequestError = ollama_ResponseError = Exception  # noqa: N816
+    ollama_import_exception = ImportError("ollama not found")
 
-try:
+with optional_import_block() as bedrock_result:
     from botocore.exceptions import (  # noqa
         BotoCoreError as bedrock_BotoCoreError,
         ClientError as bedrock_ClientError,
     )
 
-    from autogen.oai.bedrock import BedrockClient
+    from .bedrock import BedrockClient
 
+if bedrock_result.is_successful:
     bedrock_import_exception: Optional[ImportError] = None
-except ImportError as e:
-    bedrock_BotoCoreError = bedrock_ClientError = Exception
-    bedrock_import_exception = e
+else:
+    bedrock_BotoCoreError = bedrock_ClientError = Exception  # noqa: N816
+    bedrock_import_exception = ImportError("botocore not found")
 
 logger = logging.getLogger(__name__)
 if not logger.handlers:
@@ -180,9 +194,9 @@ LEGACY_CACHE_DIR = ".cache"
 OPEN_API_BASE_URL_PREFIX = "https://api.openai.com"
 
 
+@export_module("autogen")
 class ModelClient(Protocol):
-    """
-    A client class must implement the following methods:
+    """A client class must implement the following methods:
     - create must return a response object that implements the ModelClientResponseProtocol
     - cost must return the cost of the response
     - get_usage must return a dict with the following keys:
@@ -206,16 +220,15 @@ class ModelClient(Protocol):
 
             message: Message
 
-        choices: List[Choice]
+        choices: list[Choice]
         model: str
 
-    def create(self, params: Dict[str, Any]) -> ModelClientResponseProtocol: ...  # pragma: no cover
+    def create(self, params: dict[str, Any]) -> ModelClientResponseProtocol: ...  # pragma: no cover
 
     def message_retrieval(
         self, response: ModelClientResponseProtocol
-    ) -> Union[List[str], List[ModelClient.ModelClientResponseProtocol.Choice.Message]]:
-        """
-        Retrieve and return a list of strings or a list of Choice.Message from the response.
+    ) -> Union[list[str], list[ModelClient.ModelClientResponseProtocol.Choice.Message]]:
+        """Retrieve and return a list of strings or a list of Choice.Message from the response.
 
         NOTE: if a list of Choice.Message is returned, it currently needs to contain the fields of OpenAI's ChatCompletion Message object,
         since that is expected for function or tool calling in the rest of the codebase at the moment, unless a custom agent is being used.
@@ -225,7 +238,7 @@ class ModelClient(Protocol):
     def cost(self, response: ModelClientResponseProtocol) -> float: ...  # pragma: no cover
 
     @staticmethod
-    def get_usage(response: ModelClientResponseProtocol) -> Dict:
+    def get_usage(response: ModelClientResponseProtocol) -> dict:
         """Return usage summary of the response using RESPONSE_USAGE_KEYS."""
         ...  # pragma: no cover
 
@@ -252,7 +265,7 @@ class OpenAIClient:
 
     def message_retrieval(
         self, response: Union[ChatCompletion, Completion]
-    ) -> Union[List[str], List[ChatCompletionMessage]]:
+    ) -> Union[list[str], list[ChatCompletionMessage]]:
         """Retrieve the messages from the response."""
         choices = response.choices
         if isinstance(response, Completion):
@@ -280,7 +293,85 @@ class OpenAIClient:
                 for choice in choices
             ]
 
-    def create(self, params: Dict[str, Any]) -> ChatCompletion:
+    @staticmethod
+    def _is_agent_name_error_message(message: str) -> bool:
+        pattern = re.compile(r"Invalid 'messages\[\d+\]\.name': string does not match pattern.")
+        return bool(pattern.match(message))
+
+    @staticmethod
+    def _move_system_message_to_beginning(messages: list[dict[str, Any]]) -> None:
+        for msg in messages:
+            if msg["role"] == "system":
+                messages.insert(0, messages.pop(messages.index(msg)))
+                break
+
+    @staticmethod
+    def _patch_messages_for_deepseek_reasoner(**kwargs: Any) -> Any:
+        if (
+            "model" not in kwargs
+            or kwargs["model"] != "deepseek-reasoner"
+            or "messages" not in kwargs
+            or len(kwargs["messages"]) == 0
+        ):
+            return kwargs
+
+        # The system message of deepseek-reasoner must be put on the beginning of the message sequence.
+        OpenAIClient._move_system_message_to_beginning(kwargs["messages"])
+
+        new_messages = []
+        previous_role = None
+        for message in kwargs["messages"]:
+            if "role" in message:
+                current_role = message["role"]
+
+                # This model requires alternating roles
+                if current_role == previous_role:
+                    # Swap the role
+                    if current_role == "user":
+                        message["role"] = "assistant"
+                    elif current_role == "assistant":
+                        message["role"] = "user"
+
+                previous_role = message["role"]
+
+            new_messages.append(message)
+
+        # The last message of deepseek-reasoner must be a user message
+        # , or an assistant message with prefix mode on (but this is supported only for beta api)
+        if new_messages[-1]["role"] != "user":
+            new_messages.append({"role": "user", "content": "continue"})
+
+        kwargs["messages"] = new_messages
+
+        return kwargs
+
+    @staticmethod
+    def _handle_openai_bad_request_error(func: Callable[..., Any]) -> Callable[..., Any]:
+        def wrapper(*args: Any, **kwargs: Any):
+            try:
+                kwargs = OpenAIClient._patch_messages_for_deepseek_reasoner(**kwargs)
+                return func(*args, **kwargs)
+            except openai.BadRequestError as e:
+                response_json = e.response.json()
+                # Check if the error message is related to the agent name. If so, raise a ValueError with a more informative message.
+                if (
+                    "error" in response_json
+                    and "message" in response_json["error"]
+                    and OpenAIClient._is_agent_name_error_message(response_json["error"]["message"])
+                ):
+                    error_message = (
+                        f"This error typically occurs when the agent name contains invalid characters, such as spaces or special symbols.\n"
+                        "Please ensure that your agent name follows the correct format and doesn't include any unsupported characters.\n"
+                        "Check the agent name and try again.\n"
+                        f"Here is the full BadRequestError from openai:\n{e.message}."
+                    )
+                    raise ValueError(error_message)
+
+                raise e
+
+        return wrapper
+
+    def create(self, params: dict[str, Any]) -> ChatCompletion:
         """Create a completion for a given config using openai's client.
 
         Args:
@@ -307,21 +398,25 @@ class OpenAIClient:
         else:
             completions = self._oai_client.chat.completions if "messages" in params else self._oai_client.completions  # type: ignore [attr-defined]
             create_or_parse = completions.create
+        # Wrap _create_or_parse with exception handling
+        create_or_parse = OpenAIClient._handle_openai_bad_request_error(create_or_parse)
+
+        # needs to be updated when the o3 is released to generalize
+        is_o1 = "model" in params and params["model"].startswith("o1")
 
         # If streaming is enabled and has messages, then iterate over the chunks of the response.
-        if params.get("stream", False) and "messages" in params:
+        if params.get("stream", False) and "messages" in params and not is_o1:
             response_contents = [""] * params.get("n", 1)
             finish_reasons = [""] * params.get("n", 1)
             completion_tokens = 0
 
             # Set the terminal text color to green
-            iostream.print("\033[32m", end="")
-
+            ### cmbagent debug
             print('in ModelClient client.py:',params)
 
             # Prepare for potential function call
-            full_function_call: Optional[Dict[str, Any]] = None
-            full_tool_calls: Optional[List[Optional[Dict[str, Any]]]] = None
+            full_function_call: Optional[dict[str, Any]] = None
+            full_tool_calls: Optional[list[Optional[dict[str, Any]]]] = None
 
             # Send the chat completion request to OpenAI's API and process the response in chunks
             for chunk in create_or_parse(**params):
@@ -369,15 +464,11 @@ class OpenAIClient:
 
                         # If content is present, print it to the terminal and update response variables
                         if content is not None:
-                            iostream.print(content, end="", flush=True)
+                            iostream.send(StreamMessage(content=content))
                             response_contents[choice.index] += content
                             completion_tokens += 1
                         else:
-                            # iostream.print()
                             pass
-
-            # Reset the terminal text color
-            iostream.print("\033[0m\n")
 
             # Prepare the final ChatCompletion object based on the accumulated data
             model = chunk.model.replace("gpt-35", "gpt-3.5")  # hack for Azure API
@@ -395,7 +486,7 @@ class OpenAIClient:
                 ),
             )
             for i in range(len(response_contents)):
-                if OPENAIVERSION >= "1.5":  # pragma: no cover
+                if openai_version >= "1.5":  # pragma: no cover
                     # OpenAI versions 1.5.0 and above
                     choice = Choice(
                         index=i,
@@ -425,6 +516,15 @@ class OpenAIClient:
         else:
             # If streaming is not enabled, send a regular chat completion request
             params = params.copy()
+            if is_o1:
+                # add a warning that model does not support stream
+                if params.get("stream", False):
+                    warnings.warn(
+                        f"The {params.get('model')} model does not support streaming. The stream will be set to False."
+                    )
+                if params.get("tools", False):
+                    raise ModelToolNotSupportedError(params.get("model"))
+                self._process_reasoning_model_params(params)
             params["stream"] = False
 
             ### start of cmbagent changes for structured output for summary agents by hand. Not
@@ -442,8 +542,51 @@ class OpenAIClient:
             
 
             response = create_or_parse(**params)
+            # remove the system_message from the response and add it in the prompt at the start.
+            if is_o1:
+                for msg in params["messages"]:
+                    if msg["role"] == "user" and msg["content"].startswith("System message: "):
+                        msg["role"] = "system"
+                        msg["content"] = msg["content"][len("System message: ") :]
 
         return response
+
+    def _process_reasoning_model_params(self, params) -> None:
+        """Cater for the reasoning model (o1, o3..) parameters
+        please refer: https://platform.openai.com/docs/guides/reasoning#limitations
+        """
+        print(f"{params=}")
+
+        # Unsupported parameters
+        unsupported_params = [
+            "temperature",
+            "frequency_penalty",
+            "presence_penalty",
+            "top_p",
+            "logprobs",
+            "top_logprobs",
+            "logit_bias",
+        ]
+        model_name = params.get("model")
+        for param in unsupported_params:
+            if param in params:
+                warnings.warn(f"`{param}` is not supported with {model_name} model and will be ignored.")
+                params.pop(param)
+        # Replace max_tokens with max_completion_tokens as reasoning tokens are now factored in
+        # and max_tokens isn't valid
+        if "max_tokens" in params:
+            params["max_completion_tokens"] = params.pop("max_tokens")
+
+        # TODO - When o1-mini and o1-preview point to newer models (e.g. 2024-12-...), remove them from this list but leave the 2024-09-12 dated versions
+        system_not_allowed = model_name in ("o1-mini", "o1-preview", "o1-mini-2024-09-12", "o1-preview-2024-09-12")
+
+        if "messages" in params and system_not_allowed:
+            # o1-mini (2024-09-12) and o1-preview (2024-09-12) don't support role='system' messages, only 'user' and 'assistant'
+            # replace the system messages with user messages preappended with "System message: "
+            for msg in params["messages"]:
+                if msg["role"] == "system":
+                    msg["role"] = "user"
+                    msg["content"] = f"System message: {msg['content']}"
 
     def cost(self, response: Union[ChatCompletion, Completion]) -> float:
         """Calculate the cost of the response."""
@@ -459,14 +602,14 @@ class OpenAIClient:
         n_output_tokens = response.usage.completion_tokens if response.usage is not None else 0  # type: ignore [union-attr]
         if n_output_tokens is None:
             n_output_tokens = 0
-        tmp_price1K = OAI_PRICE1K[model]
+        tmp_price1K = OAI_PRICE1K[model]  # noqa: N806
         # First value is input token rate, second value is output token rate
         if isinstance(tmp_price1K, tuple):
             return (tmp_price1K[0] * n_input_tokens + tmp_price1K[1] * n_output_tokens) / 1000  # type: ignore [no-any-return]
         return tmp_price1K * (n_input_tokens + n_output_tokens) / 1000  # type: ignore [operator]
 
     @staticmethod
-    def get_usage(response: Union[ChatCompletion, Completion]) -> Dict:
+    def get_usage(response: Union[ChatCompletion, Completion]) -> dict:
         return {
             "prompt_tokens": response.usage.prompt_tokens if response.usage is not None else 0,
             "completion_tokens": response.usage.completion_tokens if response.usage is not None else 0,
@@ -476,11 +619,8 @@ class OpenAIClient:
         }
 
 
-@runtime_checkable
-class FormatterProtocol(Protocol):
-    def format(self) -> str: ...
-
-
+@require_optional_import("openai", "openai")
+@export_module("autogen")
 class OpenAIWrapper:
     """A wrapper class for openai client."""
 
@@ -500,55 +640,55 @@ class OpenAIWrapper:
     openai_kwargs = set(inspect.getfullargspec(OpenAI.__init__).kwonlyargs)
     aopenai_kwargs = set(inspect.getfullargspec(AzureOpenAI.__init__).kwonlyargs)
     openai_kwargs = openai_kwargs | aopenai_kwargs
-    total_usage_summary: Optional[Dict[str, Any]] = None
-    actual_usage_summary: Optional[Dict[str, Any]] = None
+    total_usage_summary: Optional[dict[str, Any]] = None
+    actual_usage_summary: Optional[dict[str, Any]] = None
 
     def __init__(
         self,
         *,
-        config_list: Optional[List[Dict[str, Any]]] = None,
+        config_list: Optional[list[dict[str, Any]]] = None,
         **base_config: Any,
     ):
-        """
+        """Initialize the OpenAIWrapper.
+
         Args:
             config_list: a list of config dicts to override the base_config.
-                They can contain additional kwargs as allowed in the [create](/docs/reference/oai/client#create) method. E.g.,
+                They can contain additional kwargs as allowed in the [create](/reference/autogen/OpenAIWrapper#create) method. E.g.,
 
-        ```python
-        config_list=[
-            {
-                "model": "gpt-4",
-                "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
-                "api_type": "azure",
-                "base_url": os.environ.get("AZURE_OPENAI_API_BASE"),
-                "api_version": "2024-02-01",
-            },
-            {
-                "model": "gpt-3.5-turbo",
-                "api_key": os.environ.get("OPENAI_API_KEY"),
-                "api_type": "openai",
-                "base_url": "https://api.openai.com/v1",
-            },
-            {
-                "model": "llama-7B",
-                "base_url": "http://127.0.0.1:8080",
-            }
-        ]
-        ```
+                ```python
+                    config_list = [
+                        {
+                            "model": "gpt-4",
+                            "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
+                            "api_type": "azure",
+                            "base_url": os.environ.get("AZURE_OPENAI_API_BASE"),
+                            "api_version": "2024-02-01",
+                        },
+                        {
+                            "model": "gpt-3.5-turbo",
+                            "api_key": os.environ.get("OPENAI_API_KEY"),
+                            "api_type": "openai",
+                            "base_url": "https://api.openai.com/v1",
+                        },
+                        {
+                            "model": "llama-7B",
+                            "base_url": "http://127.0.0.1:8080",
+                        },
+                    ]
+                ```
 
             base_config: base config. It can contain both keyword arguments for openai client
                 and additional kwargs.
                 When using OpenAI or Azure OpenAI endpoints, please specify a non-empty 'model' either in `base_config` or in each config of `config_list`.
         """
-
         if logging_enabled():
             log_new_wrapper(self, locals())
         openai_config, extra_kwargs = self._separate_openai_config(base_config)
         # It's OK if "model" is not provided in base_config or config_list
         # Because one can provide "model" at `create` time.
 
-        self._clients: List[ModelClient] = []
-        self._config_list: List[Dict[str, Any]] = []
+        self._clients: list[ModelClient] = []
+        self._config_list: list[dict[str, Any]] = []
 
         if config_list:
             config_list = [config.copy() for config in config_list]  # make a copy before modifying
@@ -562,19 +702,19 @@ class OpenAIWrapper:
             self._config_list = [extra_kwargs]
         self.wrapper_id = id(self)
 
-    def _separate_openai_config(self, config: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    def _separate_openai_config(self, config: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         """Separate the config into openai_config and extra_kwargs."""
         openai_config = {k: v for k, v in config.items() if k in self.openai_kwargs}
         extra_kwargs = {k: v for k, v in config.items() if k not in self.openai_kwargs}
         return openai_config, extra_kwargs
 
-    def _separate_create_config(self, config: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    def _separate_create_config(self, config: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         """Separate the config into create_config and extra_kwargs."""
         create_config = {k: v for k, v in config.items() if k not in self.extra_kwargs}
         extra_kwargs = {k: v for k, v in config.items() if k in self.extra_kwargs}
         return create_config, extra_kwargs
 
-    def _configure_azure_openai(self, config: Dict[str, Any], openai_config: Dict[str, Any]) -> None:
+    def _configure_azure_openai(self, config: dict[str, Any], openai_config: dict[str, Any]) -> None:
         openai_config["azure_deployment"] = openai_config.get("azure_deployment", config.get("model"))
         if openai_config["azure_deployment"] is not None:
             openai_config["azure_deployment"] = openai_config["azure_deployment"].replace(".", "")
@@ -588,7 +728,7 @@ class OpenAIWrapper:
                 azure.identity.DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default"
             )
 
-    def _configure_openai_config_for_bedrock(self, config: Dict[str, Any], openai_config: Dict[str, Any]) -> None:
+    def _configure_openai_config_for_bedrock(self, config: dict[str, Any], openai_config: dict[str, Any]) -> None:
         """Update openai_config with AWS credentials from config."""
         required_keys = ["aws_access_key", "aws_secret_key", "aws_region"]
         optional_keys = ["aws_session_token", "aws_profile_name"]
@@ -599,7 +739,14 @@ class OpenAIWrapper:
             if key in config:
                 openai_config[key] = config[key]
 
-    def _register_default_client(self, config: Dict[str, Any], openai_config: Dict[str, Any]) -> None:
+    def _configure_openai_config_for_vertextai(self, config: dict[str, Any], openai_config: dict[str, Any]) -> None:
+        """Update openai_config with Google credentials from config."""
+        required_keys = ["gcp_project_id", "gcp_region", "gcp_auth_token"]
+        for key in required_keys:
+            if key in config:
+                openai_config[key] = config[key]
+
+    def _register_default_client(self, config: dict[str, Any], openai_config: dict[str, Any]) -> None:
         """Create a client with the given config to override openai_config,
         after removing extra kwargs.
 
@@ -638,12 +785,14 @@ class OpenAIWrapper:
                 self._clients.append(client)
             elif api_type is not None and api_type.startswith("google"):
                 if gemini_import_exception:
-                    raise ImportError("Please install `google-generativeai` and 'vertexai' to use Google's API.")
+                    raise ImportError("Please install `google-genai` and 'vertexai' to use Google's API.")
                 client = GeminiClient(response_format=response_format, **openai_config)
                 self._clients.append(client)
             elif api_type is not None and api_type.startswith("anthropic"):
-                if "api_key" not in config:
+                if "api_key" not in config and "aws_region" in config:
                     self._configure_openai_config_for_bedrock(config, openai_config)
+                elif "api_key" not in config and "gcp_region" in config:
+                    self._configure_openai_config_for_vertextai(config, openai_config)
                 if anthropic_import_exception:
                     raise ImportError("Please install `anthropic` to use Anthropic API.")
                 client = AnthropicClient(response_format=response_format, **openai_config)
@@ -717,8 +866,8 @@ class OpenAIWrapper:
     @classmethod
     def instantiate(
         cls,
-        template: Optional[Union[str, Callable[[Dict[str, Any]], str]]],
-        context: Optional[Dict[str, Any]] = None,
+        template: Optional[Union[str, Callable[[dict[str, Any]], str]]],
+        context: Optional[dict[str, Any]] = None,
         allow_format_str_template: Optional[bool] = False,
     ) -> Optional[str]:
         if not context or template is None:
@@ -727,11 +876,11 @@ class OpenAIWrapper:
             return template.format(**context) if allow_format_str_template else template
         return template(context)
 
-    def _construct_create_params(self, create_config: Dict[str, Any], extra_kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    def _construct_create_params(self, create_config: dict[str, Any], extra_kwargs: dict[str, Any]) -> dict[str, Any]:
         """Prime the create_config with additional_kwargs."""
         # Validate the config
         prompt: Optional[str] = create_config.get("prompt")
-        messages: Optional[List[Dict[str, Any]]] = create_config.get("messages")
+        messages: Optional[list[dict[str, Any]]] = create_config.get("messages")
         if (prompt is None) == (messages is None):
             raise ValueError("Either prompt or messages should be in create config but not both.")
         context = extra_kwargs.get("context")
@@ -793,6 +942,7 @@ class OpenAIWrapper:
 
             - allow_format_str_template (bool | None): Whether to allow format string template in the config. Default to false.
             - api_version (str | None): The api version. Default to None. E.g., "2024-02-01".
+
         Raises:
             - RuntimeError: If all declared custom model clients are not registered
             - APIError: If any model client create call raises an APIError
@@ -828,7 +978,7 @@ class OpenAIWrapper:
             price = extra_kwargs.get("price", None)
             if isinstance(price, list):
                 price = tuple(price)
-            elif isinstance(price, float) or isinstance(price, int):
+            elif isinstance(price, (float, int)):
                 logger.warning(
                     "Input price is a float/int. Using the same price for prompt and completion tokens. Use a list/tuple if prompt and completion token prices are different."
                 )
@@ -988,7 +1138,7 @@ class OpenAIWrapper:
 
     @staticmethod
     def _cost_with_customized_price(
-        response: ModelClient.ModelClientResponseProtocol, price_1k: Tuple[float, float]
+        response: ModelClient.ModelClientResponseProtocol, price_1k: tuple[float, float]
     ) -> None:
         """If a customized cost is passed, overwrite the cost in the response."""
         n_input_tokens = response.usage.prompt_tokens if response.usage is not None else 0  # type: ignore [union-attr]
@@ -998,7 +1148,7 @@ class OpenAIWrapper:
         return (n_input_tokens * price_1k[0] + n_output_tokens * price_1k[1]) / 1000
 
     @staticmethod
-    def _update_dict_from_chunk(chunk: BaseModel, d: Dict[str, Any], field: str) -> int:
+    def _update_dict_from_chunk(chunk: BaseModel, d: dict[str, Any], field: str) -> int:
         """Update the dict from the chunk.
 
         Reads `chunk.field` and if present updates `d[field]` accordingly.
@@ -1016,7 +1166,7 @@ class OpenAIWrapper:
         assert isinstance(d, dict), d
         if hasattr(chunk, field) and getattr(chunk, field) is not None:
             new_value = getattr(chunk, field)
-            if isinstance(new_value, list) or isinstance(new_value, dict):
+            if isinstance(new_value, (list, dict)):
                 raise NotImplementedError(
                     f"Field {field} is a list or dict, which is currently not supported. "
                     "Only string and numbers are supported."
@@ -1034,9 +1184,9 @@ class OpenAIWrapper:
     @staticmethod
     def _update_function_call_from_chunk(
         function_call_chunk: Union[ChoiceDeltaToolCallFunction, ChoiceDeltaFunctionCall],
-        full_function_call: Optional[Dict[str, Any]],
+        full_function_call: Optional[dict[str, Any]],
         completion_tokens: int,
-    ) -> Tuple[Dict[str, Any], int]:
+    ) -> tuple[dict[str, Any], int]:
         """Update the function call from the chunk.
 
         Args:
@@ -1065,9 +1215,9 @@ class OpenAIWrapper:
     @staticmethod
     def _update_tool_calls_from_chunk(
         tool_calls_chunk: ChoiceDeltaToolCall,
-        full_tool_call: Optional[Dict[str, Any]],
+        full_tool_call: Optional[dict[str, Any]],
         completion_tokens: int,
-    ) -> Tuple[Dict[str, Any], int]:
+    ) -> tuple[dict[str, Any], int]:
         """Update the tool call from the chunk.
 
         Args:
@@ -1082,8 +1232,7 @@ class OpenAIWrapper:
         # future proofing for when tool calls other than function calls are supported
         if tool_calls_chunk.type and tool_calls_chunk.type != "function":
             raise NotImplementedError(
-                f"Tool call type {tool_calls_chunk.type} is currently not supported. "
-                "Only function calls are supported."
+                f"Tool call type {tool_calls_chunk.type} is currently not supported. Only function calls are supported."
             )
 
         # Handle tool call
@@ -1140,29 +1289,9 @@ class OpenAIWrapper:
         if actual_usage is not None:
             self.actual_usage_summary = update_usage(self.actual_usage_summary, actual_usage)
 
-    def print_usage_summary(self, mode: Union[str, List[str]] = ["actual", "total"]) -> None:
+    def print_usage_summary(self, mode: Union[str, list[str]] = ["actual", "total"]) -> None:
         """Print the usage summary."""
         iostream = IOStream.get_default()
-
-        def print_usage(usage_summary: Optional[Dict[str, Any]], usage_type: str = "total") -> None:
-            word_from_type = "including" if usage_type == "total" else "excluding"
-            if usage_summary is None:
-                iostream.print("No actual cost incurred (all completions are using cache).", flush=True)
-                return
-
-            iostream.print(f"Usage summary {word_from_type} cached usage: ", flush=True)
-            iostream.print(f"Total cost: {round(usage_summary['total_cost'], 5)}", flush=True)
-            for model, counts in usage_summary.items():
-                if model == "total_cost":
-                    continue  #
-                iostream.print(
-                    f"* Model '{model}': cost: {round(counts['cost'], 5)}, prompt_tokens: {counts['prompt_tokens']}, completion_tokens: {counts['completion_tokens']}, total_tokens: {counts['total_tokens']}",
-                    flush=True,
-                )
-
-        if self.total_usage_summary is None:
-            iostream.print('No usage summary. Please call "create" first.', flush=True)
-            return
 
         if isinstance(mode, list):
             if len(mode) == 0 or len(mode) > 2:
@@ -1174,24 +1303,11 @@ class OpenAIWrapper:
             elif "total" in mode:
                 mode = "total"
 
-        iostream.print("-" * 100, flush=True)
-        if mode == "both":
-            print_usage(self.actual_usage_summary, "actual")
-            iostream.print()
-            if self.total_usage_summary != self.actual_usage_summary:
-                print_usage(self.total_usage_summary, "total")
-            else:
-                iostream.print(
-                    "All completions are non-cached: the total cost with cached completions is the same as actual cost.",
-                    flush=True,
-                )
-        elif mode == "total":
-            print_usage(self.total_usage_summary, "total")
-        elif mode == "actual":
-            print_usage(self.actual_usage_summary, "actual")
-        else:
-            raise ValueError(f'Invalid mode: {mode}, choose from "actual", "total", ["actual", "total"]')
-        iostream.print("-" * 100, flush=True)
+        iostream.send(
+            UsageSummaryMessage(
+                actual_usage_summary=self.actual_usage_summary, total_usage_summary=self.total_usage_summary, mode=mode
+            )
+        )
 
 
     def return_usage_summary(self, mode: str = "actual") -> None:
@@ -1223,7 +1339,7 @@ class OpenAIWrapper:
     @classmethod
     def extract_text_or_completion_object(
         cls, response: ModelClient.ModelClientResponseProtocol
-    ) -> Union[List[str], List[ModelClient.ModelClientResponseProtocol.Choice.Message]]:
+    ) -> Union[list[str], list[ModelClient.ModelClientResponseProtocol.Choice.Message]]:
         """Extract the text or ChatCompletion objects from a completion or chat response.
 
         Args:

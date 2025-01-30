@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,13 +6,11 @@
 # SPDX-License-Identifier: MIT
 from typing import Optional
 
-from autogen.agentchat.conversable_agent import ConversableAgent
+from ...conversable_agent import ConversableAgent
 
 
 class CriticAgent(ConversableAgent):
-    """
-    An agent for creating list of criteria for evaluating the utility of a given task.
-    """
+    """An agent for creating list of criteria for evaluating the utility of a given task."""
 
     DEFAULT_SYSTEM_MESSAGE = """You are a helpful assistant. You suggest criteria for evaluating different tasks. They should be distinguishable, quantifiable and not redundant.
     Convert the evaluation criteria into a list where each item is a criteria which consists of the following dictionary as follows
@@ -30,14 +28,13 @@ class CriticAgent(ConversableAgent):
         description: Optional[str] = DEFAULT_DESCRIPTION,
         **kwargs,
     ):
-        """
-        Args:
-            name (str): agent name.
-            system_message (str): system message for the ChatCompletion inference.
-                Please override this attribute if you want to reprogram the agent.
-            description (str): The description of the agent.
-            **kwargs (dict): Please refer to other kwargs in
-                [ConversableAgent](../../conversable_agent#__init__).
+        """Args:
+        name (str): agent name.
+        system_message (str): system message for the ChatCompletion inference.
+            Please override this attribute if you want to reprogram the agent.
+        description (str): The description of the agent.
+        **kwargs (dict): Please refer to other kwargs in
+            [ConversableAgent](../../conversable_agent#init).
         """
         super().__init__(
             name=name,

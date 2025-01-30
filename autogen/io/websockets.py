@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -7,21 +7,21 @@
 import logging
 import ssl
 import threading
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from functools import partial
 from time import sleep
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, Optional, Protocol, Union
+from typing import Any, Callable, Optional, Protocol, Union
 
+from ..doc_utils import export_module
+from ..import_utils import optional_import_block, require_optional_import
+from ..messages.base_message import BaseMessage
+from ..messages.print_message import PrintMessage
 from .base import IOStream
 
 # Check if the websockets module is available
-try:
+with optional_import_block():
     from websockets.sync.server import serve as ws_serve
-except ImportError as e:
-    _import_error: Optional[ImportError] = e
-else:
-    _import_error = None
-
 
 __all__ = ("IOWebsockets",)
 
@@ -79,6 +79,8 @@ class WebSocketServer(Protocol):
         ...  # pragma: no cover
 
 
+@require_optional_import("websockets", "websockets")
+@export_module("autogen.io")
 class IOWebsockets(IOStream):
     """A websocket input/output stream."""
 
@@ -91,9 +93,6 @@ class IOWebsockets(IOStream):
         Raises:
             ImportError: If the websockets module is not available.
         """
-        if _import_error is not None:
-            raise _import_error  # pragma: no cover
-
         self._websocket = websocket
 
     @staticmethod
@@ -134,12 +133,9 @@ class IOWebsockets(IOStream):
         Yields:
             str: The URI of the websocket server.
         """
-        server_dict: Dict[str, WebSocketServer] = {}
+        server_dict: dict[str, WebSocketServer] = {}
 
         def _run_server() -> None:
-            if _import_error is not None:
-                raise _import_error
-
             # print(f" - _run_server(): starting server on ws://{host}:{port}", flush=True)
             with ws_serve(
                 handler=partial(IOWebsockets._handler, on_connect=on_connect),
@@ -191,8 +187,16 @@ class IOWebsockets(IOStream):
             end (str, optional): The end of the output. Defaults to "\n".
             flush (bool, optional): Whether to flush the output. Defaults to False.
         """
-        xs = sep.join(map(str, objects)) + end
-        self._websocket.send(xs)
+        print_message = PrintMessage(*objects, sep=sep, end=end)
+        self.send(print_message)
+
+    def send(self, message: BaseMessage) -> None:
+        """Send a message to the output stream.
+
+        Args:
+            message (Any): The message to send.
+        """
+        self._websocket.send(message.model_dump_json())
 
     def input(self, prompt: str = "", *, password: bool = False) -> str:
         """Read a line from the input stream.

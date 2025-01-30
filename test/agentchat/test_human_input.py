@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,28 +6,27 @@
 # SPDX-License-Identifier: MIT
 #!/usr/bin/env python3 -m pytest
 
-import os
-import sys
 from unittest.mock import MagicMock
 
 import pytest
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
 
 import autogen
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from conftest import reason, skip_openai  # noqa: E402
+from ..conftest import Credentials
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
-def test_get_human_input():
-    config_list = autogen.config_list_from_json(OAI_CONFIG_LIST, KEY_LOC, filter_dict={"tags": ["gpt-3.5-turbo"]})
-
+@pytest.mark.openai
+def test_get_human_input(credentials_gpt_4o_mini: Credentials):
     # create an AssistantAgent instance named "assistant"
     assistant = autogen.AssistantAgent(
         name="assistant",
         max_consecutive_auto_reply=2,
-        llm_config={"timeout": 600, "cache_seed": 41, "config_list": config_list, "temperature": 0},
+        llm_config={
+            "timeout": 600,
+            "cache_seed": 41,
+            "config_list": credentials_gpt_4o_mini.config_list,
+            "temperature": 0,
+        },
     )
 
     user_proxy = autogen.UserProxyAgent(name="user", human_input_mode="ALWAYS", code_execution_config=False)

@@ -1,15 +1,14 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 import os
 
-from autogen.coding.func_with_reqs import with_requirements
+from ......coding.func_with_reqs import with_requirements
 
 
 @with_requirements(["easyocr"], ["os"])
 def optical_character_recognition(image):
-    """
-    Perform optical character recognition (OCR) on the given image.
+    """Perform optical character recognition (OCR) on the given image.
 
     Args:
         image (Union[str, Image.Image]): The image to perform OCR on. It can be either a file path or an Image object.

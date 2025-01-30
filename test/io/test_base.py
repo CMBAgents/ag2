@@ -1,13 +1,14 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 from threading import Thread
-from typing import Any, List
+from typing import Any
 
-from autogen.io import IOConsole, IOStream, IOWebsockets
+from autogen.io import IOConsole, IOStream
+from autogen.messages.base_message import BaseMessage
 
 
 class TestIOStream:
@@ -17,6 +18,9 @@ class TestIOStream:
     def test_set_default_io_stream(self) -> None:
         class MyIOStream(IOStream):
             def print(self, *objects: Any, sep: str = " ", end: str = "\n", flush: bool = False) -> None:
+                pass
+
+            def send(self, message: BaseMessage) -> None:
                 pass
 
             def input(self, prompt: str = "", *, password: bool = False) -> str:
@@ -35,9 +39,9 @@ class TestIOStream:
         assert isinstance(IOStream.get_default(), IOConsole)
 
     def test_get_default_on_new_thread(self) -> None:
-        exceptions: List[Exception] = []
+        exceptions: list[Exception] = []
 
-        def on_new_thread(exceptions: List[Exception] = exceptions) -> None:
+        def on_new_thread(exceptions: list[Exception] = exceptions) -> None:
             try:
                 assert isinstance(IOStream.get_default(), IOConsole)
             except Exception as e:

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,24 +6,17 @@
 # SPDX-License-Identifier: MIT
 #!/usr/bin/env python3 -m pytest
 
-import asyncio
-import os
-import sys
 from unittest.mock import AsyncMock
 
 import pytest
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
 
 import autogen
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from conftest import reason, skip_openai  # noqa: E402
+from ..conftest import Credentials, credentials_all_llms, suppress_gemini_resource_exhausted
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
-@pytest.mark.asyncio
-async def test_async_get_human_input():
-    config_list = autogen.config_list_from_json(OAI_CONFIG_LIST, KEY_LOC, filter_dict={"tags": ["gpt-3.5-turbo"]})
+async def _test_async_get_human_input(credentials: Credentials) -> None:
+    config_list = credentials.config_list
 
     # create an AssistantAgent instance named "assistant"
     assistant = autogen.AssistantAgent(
@@ -47,10 +40,17 @@ async def test_async_get_human_input():
     print("Human input:", res.human_input)
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
+@pytest.mark.parametrize("credentials_from_test_param", credentials_all_llms, indirect=True)
+@suppress_gemini_resource_exhausted
 @pytest.mark.asyncio
-async def test_async_max_turn():
-    config_list = autogen.config_list_from_json(OAI_CONFIG_LIST, KEY_LOC, filter_dict={"tags": ["gpt-3.5-turbo"]})
+async def test_async_get_human_input(
+    credentials_from_test_param: Credentials,
+) -> None:
+    await _test_async_get_human_input(credentials_from_test_param)
+
+
+async def _test_async_max_turn(credentials: Credentials):
+    config_list = credentials.config_list
 
     # create an AssistantAgent instance named "assistant"
     assistant = autogen.AssistantAgent(
@@ -67,16 +67,20 @@ async def test_async_max_turn():
     user_proxy.a_get_human_input = AsyncMock(return_value="Not funny. Try again.")
 
     res = await user_proxy.a_initiate_chat(
-        assistant, clear_history=True, max_turns=3, message="Hello, make a joke about AI."
+        assistant, clear_history=True, max_turns=3, message="Hello, make a non-offensive joke about AI."
     )
     print("Result summary:", res.summary)
     print("Human input:", res.human_input)
     print("chat history:", res.chat_history)
-    assert (
-        len(res.chat_history) == 6
-    ), f"Chat history should have 6 messages because max_turns is set to 3 (and user keep request try again) but has {len(res.chat_history)}."
+    assert len(res.chat_history) == 6, (
+        f"Chat history should have 6 messages because max_turns is set to 3 (and user keep request try again) but has {len(res.chat_history)}."
+    )
 
 
-if __name__ == "__main__":
-    # asyncio.run(test_async_get_human_input())
-    asyncio.run(test_async_max_turn())
+@pytest.mark.parametrize("credentials_from_test_param", credentials_all_llms, indirect=True)
+@suppress_gemini_resource_exhausted
+@pytest.mark.asyncio
+async def test_async_max_turn(
+    credentials_from_test_param: Credentials,
+) -> None:
+    await _test_async_max_turn(credentials_from_test_param)

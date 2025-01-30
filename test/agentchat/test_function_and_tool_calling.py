@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: MIT
 import json
 import sys
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 
 import pytest
 
@@ -203,7 +203,7 @@ _function_use_message_1_not_found_expected_reply = {
 _text_message = {"content": "Hi!", "role": "user"}
 
 
-def _get_function_map(is_function_async: bool, drop_tool_2: bool = False) -> Dict[str, Callable[..., Any]]:
+def _get_function_map(is_function_async: bool, drop_tool_2: bool = False) -> dict[str, Callable[..., Any]]:
     if is_function_async:
         return (
             {
@@ -230,7 +230,7 @@ def _get_function_map(is_function_async: bool, drop_tool_2: bool = False) -> Dic
 
 def _get_error_function_map(
     is_function_async: bool, error_on_tool_func_2: bool = True
-) -> Dict[str, Callable[..., Any]]:
+) -> dict[str, Callable[..., Any]]:
     if is_function_async:
         return {
             "_tool_func_1": _a_tool_func_1 if error_on_tool_func_2 else _a_tool_func_error,
@@ -280,7 +280,7 @@ def test_generate_function_call_reply_on_function_call_message(is_function_async
     assert (finished, retval) == (False, None)
 
     # text message
-    messages: List[Dict[str, str]] = [_text_message]
+    messages: list[dict[str, str]] = [_text_message]
     finished, retval = agent.generate_function_call_reply(messages)
     assert (finished, retval) == (False, None)
 
@@ -291,7 +291,7 @@ def test_generate_function_call_reply_on_function_call_message(is_function_async
     assert (finished, retval) == (True, _function_use_message_1_error_expected_reply)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.parametrize("is_function_async", [True, False])
 async def test_a_generate_function_call_reply_on_function_call_message(is_function_async: bool) -> None:
     agent = ConversableAgent(name="agent", llm_config=False)
@@ -329,7 +329,7 @@ async def test_a_generate_function_call_reply_on_function_call_message(is_functi
     assert (finished, retval) == (False, None)
 
     # text message
-    messages: List[Dict[str, str]] = [_text_message]
+    messages: list[dict[str, str]] = [_text_message]
     finished, retval = await agent.a_generate_function_call_reply(messages)
     assert (finished, retval) == (False, None)
 
@@ -377,7 +377,7 @@ def test_generate_tool_calls_reply_on_function_call_message(is_function_async: b
     assert (finished, retval) == (False, None)
 
     # text message
-    messages: List[Dict[str, str]] = [_text_message]
+    messages: list[dict[str, str]] = [_text_message]
     finished, retval = agent.generate_tool_calls_reply(messages)
     assert (finished, retval) == (False, None)
 
@@ -388,7 +388,7 @@ def test_generate_tool_calls_reply_on_function_call_message(is_function_async: b
     assert (finished, retval) == (True, _tool_use_message_1_error_expected_reply)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.parametrize("is_function_async", [True, False])
 async def test_a_generate_tool_calls_reply_on_function_call_message(is_function_async: bool) -> None:
     agent = ConversableAgent(name="agent", llm_config=False)
@@ -426,7 +426,7 @@ async def test_a_generate_tool_calls_reply_on_function_call_message(is_function_
     assert (finished, retval) == (False, None)
 
     # text message
-    messages: List[Dict[str, str]] = [_text_message]
+    messages: list[dict[str, str]] = [_text_message]
     finished, retval = await agent.a_generate_tool_calls_reply(messages)
     assert (finished, retval) == (False, None)
 

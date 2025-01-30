@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,12 +6,16 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-from typing import Iterable, Literal, List
 from pydantic import BaseModel
+from collections.abc import Iterable
+from typing import Literal, Optional, List
 
-try:
+from .import_utils import optional_import_block
+
+with optional_import_block() as result:
     from termcolor import colored
-except ImportError:
+
+if not result.is_successful:
     # termcolor is an optional dependency - if it cannot be imported then no color is used.
     # Alternatively the envvar NO_COLOR can be used to disable color.
     # To allow for proper typing and for termcolor to be optional we need to re-define the types used in the lib here.
@@ -67,12 +71,14 @@ except ImportError:
 
     def colored(
         text: object,
-        color: Color | None = None,
-        on_color: Highlight | None = None,
-        attrs: Iterable[Attribute] | None = None,
+        color: Optional[Color] = None,
+        on_color: Optional[Highlight] = None,
+        attrs: Optional[Iterable[Attribute]] = None,
         *,
-        no_color: bool | None = None,
-        force_color: bool | None = None,
+        no_color: Optional[bool] = None,
+        force_color: Optional[bool] = None,
     ) -> str:
         return str(text)
 
+
+__all__ = ["colored"]

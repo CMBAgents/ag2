@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -9,23 +9,26 @@
 import pickle
 from typing import Any, Optional, TypedDict, Union
 
-from azure.cosmos import CosmosClient, PartitionKey, exceptions
-from azure.cosmos.exceptions import CosmosResourceNotFoundError
+from ..import_utils import optional_import_block, require_optional_import
+from .abstract_cache_base import AbstractCache
 
-from autogen.cache.abstract_cache_base import AbstractCache
+with optional_import_block():
+    from azure.cosmos import CosmosClient, PartitionKey
+    from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 
+@require_optional_import("azure", "cosmosdb")
 class CosmosDBConfig(TypedDict, total=False):
     connection_string: str
     database_id: str
     container_id: str
     cache_seed: Optional[Union[str, int]]
-    client: Optional[CosmosClient]
+    client: Optional["CosmosClient"]
 
 
+@require_optional_import("azure", "cosmosdb")
 class CosmosDBCache(AbstractCache):
-    """
-    Synchronous implementation of AbstractCache using Azure Cosmos DB NoSQL API.
+    """Synchronous implementation of AbstractCache using Azure Cosmos DB NoSQL API.
 
     This class provides a concrete implementation of the AbstractCache
     interface using Azure Cosmos DB for caching data, with synchronous operations.
@@ -37,8 +40,7 @@ class CosmosDBCache(AbstractCache):
     """
 
     def __init__(self, seed: Union[str, int], cosmosdb_config: CosmosDBConfig):
-        """
-        Initialize the CosmosDBCache instance.
+        """Initialize the CosmosDBCache instance.
 
         Args:
             seed (Union[str, int]): A seed or namespace for the cache, used as a partition key.
@@ -59,8 +61,7 @@ class CosmosDBCache(AbstractCache):
 
     @classmethod
     def create_cache(cls, seed: Union[str, int], cosmosdb_config: CosmosDBConfig):
-        """
-        Factory method to create a CosmosDBCache instance based on the provided configuration.
+        """Factory method to create a CosmosDBCache instance based on the provided configuration.
         This method decides whether to use an existing CosmosClient or create a new one.
         """
         if "client" in cosmosdb_config and isinstance(cosmosdb_config["client"], CosmosClient):
@@ -78,13 +79,12 @@ class CosmosDBCache(AbstractCache):
         return cls(str(seed), config)
 
     @classmethod
-    def from_existing_client(cls, seed: Union[str, int], client: CosmosClient, database_id: str, container_id: str):
+    def from_existing_client(cls, seed: Union[str, int], client: "CosmosClient", database_id: str, container_id: str):
         config = {"client": client, "database_id": database_id, "container_id": container_id}
         return cls(str(seed), config)
 
     def get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
-        """
-        Retrieve an item from the Cosmos DB cache.
+        """Retrieve an item from the Cosmos DB cache.
 
         Args:
             key (str): The key identifying the item in the cache.
@@ -104,8 +104,7 @@ class CosmosDBCache(AbstractCache):
             raise e
 
     def set(self, key: str, value: Any) -> None:
-        """
-        Set an item in the Cosmos DB cache.
+        """Set an item in the Cosmos DB cache.
 
         Args:
             key (str): The key under which the item is to be stored.
@@ -123,8 +122,7 @@ class CosmosDBCache(AbstractCache):
             raise e
 
     def close(self) -> None:
-        """
-        Close the Cosmos DB client.
+        """Close the Cosmos DB client.
 
         Perform any necessary cleanup, such as closing network connections.
         """
@@ -133,8 +131,7 @@ class CosmosDBCache(AbstractCache):
         pass
 
     def __enter__(self):
-        """
-        Context management entry.
+        """Context management entry.
 
         Returns:
             self: The instance itself.
@@ -142,8 +139,7 @@ class CosmosDBCache(AbstractCache):
         return self
 
     def __exit__(self, exc_type: Optional[type], exc_value: Optional[Exception], traceback: Optional[Any]) -> None:
-        """
-        Context management exit.
+        """Context management exit.
 
         Perform cleanup actions such as closing the Cosmos DB client.
         """

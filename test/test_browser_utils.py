@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -10,14 +10,16 @@ import hashlib
 import math
 import os
 import re
-import sys
+from tempfile import TemporaryDirectory
 
 import pytest
 import requests
-from agentchat.test_assistant_agent import KEY_LOC  # noqa: E402
 
-BLOG_POST_URL = "https://ag2ai.github.io/ag2/blog/2023/04/21/LLM-tuning-math"
-BLOG_POST_TITLE = "Does Model and Inference Parameter Matter in LLM Applications? - A Case Study for MATH | AG2"
+from autogen.browser_utils import SimpleTextBrowser
+from autogen.import_utils import optional_import_block, skip_on_missing_imports
+
+BLOG_POST_URL = "https://docs.ag2.ai/blog/2023-04-21-LLM-tuning-math"
+BLOG_POST_TITLE = "Does Model and Inference Parameter Matter in LLM Applications? - A Case Study for MATH - AG2"
 BLOG_POST_STRING = "Large language models (LLMs) are powerful tools that can generate natural language texts for various applications, such as chatbots, summarization, translation, and more. GPT-4 is currently the state of the art LLM in the world. Is model selection irrelevant? What about inference parameters?"
 
 WIKIPEDIA_URL = "https://en.wikipedia.org/wiki/Microsoft"
@@ -34,12 +36,10 @@ BING_QUERY = "Microsoft"
 BING_TITLE = f"{BING_QUERY} - Search"
 BING_STRING = f"A Bing search for '{BING_QUERY}' found"
 
-try:
-    from autogen.browser_utils import SimpleTextBrowser
-except ImportError:
-    skip_all = True
-else:
-    skip_all = False
+
+with optional_import_block() as result:
+    import requests
+
 
 try:
     BING_API_KEY = os.environ["BING_API_KEY"]
@@ -49,26 +49,23 @@ else:
     skip_bing = False
 
 
-def _rm_folder(path):
-    """Remove all the regular files in a folder, then deletes the folder. Assumes a flat file structure, with no subdirectories."""
-    for fname in os.listdir(path):
-        fpath = os.path.join(path, fname)
-        if os.path.isfile(fpath):
-            os.unlink(fpath)
-    os.rmdir(path)
+# def _rm_folder(path):
+#     """Remove all the regular files in a folder, then deletes the folder. Assumes a flat file structure, with no subdirectories."""
+#     for fname in os.listdir(path):
+#         fpath = os.path.join(path, fname)
+#         if os.path.isfile(fpath):
+#             os.unlink(fpath)
+#     os.rmdir(path)
 
 
-@pytest.mark.skipif(
-    skip_all,
-    reason="do not run if dependency is not installed",
-)
-def test_simple_text_browser():
-    # Create a downloads folder (removing any leftover ones from prior tests)
-    downloads_folder = os.path.join(KEY_LOC, "downloads")
-    if os.path.isdir(downloads_folder):
-        _rm_folder(downloads_folder)
-    os.mkdir(downloads_folder)
+@pytest.fixture
+def downloads_folder():
+    with TemporaryDirectory() as downloads_folder:
+        yield downloads_folder
 
+
+@skip_on_missing_imports(["markdownify", "pathvalidate", "requests", "bs4"], "websurfer")
+def test_simple_text_browser(downloads_folder: str):
     # Instantiate the browser
     user_agent = "python-requests/" + requests.__version__
     viewport_size = 1024
@@ -151,14 +148,12 @@ def test_simple_text_browser():
     viewport = browser.visit_page(PDF_URL)
     assert PDF_STRING in viewport
 
-    # Clean up
-    _rm_folder(downloads_folder)
-
 
 @pytest.mark.skipif(
     skip_bing,
     reason="do not run bing tests if key is missing",
 )
+@skip_on_missing_imports(["markdownify", "pathvalidate", "requests", "bs4"], "websurfer")
 def test_bing_search():
     # Instantiate the browser
     user_agent = "python-requests/" + requests.__version__
@@ -171,7 +166,7 @@ def test_bing_search():
     )
 
     assert BING_STRING in browser.visit_page("bing: " + BING_QUERY)
-    assert BING_TITLE == browser.page_title
+    assert browser.page_title == BING_TITLE
     assert len(browser.viewport_pages) == 1
     assert browser.viewport_pages[0] == (0, len(browser.page_content))
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -14,19 +14,19 @@ from hashlib import md5
 from pathlib import Path
 from string import Template
 from types import SimpleNamespace
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Union
+from typing import Any, Callable, ClassVar, Optional, Union
 
 from typing_extensions import ParamSpec
 
-from autogen.coding.func_with_reqs import (
+from ..code_utils import PYTHON_VARIANTS, TIMEOUT_MSG, WIN32, _cmd
+from ..doc_utils import export_module
+from .base import CodeBlock, CodeExecutor, CodeExtractor, CommandLineCodeResult
+from .func_with_reqs import (
     FunctionWithRequirements,
     FunctionWithRequirementsStr,
     _build_python_functions_file,
     to_stub,
 )
-
-from ..code_utils import PYTHON_VARIANTS, TIMEOUT_MSG, WIN32, _cmd
-from .base import CodeBlock, CodeExecutor, CodeExtractor, CommandLineCodeResult
 from .markdown_code_extractor import MarkdownCodeExtractor
 from .utils import _get_file_name_from_content, silence_pip
 
@@ -35,8 +35,9 @@ __all__ = ("LocalCommandLineCodeExecutor",)
 A = ParamSpec("A")
 
 
+@export_module("autogen.coding")
 class LocalCommandLineCodeExecutor(CodeExecutor):
-    SUPPORTED_LANGUAGES: ClassVar[List[str]] = [
+    SUPPORTED_LANGUAGES: ClassVar[list[str]] = [
         "bash",
         "shell",
         "sh",
@@ -48,7 +49,7 @@ class LocalCommandLineCodeExecutor(CodeExecutor):
         "html",
         "css",
     ]
-    DEFAULT_EXECUTION_POLICY: ClassVar[Dict[str, bool]] = {
+    DEFAULT_EXECUTION_POLICY: ClassVar[dict[str, bool]] = {
         "bash": True,
         "shell": True,
         "sh": True,
@@ -73,10 +74,10 @@ $functions"""
         self,
         timeout: int = 60,
         virtual_env_context: Optional[SimpleNamespace] = None,
-        work_dir: Union[Path, str] = Path("."),
-        functions: List[Union[FunctionWithRequirements[Any, A], Callable[..., Any], FunctionWithRequirementsStr]] = [],
+        work_dir: Union[Path, str] = Path(),
+        functions: list[Union[FunctionWithRequirements[Any, A], Callable[..., Any], FunctionWithRequirementsStr]] = [],
         functions_module: str = "functions",
-        execution_policies: Optional[Dict[str, bool]] = None,
+        execution_policies: Optional[dict[str, bool]] = None,
     ):
         """(Experimental) A code executor class that executes or saves LLM generated code a local command line
         environment.
@@ -112,7 +113,6 @@ $functions"""
             functions_module (str): The module name under which functions are accessible.
             execution_policies (Optional[Dict[str, bool]]): A dictionary mapping languages to execution policies (True for execution, False for saving only). Defaults to class-wide DEFAULT_EXECUTION_POLICY.
         """
-
         if timeout < 1:
             raise ValueError("Timeout must be greater than or equal to 1.")
 
@@ -168,7 +168,7 @@ $functions"""
     @property
     def functions(
         self,
-    ) -> List[Union[FunctionWithRequirements[Any, A], Callable[..., Any], FunctionWithRequirementsStr]]:
+    ) -> list[Union[FunctionWithRequirements[Any, A], Callable[..., Any], FunctionWithRequirementsStr]]:
         """(Experimental) The functions that are available to the code executor."""
         return self._functions
 
@@ -189,8 +189,7 @@ $functions"""
 
     @staticmethod
     def sanitize_command(lang: str, code: str) -> None:
-        """
-        Sanitize the code block to prevent dangerous commands.
+        """Sanitize the code block to prevent dangerous commands.
         This approach acknowledges that while Docker or similar
         containerization/sandboxing technologies provide a robust layer of security,
         not all users may have Docker installed or may choose not to use it.
@@ -220,10 +219,7 @@ $functions"""
         required_packages = list(set(flattened_packages))
         if len(required_packages) > 0:
             logging.info("Ensuring packages are installed in executor.")
-            if self._virtual_env_context:
-                py_executable = self._virtual_env_context.env_exe
-            else:
-                py_executable = sys.executable
+            py_executable = self._virtual_env_context.env_exe if self._virtual_env_context else sys.executable
             cmd = [py_executable, "-m", "pip", "install"] + required_packages
             try:
                 result = subprocess.run(
@@ -244,19 +240,20 @@ $functions"""
             raise ValueError(f"Functions failed to load: {exec_result.output}")
         self._setup_functions_complete = True
 
-    def execute_code_blocks(self, code_blocks: List[CodeBlock]) -> CommandLineCodeResult:
+    def execute_code_blocks(self, code_blocks: list[CodeBlock]) -> CommandLineCodeResult:
         """(Experimental) Execute the code blocks and return the result.
 
         Args:
             code_blocks (List[CodeBlock]): The code blocks to execute.
 
         Returns:
-            CommandLineCodeResult: The result of the code execution."""
+            CommandLineCodeResult: The result of the code execution.
+        """
         if not self._setup_functions_complete:
             self._setup_functions()
         return self._execute_code_dont_check_setup(code_blocks)
 
-    def _execute_code_dont_check_setup(self, code_blocks: List[CodeBlock]) -> CommandLineCodeResult:
+    def _execute_code_dont_check_setup(self, code_blocks: list[CodeBlock]) -> CommandLineCodeResult:
         logs_all = ""
         file_names = []
         for code_block in code_blocks:
@@ -296,7 +293,7 @@ $functions"""
 
             if not execute_code:
                 # Just return a message that the file is saved.
-                logs_all += f"Code saved to {str(written_file)}\n"
+                logs_all += f"Code saved to {written_file!s}\n"
                 exitcode = 0
                 continue
 
@@ -351,12 +348,11 @@ class _DeprecatedClassMeta(type):
         if alias is not None:
 
             def new(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
-                alias = getattr(cls, "_DeprecatedClassMeta__alias")
+                alias = cls._DeprecatedClassMeta__alias
 
                 if alias is not None:
                     warnings.warn(
-                        "{} has been renamed to {}, the alias will be "
-                        "removed in the future".format(cls.__name__, alias.__name__),
+                        f"{cls.__name__} has been renamed to {alias.__name__}, the alias will be removed in the future",
                         DeprecationWarning,
                         stacklevel=2,
                     )
@@ -373,8 +369,7 @@ class _DeprecatedClassMeta(type):
 
             if alias is not None:
                 warnings.warn(
-                    "{} has been renamed to {}, the alias will be "
-                    "removed in the future".format(b.__name__, alias.__name__),
+                    f"{b.__name__} has been renamed to {alias.__name__}, the alias will be removed in the future",
                     DeprecationWarning,
                     stacklevel=2,
                 )
@@ -395,7 +390,7 @@ class _DeprecatedClassMeta(type):
         if subclass is cls:
             return True
         else:
-            return issubclass(subclass, getattr(cls, "_DeprecatedClassMeta__alias"))
+            return issubclass(subclass, cls._DeprecatedClassMeta__alias)  # type: ignore[attr-defined]
 
 
 class LocalCommandlineCodeExecutor(metaclass=_DeprecatedClassMeta):

@@ -1,25 +1,22 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Protocol
 
-IMPORT_ERROR: Optional[Exception] = None
-try:
+from ....import_utils import optional_import_block, require_optional_import
+
+with optional_import_block() as result:
     import llmlingua
-except ImportError:
-    IMPORT_ERROR = ImportError("LLMLingua is not installed. Please install it with `pip install autogen[long-context]`")
-    PromptCompressor = object
-else:
     from llmlingua import PromptCompressor
 
 
 class TextCompressor(Protocol):
     """Defines a protocol for text compression to optimize agent interactions."""
 
-    def compress_text(self, text: str, **compression_params) -> Dict[str, Any]:
+    def compress_text(self, text: str, **compression_params) -> dict[str, Any]:
         """This method takes a string as input and returns a dictionary containing the compressed text and other
         relevant information. The compressed text should be stored under the 'compressed_text' key in the dictionary.
         To calculate the number of saved tokens, the dictionary should include 'origin_tokens' and 'compressed_tokens' keys.
@@ -27,6 +24,7 @@ class TextCompressor(Protocol):
         ...
 
 
+@require_optional_import("llmlingua", "long-context")
 class LLMLingua:
     """Compresses text messages using LLMLingua for improved efficiency in processing and response generation.
 
@@ -36,15 +34,14 @@ class LLMLingua:
 
     def __init__(
         self,
-        prompt_compressor_kwargs: Dict = dict(
+        prompt_compressor_kwargs: dict = dict(
             model_name="microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank",
             use_llmlingua2=True,
             device_map="cpu",
         ),
         structured_compression: bool = False,
     ) -> None:
-        """
-        Args:
+        """Args:
             prompt_compressor_kwargs (dict): A dictionary of keyword arguments for the PromptCompressor. Defaults to a
                 dictionary with model_name set to "microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank",
                 use_llmlingua2 set to True, and device_map set to "cpu".
@@ -56,9 +53,6 @@ class LLMLingua:
         Raises:
             ImportError: If the llmlingua library is not installed.
         """
-        if IMPORT_ERROR:
-            raise IMPORT_ERROR
-
         self._prompt_compressor = PromptCompressor(**prompt_compressor_kwargs)
 
         assert isinstance(self._prompt_compressor, llmlingua.PromptCompressor)
@@ -68,5 +62,5 @@ class LLMLingua:
             else self._prompt_compressor.compress_prompt
         )
 
-    def compress_text(self, text: str, **compression_params) -> Dict[str, Any]:
+    def compress_text(self, text: str, **compression_params) -> dict[str, Any]:
         return self._compression_method([text], **compression_params)

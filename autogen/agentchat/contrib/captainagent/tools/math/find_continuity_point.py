@@ -1,9 +1,8 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 def find_continuity_point(f_leq, f_gt, x_value):
-    """
-    Find the value 'a' that ensures the continuity of a piecewise function at a given point.
+    """Find the value 'a' that ensures the continuity of a piecewise function at a given point.
 
     Args:
         f_leq (str): The function expression for f(x) when x is less than or equal to the continuity point, in the form of a string.

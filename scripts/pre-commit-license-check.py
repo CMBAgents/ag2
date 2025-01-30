@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #!/usr/bin/env python3
@@ -10,7 +10,10 @@ import sys
 from pathlib import Path
 from typing import List
 
-REQUIRED_ELEMENTS = [r"Copyright.*Owners of https://github\.com/ag2ai", r"SPDX-License-Identifier: Apache-2\.0"]
+REQUIRED_ELEMENTS = [
+    r"Copyright \(c\) 2023 - 20.., AG2ai, Inc\., AG2ai open-source projects maintainers and core contributors",
+    r"SPDX-License-Identifier: Apache-2\.0",
+]
 
 
 def get_github_pr_files() -> List[Path]:
@@ -61,7 +64,7 @@ def should_check_file(file_path: Path) -> bool:
 def check_file_header(file_path: Path) -> List[str]:
     """Check if file has required license headers."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read(500)
             missing_elements = []
             for pattern in REQUIRED_ELEMENTS:
@@ -77,7 +80,7 @@ def get_files_to_check() -> List[Path]:
     """Determine which files to check based on environment."""
     try:
         if "--all-files" in sys.argv:
-            return list(Path(".").rglob("*.py"))
+            return list(Path().rglob("*.py"))
 
         if os.getenv("GITHUB_ACTIONS") == "true":
             return get_github_pr_files()
@@ -106,9 +109,7 @@ def main() -> None:
             if missing_elements:
                 failed = True
                 print(f"\nIncomplete or missing license header in: {py_file}")
-                print(
-                    "\nSee https://ag2ai.github.io/ag2/docs/contributor-guide/contributing/#license-headers for guidance."
-                )
+                print("\nSee https://docs.ag2.ai/docs/contributor-guide/contributing/#license-headers for guidance.")
 
         sys.exit(1 if failed else 0)
     except Exception as e:

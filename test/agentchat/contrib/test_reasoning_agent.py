@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,27 +6,27 @@
 # SPDX-License-Identifier: MIT
 #!/usr/bin/env python3 -m pytest
 
-import json
 import os
 import random
 import sys
-from typing import Dict, List
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-import autogen
 from autogen.agentchat.contrib.reasoning_agent import ReasoningAgent, ThinkNode, visualize_tree
-from autogen.agentchat.user_proxy_agent import UserProxyAgent
+from autogen.import_utils import skip_on_missing_imports
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from conftest import reason, skip_openai  # noqa: E402
+
 
 here = os.path.abspath(os.path.dirname(__file__))
 
 # Test data
 TEST_QUESTION = "What is the capital of France?"
-TEST_TRAJECTORY = """# Question: What is the capital of France?
+TEST_TRAJECTORY = """# Question:
+What is the capital of France?
+---
+
 Step 1: Let me think about this systematically
 Step 2: France is a country in Europe
 Step 3: Paris is the capital city of France"""
@@ -43,7 +43,7 @@ def think_node():
 @pytest.fixture
 def reasoning_agent():
     """Create a ReasoningAgent instance for testing"""
-    config_list = [{"model": "gpt-4", "api_key": "fake_key"}]
+    config_list = [{"model": "gpt-4o", "api_key": "fake_key"}]
     llm_config = {"config_list": config_list, "temperature": 0}
     return ReasoningAgent("reasoning_agent", llm_config=llm_config)
 
@@ -51,7 +51,7 @@ def reasoning_agent():
 def test_think_node_init(think_node):
     """Test ThinkNode initialization"""
     assert think_node.content == TEST_CONTENT
-    assert think_node.value is None
+    assert think_node.value == 0
     assert think_node.parent is None
     assert think_node.depth == 0
     assert think_node.children == []
@@ -60,13 +60,14 @@ def test_think_node_init(think_node):
 
 def test_think_node_trajectory(think_node):
     """Test ThinkNode trajectory property"""
-    assert think_node._trajectory_arr == ["# Question: " + TEST_CONTENT]
-    assert "# Question: " + TEST_CONTENT in think_node.trajectory
+    first_line = "# Question:\n" + TEST_CONTENT + "\n---\n"
+    assert think_node._trajectory_arr == [first_line]
+    assert first_line in think_node.trajectory
 
 
 def test_think_node_str_repr(think_node):
     """Test ThinkNode string representation"""
-    expected = f"{TEST_CONTENT} -> Depth: 0 Value: None Visits: 0"
+    expected = f"{TEST_CONTENT} -> Depth: 0 Value: 0 Visits: 0"
     assert str(think_node) == expected
     assert repr(think_node) == expected
 
@@ -75,7 +76,7 @@ def test_think_node_to_dict(think_node):
     """Test ThinkNode to_dict method"""
     node_dict = think_node.to_dict()
     assert node_dict["content"] == TEST_CONTENT
-    assert node_dict["value"] is None
+    assert node_dict["value"] == 0
     assert node_dict["depth"] == 0
     assert node_dict["visits"] == 0
     assert node_dict["children"] == []
@@ -92,23 +93,14 @@ def test_think_node_from_dict():
     assert node.children == []
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
+@pytest.mark.openai
 def test_reasoning_agent_init(reasoning_agent):
     """Test ReasoningAgent initialization"""
     assert reasoning_agent.name == "reasoning_agent"
-    assert reasoning_agent.max_depth == 4
-    assert reasoning_agent.beam_size == 3
-    assert reasoning_agent.answer_approach == "pool"
+    assert reasoning_agent._max_depth == 4
+    assert reasoning_agent._beam_size == 3
+    assert reasoning_agent._answer_approach == "pool"
     assert reasoning_agent._root is None
-
-
-def test_reasoning_agent_invalid_approach():
-    """Test ReasoningAgent with invalid answer approach"""
-    config_list = [{"model": "gpt-4o-mini", "api_key": "fake_key"}]
-    llm_config = {"config_list": config_list}
-
-    with pytest.raises(AssertionError):
-        ReasoningAgent("reasoning_agent", llm_config=llm_config, answer_approach="invalid")
 
 
 def test_think_node_with_parent():
@@ -164,14 +156,15 @@ def test_reasoning_agent_answer():
 
 def helper_test_reasoning_agent_answer(max_depth, beam_size, answer_approach):
     """Test that ReasoningAgent properly terminates when TERMINATE is received"""
-    mock_config = {"config_list": [{"model": "gpt-4", "api_key": "fake", "base_url": "0.0.0.0:8000"}], "temperature": 0}
+    mock_config = {
+        "config_list": [{"model": "gpt-4o", "api_key": "fake", "base_url": "0.0.0.0:8000"}],
+        "temperature": 0,
+    }
     with patch("autogen.agentchat.conversable_agent.ConversableAgent.generate_oai_reply") as mock_oai_reply:
         agent = ReasoningAgent(
             "test_agent",
             llm_config=mock_config,
-            max_depth=max_depth,
-            beam_size=beam_size,
-            answer_approach=answer_approach,
+            reason_config={"beam_size": beam_size, "answer_approach": answer_approach, "max_depth": max_depth},
         )
 
         def mock_response(*args, **kwargs):
@@ -196,14 +189,12 @@ Option 3: Another option"""
 
         mock_oai_reply.side_effect = mock_response
 
-        print("OAI REPLY:", agent.thinker.generate_oai_reply)
+        print("OAI REPLY:", agent._thinker.generate_oai_reply)
 
-        success, response = agent.generate_response(
-            messages=[{"role": "user", "content": "Test question"}], sender=None
-        )
+        response = agent._beam_reply("Test question")
+        assert len(response)
 
-    assert success is True
-    assert "TERMINATE" in agent.thinker.last_message()["content"]
+    assert "TERMINATE" in agent._thinker.last_message()["content"]
 
     # Verify we didn't exceed max_depth
     current_node = agent._root
@@ -215,9 +206,10 @@ Option 3: Another option"""
         max_depth_found = max(max_depth_found, node.depth)
         nodes_to_check.extend(node.children)
 
-    assert max_depth_found <= agent.max_depth
+    assert max_depth_found <= agent._max_depth
 
 
+@skip_on_missing_imports(["graphviz"], "unknown")
 @patch("graphviz.Digraph")
 def test_visualize_tree_successful_case(mock_digraph):
     """Test successful tree visualization"""
@@ -249,8 +241,8 @@ def test_visualize_tree_successful_case(mock_digraph):
     expected_calls = [
         call("0", "Root\n visits: 1\n value: 0.5"),
         call("0_0", "Child 1\n visits: 2\n value: 0.7"),
-        call("0_1", "Child 2\n visits: 0\n value: None"),
-        call("0_0_0", "Grandchild with very long content that should be t...\n visits: 0\n value: None"),
+        call("0_1", "Child 2\n visits: 0\n value: 0"),
+        call("0_0_0", "Grandchild with very long content that should be t...\n visits: 0\n value: 0"),
     ]
     mock_graph.node.assert_has_calls(expected_calls, any_order=True)
 
@@ -266,6 +258,7 @@ def test_visualize_tree_successful_case(mock_digraph):
     mock_graph.render.assert_called_once_with("tree_of_thoughts", view=False, format="png", cleanup=True)
 
 
+@skip_on_missing_imports(["graphviz"], "unknown")
 @patch("graphviz.Digraph")
 def test_visualize_tree_render_failure(mock_digraph):
     """Test visualization when rendering fails"""

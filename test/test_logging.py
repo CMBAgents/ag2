@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -35,7 +35,7 @@ SAMPLE_CHAT_REQUEST = json.loads(
             "role": "user"
         }
     ],
-    "model": "gpt-4"
+    "model": "gpt-4o"
 }
 """
 )
@@ -58,7 +58,7 @@ SAMPLE_CHAT_RESPONSE = json.loads(
         }
     ],
     "created": 1705993480,
-    "model": "gpt-4",
+    "model": "gpt-4o",
     "object": "chat.completion",
     "system_fingerprint": "fp_6d044fb900",
     "usage": {
@@ -159,7 +159,7 @@ def test_log_new_agent(db_connection):
 
     cur = db_connection.cursor()
     agent_name = "some_assistant"
-    config_list = [{"model": "gpt-4", "api_key": "some_key"}]
+    config_list = [{"model": "gpt-4o", "api_key": "some_key"}]
 
     agent = AssistantAgent(agent_name, llm_config={"config_list": config_list})
     init_args = {"foo": "bar", "baz": {"other_key": "other_val"}, "a": None}
@@ -171,9 +171,9 @@ def test_log_new_agent(db_connection):
     """
 
     for row in cur.execute(query):
-        assert (
-            row["session_id"] and str(uuid.UUID(row["session_id"], version=4)) == row["session_id"]
-        ), "session id is not valid uuid"
+        assert row["session_id"] and str(uuid.UUID(row["session_id"], version=4)) == row["session_id"], (
+            "session id is not valid uuid"
+        )
         assert row["name"] == agent_name
         assert row["class"] == "AssistantAgent"
         assert row["init_args"] == json.dumps(init_args)
@@ -184,7 +184,7 @@ def test_log_oai_wrapper(db_connection):
 
     cur = db_connection.cursor()
 
-    llm_config = {"config_list": [{"model": "gpt-4", "api_key": "some_key", "base_url": "some url"}]}
+    llm_config = {"config_list": [{"model": "gpt-4o", "api_key": "some_key", "base_url": "some url"}]}
     init_args = {"llm_config": llm_config, "base_config": {}}
     wrapper = OpenAIWrapper(**llm_config)
 
@@ -195,9 +195,9 @@ def test_log_oai_wrapper(db_connection):
     """
 
     for row in cur.execute(query):
-        assert (
-            row["session_id"] and str(uuid.UUID(row["session_id"], version=4)) == row["session_id"]
-        ), "session id is not valid uuid"
+        assert row["session_id"] and str(uuid.UUID(row["session_id"], version=4)) == row["session_id"], (
+            "session id is not valid uuid"
+        )
         saved_init_args = json.loads(row["init_args"])
         assert "config_list" in saved_init_args
         assert "api_key" not in saved_init_args["config_list"][0]
@@ -210,8 +210,8 @@ def test_log_oai_client(db_connection):
 
     openai_config = {
         "api_key": "some_key",
-        "api_version": "2024-02-01",
-        "azure_deployment": "gpt-4",
+        "api_version": "2024-08-06",
+        "azure_deployment": "gpt-4o",
         "azure_endpoint": "https://foobar.openai.azure.com/",
     }
     client = AzureOpenAI(**openai_config)
@@ -223,9 +223,9 @@ def test_log_oai_client(db_connection):
     """
 
     for row in cur.execute(query):
-        assert (
-            row["session_id"] and str(uuid.UUID(row["session_id"], version=4)) == row["session_id"]
-        ), "session id is not valid uuid"
+        assert row["session_id"] and str(uuid.UUID(row["session_id"], version=4)) == row["session_id"], (
+            "session id is not valid uuid"
+        )
         assert row["class"] == "AzureOpenAI"
         saved_init_args = json.loads(row["init_args"])
         assert "api_version" in saved_init_args
@@ -236,7 +236,7 @@ def test_to_dict():
     from autogen import Agent
     from autogen.coding import LocalCommandLineCodeExecutor
 
-    agent_executor = LocalCommandLineCodeExecutor(work_dir=Path("."))
+    agent_executor = LocalCommandLineCodeExecutor(work_dir=Path())
 
     agent1 = autogen.ConversableAgent(
         "alice",
@@ -264,7 +264,7 @@ def test_to_dict():
             self.extra_key = "remove this key"
             self.path = Path("/to/something")
 
-    class Bar(object):
+    class Bar:
         def init(self):
             pass
 
@@ -296,8 +296,8 @@ def test_to_dict():
     assert result["o"] == expected_o_field
     assert len(result["agents"]) == 2
     for agent in result["agents"]:
-        assert "autogen.agentchat.conversable_agent.ConversableAgent" in agent
-    assert "autogen.agentchat.conversable_agent.ConversableAgent" in result["first_agent"]
+        assert "autogen.ConversableAgent" in agent
+    assert "autogen.ConversableAgent" in result["first_agent"]
 
 
 @patch("logging.Logger.error")

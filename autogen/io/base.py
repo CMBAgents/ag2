@@ -1,20 +1,25 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 import logging
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Iterator, Optional, Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
-__all__ = ("OutputStream", "InputStream", "IOStream")
+from ..doc_utils import export_module
+from ..messages.base_message import BaseMessage
+
+__all__ = ("IOStream", "InputStream", "OutputStream")
 
 logger = logging.getLogger(__name__)
 
 
 @runtime_checkable
+@export_module("autogen.io")
 class OutputStream(Protocol):
     def print(self, *objects: Any, sep: str = " ", end: str = "\n", flush: bool = False) -> None:
         """Print data to the output stream.
@@ -27,8 +32,17 @@ class OutputStream(Protocol):
         """
         ...  # pragma: no cover
 
+    def send(self, message: BaseMessage) -> None:
+        """Send data to the output stream.
+
+        Args:
+            message (BaseMessage): BaseMessage from autogen.messages.base_message
+        """
+        ...
+
 
 @runtime_checkable
+@export_module("autogen.io")
 class InputStream(Protocol):
     def input(self, prompt: str = "", *, password: bool = False) -> str:
         """Read a line from the input stream.
@@ -45,6 +59,7 @@ class InputStream(Protocol):
 
 
 @runtime_checkable
+@export_module("autogen.io")
 class IOStream(InputStream, OutputStream, Protocol):
     """A protocol for input/output streams."""
 

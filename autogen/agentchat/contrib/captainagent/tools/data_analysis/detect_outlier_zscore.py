@@ -1,9 +1,8 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 def detect_outlier_zscore(csv_file, column_name, threshold=3):
-    """
-    Detect outliers in a CSV file based on a specified column. The outliers are determined by calculating the z-score of the data points in the column.
+    """Detect outliers in a CSV file based on a specified column. The outliers are determined by calculating the z-score of the data points in the column.
 
     Args:
     csv_file (str): The path to the CSV file.

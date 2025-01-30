@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -7,14 +7,11 @@
 """Create an OpenAI-compatible client using Ollama's API.
 
 Example:
-    llm_config={
-        "config_list": [{
-            "api_type": "ollama",
-            "model": "mistral:7b-instruct-v0.3-q6_K"
-            }
-    ]}
+    ```python
+    llm_config = {"config_list": [{"api_type": "ollama", "model": "mistral:7b-instruct-v0.3-q6_K"}]}
 
     agent = autogen.AssistantAgent("my_agent", llm_config=llm_config)
+    ```
 
 Install Ollama's python library using: pip install --upgrade ollama
 Install fix-busted-json library: pip install --upgrade fix-busted-json
@@ -31,17 +28,20 @@ import random
 import re
 import time
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional, Type
 
-import ollama
-from fix_busted_json import repair_json
-from ollama import Client
 from openai.types.chat import ChatCompletion, ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
 from openai.types.completion_usage import CompletionUsage
 from pydantic import BaseModel
 
-from autogen.oai.client_utils import should_hide_tools, validate_parameter
+from ..import_utils import optional_import_block, require_optional_import
+from .client_utils import FormatterProtocol, should_hide_tools, validate_parameter
+
+with optional_import_block():
+    import ollama
+    from fix_busted_json import repair_json
+    from ollama import Client
 
 
 class OllamaClient:
@@ -85,12 +85,11 @@ class OllamaClient:
         Args:
             None
         """
-        if "response_format" in kwargs and kwargs["response_format"] is not None:
-            warnings.warn("response_format is not supported for Ollama, it will be ignored.", UserWarning)
+        # Store the response format, if provided (for structured outputs)
+        self._response_format: Optional[Type[BaseModel]] = None
 
-    def message_retrieval(self, response) -> List:
-        """
-        Retrieve and return a list of strings or a list of Choice.Message from the response.
+    def message_retrieval(self, response) -> list:
+        """Retrieve and return a list of strings or a list of Choice.Message from the response.
 
         NOTE: if a list of Choice.Message is returned, it currently needs to contain the fields of OpenAI's ChatCompletion Message object,
         since that is expected for function or tool calling in the rest of the codebase at the moment, unless a custom agent is being used.
@@ -101,7 +100,7 @@ class OllamaClient:
         return response.cost
 
     @staticmethod
-    def get_usage(response) -> Dict:
+    def get_usage(response) -> dict:
         """Return usage summary of the response using RESPONSE_USAGE_KEYS."""
         # ...  # pragma: no cover
         return {
@@ -112,7 +111,7 @@ class OllamaClient:
             "model": response.model,
         }
 
-    def parse_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_params(self, params: dict[str, Any]) -> dict[str, Any]:
         """Loads the parameters for Ollama API from the passed in parameters and returns a validated set. Checks types, ranges, and sets defaults"""
         ollama_params = {}
 
@@ -124,10 +123,10 @@ class OllamaClient:
         # There are other, advanced, parameters such as format, system (to override system message), template, raw, etc. - not used
 
         # We won't enforce the available models
-        ollama_params["model"] = params.get("model", None)
-        assert ollama_params[
-            "model"
-        ], "Please specify the 'model' in your config list entry to nominate the Ollama model to use."
+        ollama_params["model"] = params.get("model")
+        assert ollama_params["model"], (
+            "Please specify the 'model' in your config list entry to nominate the Ollama model to use."
+        )
 
         ollama_params["stream"] = validate_parameter(params, "stream", bool, True, False, None, None)
 
@@ -180,7 +179,8 @@ class OllamaClient:
 
         return ollama_params
 
-    def create(self, params: Dict) -> ChatCompletion:
+    @require_optional_import(["ollama", "fix_busted_json"], "ollama")
+    def create(self, params: dict) -> ChatCompletion:
         messages = params.get("messages", [])
 
         # Are tools involved in this conversation?
@@ -213,7 +213,7 @@ class OllamaClient:
                 params, "manual_tool_call_step2", str, False, self.TOOL_CALL_MANUAL_STEP2, None, None
             )
 
-        # Convert AutoGen messages to Ollama messages
+        # Convert AG2 messages to Ollama messages
         ollama_messages = self.oai_messages_to_ollama_messages(
             messages,
             (
@@ -227,6 +227,13 @@ class OllamaClient:
         ollama_params = self.parse_params(params)
 
         ollama_params["messages"] = ollama_messages
+
+        # If response_format exists, we want structured outputs
+        # Based on:
+        # https://ollama.com/blog/structured-outputs
+        if params.get("response_format"):
+            self._response_format = params["response_format"]
+            ollama_params["format"] = params.get("response_format").model_json_schema()
 
         # Token counts will be returned
         prompt_tokens = 0
@@ -248,19 +255,18 @@ class OllamaClient:
                 ans = ans + (chunk["message"]["content"] or "")
 
                 if "done_reason" in chunk:
-                    prompt_tokens = chunk["prompt_eval_count"] if "prompt_eval_count" in chunk else 0
-                    completion_tokens = chunk["eval_count"] if "eval_count" in chunk else 0
+                    prompt_tokens = chunk.get("prompt_eval_count", 0)
+                    completion_tokens = chunk.get("eval_count", 0)
                     total_tokens = prompt_tokens + completion_tokens
         else:
             # Non-streaming finished
             ans: str = response["message"]["content"]
 
-            prompt_tokens = response["prompt_eval_count"] if "prompt_eval_count" in response else 0
-            completion_tokens = response["eval_count"] if "eval_count" in response else 0
+            prompt_tokens = response.get("prompt_eval_count", 0)
+            completion_tokens = response.get("eval_count", 0)
             total_tokens = prompt_tokens + completion_tokens
 
         if response is not None:
-
             # Defaults
             ollama_finish = "stop"
             tool_calls = None
@@ -275,9 +281,7 @@ class OllamaClient:
 
             # Process tools in the response
             if self._tools_in_conversation:
-
                 if self._native_tool_calls:
-
                     if not ollama_params["stream"]:
                         response_content = response["message"]["content"]
 
@@ -289,7 +293,7 @@ class OllamaClient:
                             for tool_call in response["message"]["tool_calls"]:
                                 tool_calls.append(
                                     ChatCompletionMessageToolCall(
-                                        id="ollama_func_{}".format(random_id),
+                                        id=f"ollama_func_{random_id}",
                                         function={
                                             "name": tool_call["function"]["name"],
                                             "arguments": json.dumps(tool_call["function"]["arguments"]),
@@ -301,7 +305,6 @@ class OllamaClient:
                                 random_id += 1
 
                 elif not self._native_tool_calls:
-
                     # Try to convert the response to a tool call object
                     response_toolcalls = response_to_tool_call(ans)
 
@@ -314,7 +317,7 @@ class OllamaClient:
                         for json_function in response_toolcalls:
                             tool_calls.append(
                                 ChatCompletionMessageToolCall(
-                                    id="ollama_manual_func_{}".format(random_id),
+                                    id=f"ollama_manual_func_{random_id}",
                                     function={
                                         "name": json_function["name"],
                                         "arguments": (
@@ -332,10 +335,18 @@ class OllamaClient:
                         # Blank the message content
                         response_content = ""
 
+            if ollama_finish == "stop":  # noqa: SIM102
+                # Not a tool call, so let's check if we need to process structured output
+                if self._response_format and response_content:
+                    try:
+                        parsed_response = self._convert_json_response(response_content)
+                        response_content = _format_json_response(parsed_response, response_content)
+                    except ValueError as e:
+                        response_content = str(e)
         else:
             raise RuntimeError("Failed to get response from Ollama.")
 
-        # Convert response to AutoGen response
+        # Convert response to AG2 response
         message = ChatCompletionMessage(
             role="assistant",
             content=response_content,
@@ -360,11 +371,10 @@ class OllamaClient:
 
         return response_oai
 
-    def oai_messages_to_ollama_messages(self, messages: list[Dict[str, Any]], tools: list) -> list[dict[str, Any]]:
+    def oai_messages_to_ollama_messages(self, messages: list[dict[str, Any]], tools: list) -> list[dict[str, Any]]:
         """Convert messages from OAI format to Ollama's format.
         We correct for any specific role orders and types, and convert tools to messages (as Ollama can't use tool messages)
         """
-
         ollama_messages = copy.deepcopy(messages)
 
         # Remove the name field
@@ -414,20 +424,19 @@ class OllamaClient:
                 ollama_messages[0]["content"] = ollama_messages[0]["content"] + manual_instruction.rstrip()
 
             # If we are still in the function calling or evaluating process, append the steps instruction
-            if not have_tool_calls or tool_result_is_last_msg:
-                if ollama_messages[0]["role"] == "system":
-                    # NOTE: we require a system message to exist for the manual steps texts
-                    # Append the manual step instructions
-                    content_to_append = (
-                        self._manual_tool_call_step1 if not have_tool_results else self._manual_tool_call_step2
-                    )
+            if (not have_tool_calls or tool_result_is_last_msg) and ollama_messages[0]["role"] == "system":
+                # NOTE: we require a system message to exist for the manual steps texts
+                # Append the manual step instructions
+                content_to_append = (
+                    self._manual_tool_call_step1 if not have_tool_results else self._manual_tool_call_step2
+                )
 
-                    if content_to_append != "":
-                        # Append the relevant tool call instruction to the latest user message
-                        if ollama_messages[-1]["role"] == "user":
-                            ollama_messages[-1]["content"] = ollama_messages[-1]["content"] + content_to_append
-                        else:
-                            ollama_messages.append({"role": "user", "content": content_to_append})
+                if content_to_append != "":
+                    # Append the relevant tool call instruction to the latest user message
+                    if ollama_messages[-1]["role"] == "user":
+                        ollama_messages[-1]["content"] = ollama_messages[-1]["content"] + content_to_append
+                    else:
+                        ollama_messages.append({"role": "user", "content": content_to_append})
 
         # Convert tool call and tool result messages to normal text messages for Ollama
         for i, message in enumerate(ollama_messages):
@@ -465,10 +474,33 @@ class OllamaClient:
 
         return ollama_messages
 
+    def _convert_json_response(self, response: str) -> Any:
+        """Extract and validate JSON response from the output for structured outputs.
 
+        Args:
+            response (str): The response from the API.
+
+        Returns:
+            Any: The parsed JSON response.
+        """
+        if not self._response_format:
+            return response
+
+        try:
+            # Parse JSON and validate against the Pydantic model
+            return self._response_format.model_validate_json(response)
+        except Exception as e:
+            raise ValueError(f"Failed to parse response as valid JSON matching the schema for Structured Output: {e!s}")
+
+
+def _format_json_response(response: Any, original_answer: str) -> str:
+    """Formats the JSON response for structured outputs using the format method if it exists."""
+    return response.format() if isinstance(response, FormatterProtocol) else original_answer
+
+
+@require_optional_import("fix_busted_json", "ollama")
 def response_to_tool_call(response_string: str) -> Any:
-    """Attempts to convert the response to an object, aimed to align with function format [{},{}]"""
-
+    """Attempts to convert the response to an object, aimed to align with function format `[{},{}]`"""
     # We try and detect the list[dict] format:
     # Pattern 1 is [{},{}]
     # Pattern 2 is {} (without the [], so could be a single function call)
@@ -479,7 +511,6 @@ def response_to_tool_call(response_string: str) -> Any:
         matches = re.findall(pattern, response_string.strip())
 
         for match in matches:
-
             # It has matched, extract it and load it
             json_str = match.strip()
             data_object = None
@@ -526,9 +557,8 @@ def response_to_tool_call(response_string: str) -> Any:
     return None
 
 
-def _object_to_tool_call(data_object: Any) -> List[Dict]:
+def _object_to_tool_call(data_object: Any) -> list[dict]:
     """Attempts to convert an object to a valid tool call object List[Dict] and returns it, if it can, otherwise None"""
-
     # If it's a dictionary and not a list then wrap in a list
     if isinstance(data_object, dict):
         data_object = [data_object]
@@ -578,7 +608,7 @@ def is_valid_tool_call_item(call_item: dict) -> bool:
     if "name" not in call_item or not isinstance(call_item["name"], str):
         return False
 
-    if set(call_item.keys()) - {"name", "arguments"}:
+    if set(call_item.keys()) - {"name", "arguments"}:  # noqa: SIM103
         return False
 
     return True

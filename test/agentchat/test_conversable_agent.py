@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -10,34 +10,27 @@ import asyncio
 import copy
 import inspect
 import os
-import sys
 import time
 import unittest
-from typing import Any, Callable, Dict, Literal
+from typing import Annotated, Any, Callable, Literal, Optional
 from unittest.mock import MagicMock
 
 import pytest
 from pydantic import BaseModel, Field
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
-from typing_extensions import Annotated
 
 import autogen
 from autogen.agentchat import ConversableAgent, UserProxyAgent
 from autogen.agentchat.conversable_agent import register_function
 from autogen.exception_utils import InvalidCarryOverType, SenderRequired
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from conftest import MOCK_OPEN_AI_API_KEY, reason, skip_openai  # noqa: E402
+from ..conftest import (
+    Credentials,
+    credentials_all_llms,
+    suppress_gemini_resource_exhausted,
+    suppress_json_decoder_error,
+)
 
 here = os.path.abspath(os.path.dirname(__file__))
-
-gpt4_config_list = [
-    {"model": "gpt-4"},
-    {"model": "gpt-4-turbo"},
-    {"model": "gpt-4-32k"},
-    {"model": "gpt-4o"},
-    {"model": "gpt-4o-mini"},
-]
 
 
 @pytest.fixture
@@ -49,6 +42,26 @@ def conversable_agent():
         llm_config=False,
         human_input_mode="NEVER",
     )
+
+
+@pytest.mark.parametrize("name", ["agent name", "agent_name ", " agent\nname", " agent\tname"])
+def test_conversable_agent_name_with_white_space(
+    name: str,
+    mock_credentials: Credentials,
+) -> None:
+    agent = ConversableAgent(name=name)
+    assert agent.name == name
+
+    llm_config = mock_credentials.llm_config
+    with pytest.raises(
+        ValueError,
+        match=f"The name of the agent cannot contain any whitespace. The name provided is: '{name}'",
+    ):
+        ConversableAgent(name=name, llm_config=llm_config)
+
+    llm_config["config_list"][0]["api_type"] = "something-else"
+    agent = ConversableAgent(name=name, llm_config=llm_config)
+    assert agent.name == name
 
 
 def test_sync_trigger():
@@ -399,9 +412,9 @@ def test_conversable_agent():
     pre_len = len(dummy_agent_1.chat_messages[dummy_agent_2])
     with pytest.raises(ValueError):
         dummy_agent_1.receive({"message": "hello"}, dummy_agent_2)
-    assert pre_len == len(
-        dummy_agent_1.chat_messages[dummy_agent_2]
-    ), "When the message is not an valid openai message, it should not be appended to the oai conversation."
+    assert pre_len == len(dummy_agent_1.chat_messages[dummy_agent_2]), (
+        "When the message is not an valid openai message, it should not be appended to the oai conversation."
+    )
 
     # monkeypatch.setattr(sys, "stdin", StringIO("exit"))
     dummy_agent_1.send("TERMINATE", dummy_agent_2)  # send a str
@@ -418,9 +431,9 @@ def test_conversable_agent():
     with pytest.raises(ValueError):
         dummy_agent_1.send({"message": "hello"}, dummy_agent_2)
 
-    assert pre_len == len(
-        dummy_agent_1.chat_messages[dummy_agent_2]
-    ), "When the message is not a valid openai message, it should not be appended to the oai conversation."
+    assert pre_len == len(dummy_agent_1.chat_messages[dummy_agent_2]), (
+        "When the message is not a valid openai message, it should not be appended to the oai conversation."
+    )
 
     # update system message
     dummy_agent_1.update_system_message("new system message")
@@ -463,16 +476,16 @@ def test_generate_reply():
     messages = [{"function_call": {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'}, "role": "assistant"}]
 
     # when sender is None, messages is provided
-    assert (
-        dummy_agent_2.generate_reply(messages=messages, sender=None)["content"] == 15
-    ), "generate_reply not working when sender is None"
+    assert dummy_agent_2.generate_reply(messages=messages, sender=None)["content"] == 15, (
+        "generate_reply not working when sender is None"
+    )
 
     # when sender is provided, messages is None
     dummy_agent_1 = ConversableAgent(name="dummy_agent_1", llm_config=False, human_input_mode="ALWAYS")
     dummy_agent_2._oai_messages[dummy_agent_1] = messages
-    assert (
-        dummy_agent_2.generate_reply(messages=None, sender=dummy_agent_1)["content"] == 15
-    ), "generate_reply not working when messages is None"
+    assert dummy_agent_2.generate_reply(messages=None, sender=dummy_agent_1)["content"] == 15, (
+        "generate_reply not working when messages is None"
+    )
 
     dummy_agent_2.register_reply(["str", None], ConversableAgent.generate_oai_reply)
     with pytest.raises(SenderRequired):
@@ -513,87 +526,85 @@ async def test_a_generate_reply_with_messages_and_sender_none(conversable_agent)
         pytest.fail(f"Unexpected exception: {e}")
 
 
-def test_update_function_signature_and_register_functions() -> None:
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("OPENAI_API_KEY", MOCK_OPEN_AI_API_KEY)
-        agent = ConversableAgent(name="agent", llm_config={"config_list": gpt4_config_list})
+def test_update_function_signature_and_register_functions(mock_credentials: Credentials) -> None:
+    agent = ConversableAgent(name="agent", llm_config=mock_credentials.llm_config)
 
-        def exec_python(cell: str) -> None:
-            pass
+    def exec_python(cell: str) -> None:
+        pass
 
-        def exec_sh(script: str) -> None:
-            pass
+    def exec_sh(script: str) -> None:
+        pass
 
-        agent.update_function_signature(
-            {
-                "name": "python",
-                "description": "run cell in ipython and return the execution result.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "cell": {
-                            "type": "string",
-                            "description": "Valid Python cell to execute.",
-                        }
-                    },
-                    "required": ["cell"],
+    agent.update_function_signature(
+        {
+            "name": "python",
+            "description": "run cell in ipython and return the execution result.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "cell": {
+                        "type": "string",
+                        "description": "Valid Python cell to execute.",
+                    }
                 },
+                "required": ["cell"],
             },
-            is_remove=False,
-        )
+        },
+        is_remove=False,
+    )
 
-        functions = agent.llm_config["functions"]
-        assert {f["name"] for f in functions} == {"python"}
+    functions = agent.llm_config["functions"]
+    assert {f["name"] for f in functions} == {"python"}
 
-        agent.update_function_signature(
-            {
-                "name": "sh",
-                "description": "run a shell script and return the execution result.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "script": {
-                            "type": "string",
-                            "description": "Valid shell script to execute.",
-                        }
-                    },
-                    "required": ["script"],
+    agent.update_function_signature(
+        {
+            "name": "sh",
+            "description": "run a shell script and return the execution result.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "script": {
+                        "type": "string",
+                        "description": "Valid shell script to execute.",
+                    }
                 },
+                "required": ["script"],
             },
-            is_remove=False,
-        )
+        },
+        is_remove=False,
+    )
 
-        functions = agent.llm_config["functions"]
-        assert {f["name"] for f in functions} == {"python", "sh"}
+    functions = agent.llm_config["functions"]
+    assert {f["name"] for f in functions} == {"python", "sh"}
 
-        # register the functions
-        agent.register_function(
-            function_map={
-                "python": exec_python,
-                "sh": exec_sh,
-            }
-        )
-        assert set(agent.function_map.keys()) == {"python", "sh"}
-        assert agent.function_map["python"] == exec_python
-        assert agent.function_map["sh"] == exec_sh
+    # register the functions
+    agent.register_function(
+        function_map={
+            "python": exec_python,
+            "sh": exec_sh,
+        }
+    )
+    assert set(agent.function_map.keys()) == {"python", "sh"}
+    assert agent.function_map["python"] == exec_python
+    assert agent.function_map["sh"] == exec_sh
 
-        # remove the functions
-        agent.register_function(
-            function_map={
-                "python": None,
-            }
-        )
+    # remove the functions
+    agent.register_function(
+        function_map={
+            "python": None,
+        }
+    )
 
-        assert set(agent.function_map.keys()) == {"sh"}
-        assert agent.function_map["sh"] == exec_sh
+    assert set(agent.function_map.keys()) == {"sh"}
+    assert agent.function_map["sh"] == exec_sh
 
 
 def test__wrap_function_sync():
-    CurrencySymbol = Literal["USD", "EUR"]
+    CurrencySymbol = Literal["USD", "EUR"]  # noqa: N806
 
     class Currency(BaseModel):
-        currency: Annotated[CurrencySymbol, Field(..., description="Currency code")]
-        amount: Annotated[float, Field(100.0, description="Amount of money in the currency")]
+        currency: CurrencySymbol = Field(description="Currency code")
+        amount: Annotated[float, Field(default=100.0, description="Amount of money in the currency")]
 
     Currency(currency="USD", amount=100.0)
 
@@ -627,11 +638,11 @@ def test__wrap_function_sync():
 
 @pytest.mark.asyncio
 async def test__wrap_function_async():
-    CurrencySymbol = Literal["USD", "EUR"]
+    CurrencySymbol = Literal["USD", "EUR"]  # noqa: N806
 
     class Currency(BaseModel):
-        currency: Annotated[CurrencySymbol, Field(..., description="Currency code")]
-        amount: Annotated[float, Field(100.0, description="Amount of money in the currency")]
+        currency: CurrencySymbol = Field(description="Currency code")
+        amount: Annotated[float, Field(default=100.0, description="Amount of money in the currency")]
 
     Currency(currency="USD", amount=100.0)
 
@@ -663,100 +674,25 @@ async def test__wrap_function_async():
     assert inspect.iscoroutinefunction(currency_calculator)
 
 
-def get_origin(d: Dict[str, Callable[..., Any]]) -> Dict[str, Callable[..., Any]]:
+def get_origin(d: dict[str, Callable[..., Any]]) -> dict[str, Callable[..., Any]]:
     return {k: v._origin for k, v in d.items()}
 
 
-def test_register_for_llm():
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("OPENAI_API_KEY", MOCK_OPEN_AI_API_KEY)
-        agent3 = ConversableAgent(name="agent3", llm_config={"config_list": gpt4_config_list})
-        agent2 = ConversableAgent(name="agent2", llm_config={"config_list": gpt4_config_list})
-        agent1 = ConversableAgent(name="agent1", llm_config={"config_list": gpt4_config_list})
+def test_register_for_llm(mock_credentials: Credentials) -> None:
+    agent3 = ConversableAgent(name="agent3", llm_config=mock_credentials.llm_config)
+    agent2 = ConversableAgent(name="agent2", llm_config=mock_credentials.llm_config)
+    agent1 = ConversableAgent(name="agent1", llm_config=mock_credentials.llm_config)
 
-        @agent3.register_for_llm()
-        @agent2.register_for_llm(name="python")
-        @agent1.register_for_llm(description="run cell in ipython and return the execution result.")
-        def exec_python(cell: Annotated[str, "Valid Python cell to execute."]) -> str:
-            pass
+    @agent3.register_for_llm()
+    @agent2.register_for_llm(name="python")
+    @agent1.register_for_llm(description="run cell in ipython and return the execution result.")
+    def exec_python(cell: Annotated[str, "Valid Python cell to execute."]) -> str:
+        pass
 
-        expected1 = [
-            {
-                "type": "function",
-                "function": {
-                    "description": "run cell in ipython and return the execution result.",
-                    "name": "exec_python",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "cell": {
-                                "type": "string",
-                                "description": "Valid Python cell to execute.",
-                            }
-                        },
-                        "required": ["cell"],
-                    },
-                },
-            }
-        ]
-        expected2 = copy.deepcopy(expected1)
-        expected2[0]["function"]["name"] = "python"
-        expected3 = expected2
-
-        assert agent1.llm_config["tools"] == expected1
-        assert agent2.llm_config["tools"] == expected2
-        assert agent3.llm_config["tools"] == expected3
-
-        @agent3.register_for_llm()
-        @agent2.register_for_llm()
-        @agent1.register_for_llm(name="sh", description="run a shell script and return the execution result.")
-        async def exec_sh(script: Annotated[str, "Valid shell script to execute."]) -> str:
-            pass
-
-        expected1 = expected1 + [
-            {
-                "type": "function",
-                "function": {
-                    "name": "sh",
-                    "description": "run a shell script and return the execution result.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "script": {
-                                "type": "string",
-                                "description": "Valid shell script to execute.",
-                            }
-                        },
-                        "required": ["script"],
-                    },
-                },
-            }
-        ]
-        expected2 = expected2 + [expected1[1]]
-        expected3 = expected3 + [expected1[1]]
-
-        assert agent1.llm_config["tools"] == expected1
-        assert agent2.llm_config["tools"] == expected2
-        assert agent3.llm_config["tools"] == expected3
-
-
-def test_register_for_llm_api_style_function():
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("OPENAI_API_KEY", MOCK_OPEN_AI_API_KEY)
-        agent3 = ConversableAgent(name="agent3", llm_config={"config_list": gpt4_config_list})
-        agent2 = ConversableAgent(name="agent2", llm_config={"config_list": gpt4_config_list})
-        agent1 = ConversableAgent(name="agent1", llm_config={"config_list": gpt4_config_list})
-
-        @agent3.register_for_llm(api_style="function")
-        @agent2.register_for_llm(name="python", api_style="function")
-        @agent1.register_for_llm(
-            description="run cell in ipython and return the execution result.", api_style="function"
-        )
-        def exec_python(cell: Annotated[str, "Valid Python cell to execute."]) -> str:
-            pass
-
-        expected1 = [
-            {
+    expected1 = [
+        {
+            "type": "function",
+            "function": {
                 "description": "run cell in ipython and return the execution result.",
                 "name": "exec_python",
                 "parameters": {
@@ -769,26 +705,27 @@ def test_register_for_llm_api_style_function():
                     },
                     "required": ["cell"],
                 },
-            }
-        ]
-        expected2 = copy.deepcopy(expected1)
-        expected2[0]["name"] = "python"
-        expected3 = expected2
+            },
+        }
+    ]
+    expected2 = copy.deepcopy(expected1)
+    expected2[0]["function"]["name"] = "python"
+    expected3 = expected2
 
-        assert agent1.llm_config["functions"] == expected1
-        assert agent2.llm_config["functions"] == expected2
-        assert agent3.llm_config["functions"] == expected3
+    assert agent1.llm_config["tools"] == expected1
+    assert agent2.llm_config["tools"] == expected2
+    assert agent3.llm_config["tools"] == expected3
 
-        @agent3.register_for_llm(api_style="function")
-        @agent2.register_for_llm(api_style="function")
-        @agent1.register_for_llm(
-            name="sh", description="run a shell script and return the execution result.", api_style="function"
-        )
-        async def exec_sh(script: Annotated[str, "Valid shell script to execute."]) -> str:
-            pass
+    @agent3.register_for_llm()
+    @agent2.register_for_llm()
+    @agent1.register_for_llm(name="sh", description="run a shell script and return the execution result.")
+    async def exec_sh(script: Annotated[str, "Valid shell script to execute."]) -> str:
+        pass
 
-        expected1 = expected1 + [
-            {
+    expected1 = expected1 + [
+        {
+            "type": "function",
+            "function": {
                 "name": "sh",
                 "description": "run a shell script and return the execution result.",
                 "parameters": {
@@ -801,31 +738,106 @@ def test_register_for_llm_api_style_function():
                     },
                     "required": ["script"],
                 },
-            }
-        ]
-        expected2 = expected2 + [expected1[1]]
-        expected3 = expected3 + [expected1[1]]
+            },
+        }
+    ]
+    expected2 = expected2 + [expected1[1]]
+    expected3 = expected3 + [expected1[1]]
 
-        assert agent1.llm_config["functions"] == expected1
-        assert agent2.llm_config["functions"] == expected2
-        assert agent3.llm_config["functions"] == expected3
-
-
-def test_register_for_llm_without_description():
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("OPENAI_API_KEY", MOCK_OPEN_AI_API_KEY)
-        agent = ConversableAgent(name="agent", llm_config={"config_list": gpt4_config_list})
-
-        with pytest.raises(ValueError) as e:
-
-            @agent.register_for_llm()
-            def exec_python(cell: Annotated[str, "Valid Python cell to execute."]) -> str:
-                pass
-
-        assert e.value.args[0] == "Function description is required, none found."
+    assert agent1.llm_config["tools"] == expected1
+    assert agent2.llm_config["tools"] == expected2
+    assert agent3.llm_config["tools"] == expected3
 
 
-def test_register_for_llm_without_LLM():
+def test_register_for_llm_api_style_function(mock_credentials: Credentials):
+    agent3 = ConversableAgent(name="agent3", llm_config=mock_credentials.llm_config)
+    agent2 = ConversableAgent(name="agent2", llm_config=mock_credentials.llm_config)
+    agent1 = ConversableAgent(name="agent1", llm_config=mock_credentials.llm_config)
+
+    @agent3.register_for_llm(api_style="function")
+    @agent2.register_for_llm(name="python", api_style="function")
+    @agent1.register_for_llm(description="run cell in ipython and return the execution result.", api_style="function")
+    def exec_python(cell: Annotated[str, "Valid Python cell to execute."]) -> str:
+        pass
+
+    expected1 = [
+        {
+            "description": "run cell in ipython and return the execution result.",
+            "name": "exec_python",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "cell": {
+                        "type": "string",
+                        "description": "Valid Python cell to execute.",
+                    }
+                },
+                "required": ["cell"],
+            },
+        }
+    ]
+    expected2 = copy.deepcopy(expected1)
+    expected2[0]["name"] = "python"
+    expected3 = expected2
+
+    assert agent1.llm_config["functions"] == expected1
+    assert agent2.llm_config["functions"] == expected2
+    assert agent3.llm_config["functions"] == expected3
+
+    @agent3.register_for_llm(api_style="function")
+    @agent2.register_for_llm(api_style="function")
+    @agent1.register_for_llm(
+        name="sh", description="run a shell script and return the execution result.", api_style="function"
+    )
+    async def exec_sh(script: Annotated[str, "Valid shell script to execute."]) -> str:
+        pass
+
+    expected1 = expected1 + [
+        {
+            "name": "sh",
+            "description": "run a shell script and return the execution result.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "script": {
+                        "type": "string",
+                        "description": "Valid shell script to execute.",
+                    }
+                },
+                "required": ["script"],
+            },
+        }
+    ]
+    expected2 = expected2 + [expected1[1]]
+    expected3 = expected3 + [expected1[1]]
+
+    assert agent1.llm_config["functions"] == expected1
+    assert agent2.llm_config["functions"] == expected2
+    assert agent3.llm_config["functions"] == expected3
+
+
+def test_register_for_llm_without_description(mock_credentials: Credentials):
+    agent = ConversableAgent(name="agent", llm_config=mock_credentials.llm_config)
+
+    @agent.register_for_llm()
+    def exec_python(cell: Annotated[str, "Valid Python cell to execute."]) -> str:
+        pass
+
+    assert exec_python.description == ""
+
+
+def test_register_for_llm_with_docstring(mock_credentials: Credentials):
+    agent = ConversableAgent(name="agent", llm_config=mock_credentials.llm_config)
+
+    @agent.register_for_llm()
+    def exec_python(cell: Annotated[str, "Valid Python cell to execute."]) -> str:
+        """Execute a Python cell."""
+        pass
+
+    assert exec_python.description == "Execute a Python cell."
+
+
+def test_register_for_llm_without_LLM():  # noqa: N802
     agent = ConversableAgent(name="agent", llm_config=None)
     with pytest.raises(
         AssertionError,
@@ -853,103 +865,84 @@ def test_register_for_llm_without_model_name():
         ConversableAgent(name="agent", llm_config={"config_list": [{"model": ""}]})
 
 
-def test_register_for_execution():
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("OPENAI_API_KEY", MOCK_OPEN_AI_API_KEY)
-        agent = ConversableAgent(name="agent", llm_config={"config_list": [{"model": "gpt-4"}]})
-        user_proxy_1 = UserProxyAgent(name="user_proxy_1")
-        user_proxy_2 = UserProxyAgent(name="user_proxy_2")
+def test_register_for_execution(mock_credentials: Credentials):
+    agent = ConversableAgent(name="agent", llm_config=mock_credentials.llm_config)
+    user_proxy_1 = UserProxyAgent(name="user_proxy_1")
+    user_proxy_2 = UserProxyAgent(name="user_proxy_2")
 
-        @user_proxy_2.register_for_execution(name="python")
-        @agent.register_for_execution()
-        @agent.register_for_llm(description="run cell in ipython and return the execution result.")
-        @user_proxy_1.register_for_execution()
-        def exec_python(cell: Annotated[str, "Valid Python cell to execute."]):
-            pass
+    @user_proxy_2.register_for_execution(name="python")
+    @agent.register_for_execution()
+    @agent.register_for_llm(description="run cell in ipython and return the execution result.")
+    @user_proxy_1.register_for_execution()
+    def exec_python(cell: Annotated[str, "Valid Python cell to execute."]):
+        pass
 
-        expected_function_map_1 = {"exec_python": exec_python}
-        assert get_origin(agent.function_map) == expected_function_map_1
-        assert get_origin(user_proxy_1.function_map) == expected_function_map_1
+    expected_function_map_1 = {"exec_python": exec_python.func}
+    assert get_origin(agent.function_map) == expected_function_map_1
+    assert get_origin(user_proxy_1.function_map) == expected_function_map_1
 
-        expected_function_map_2 = {"python": exec_python}
-        assert get_origin(user_proxy_2.function_map) == expected_function_map_2
+    expected_function_map_2 = {"python": exec_python.func}
+    assert get_origin(user_proxy_2.function_map) == expected_function_map_2
 
-        @agent.register_for_execution()
-        @agent.register_for_llm(description="run a shell script and return the execution result.")
-        @user_proxy_1.register_for_execution(name="sh")
-        async def exec_sh(script: Annotated[str, "Valid shell script to execute."]):
-            pass
+    @agent.register_for_execution()
+    @agent.register_for_llm(description="run a shell script and return the execution result.")
+    @user_proxy_1.register_for_execution(name="sh")
+    async def exec_sh(script: Annotated[str, "Valid shell script to execute."]):
+        pass
 
-        expected_function_map = {
-            "exec_python": exec_python,
-            "sh": exec_sh,
-        }
-        assert get_origin(agent.function_map) == expected_function_map
-        assert get_origin(user_proxy_1.function_map) == expected_function_map
+    expected_function_map = {
+        "exec_python": exec_python.func,
+        "sh": exec_sh.func,
+    }
+    assert get_origin(agent.function_map) == expected_function_map
+    assert get_origin(user_proxy_1.function_map) == expected_function_map
 
 
-def test_register_functions():
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("OPENAI_API_KEY", MOCK_OPEN_AI_API_KEY)
-        agent = ConversableAgent(name="agent", llm_config={"config_list": gpt4_config_list})
-        user_proxy = UserProxyAgent(name="user_proxy")
+def test_register_functions(mock_credentials: Credentials):
+    agent = ConversableAgent(name="agent", llm_config=mock_credentials.llm_config)
+    user_proxy = UserProxyAgent(name="user_proxy")
 
-        def exec_python(cell: Annotated[str, "Valid Python cell to execute."]) -> str:
-            pass
+    def exec_python(cell: Annotated[str, "Valid Python cell to execute."]) -> str:
+        pass
 
-        register_function(
-            exec_python,
-            caller=agent,
-            executor=user_proxy,
-            description="run cell in ipython and return the execution result.",
-        )
-
-        expected_function_map = {"exec_python": exec_python}
-        assert get_origin(user_proxy.function_map) == expected_function_map
-
-        expected = [
-            {
-                "type": "function",
-                "function": {
-                    "description": "run cell in ipython and return the execution result.",
-                    "name": "exec_python",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "cell": {
-                                "type": "string",
-                                "description": "Valid Python cell to execute.",
-                            }
-                        },
-                        "required": ["cell"],
-                    },
-                },
-            }
-        ]
-        assert agent.llm_config["tools"] == expected
-
-
-@pytest.mark.skipif(
-    skip_openai,
-    reason=reason,
-)
-def test_function_registration_e2e_sync() -> None:
-    config_list = autogen.config_list_from_json(
-        OAI_CONFIG_LIST,
-        filter_dict={
-            "tags": ["tool"],
-        },
-        file_location=KEY_LOC,
+    register_function(
+        exec_python,
+        caller=agent,
+        executor=user_proxy,
+        description="run cell in ipython and return the execution result.",
     )
 
-    llm_config = {
-        "config_list": config_list,
-    }
+    expected_function_map = {"exec_python": exec_python}
+    assert get_origin(user_proxy.function_map).keys() == expected_function_map.keys()
 
+    expected = [
+        {
+            "type": "function",
+            "function": {
+                "description": "run cell in ipython and return the execution result.",
+                "name": "exec_python",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cell": {
+                            "type": "string",
+                            "description": "Valid Python cell to execute.",
+                        }
+                    },
+                    "required": ["cell"],
+                },
+            },
+        }
+    ]
+    assert agent.llm_config["tools"] == expected
+
+
+@pytest.mark.openai
+def test_function_registration_e2e_sync(credentials_gpt_4o_mini: Credentials) -> None:
     coder = autogen.AssistantAgent(
         name="chatbot",
         system_message="For coding tasks, only use the functions you have been provided with. Reply TERMINATE when the task is done.",
-        llm_config=llm_config,
+        llm_config=credentials_gpt_4o_mini.llm_config,
     )
 
     # create a UserProxyAgent instance named "user_proxy"
@@ -997,7 +990,7 @@ def test_function_registration_e2e_sync() -> None:
     # 'await' is used to pause and resume code execution for async IO operations.
     # Without 'await', an async function returns a coroutine object but doesn't execute the function.
     # With 'await', the async function is executed and the current function is paused until the awaited function returns a result.
-    user_proxy.initiate_chat(  # noqa: F704
+    user_proxy.initiate_chat(
         coder,
         message="Create a timer for 1 second and then a stopwatch for 2 seconds.",
     )
@@ -1006,28 +999,11 @@ def test_function_registration_e2e_sync() -> None:
     stopwatch_mock.assert_called_once_with(num_seconds="2")
 
 
-@pytest.mark.skipif(
-    skip_openai,
-    reason=reason,
-)
-@pytest.mark.asyncio()
-async def test_function_registration_e2e_async() -> None:
-    config_list = autogen.config_list_from_json(
-        OAI_CONFIG_LIST,
-        filter_dict={
-            "tags": ["gpt-4", "gpt-4-0314", "gpt4", "gpt-4-32k", "gpt-4-32k-0314", "gpt-4-32k-v0314"],
-        },
-        file_location=KEY_LOC,
-    )
-
-    llm_config = {
-        "config_list": config_list,
-    }
-
+async def _test_function_registration_e2e_async(credentials: Credentials) -> None:
     coder = autogen.AssistantAgent(
         name="chatbot",
         system_message="For coding tasks, only use the functions you have been provided with. Reply TERMINATE when the task is done.",
-        llm_config=llm_config,
+        llm_config=credentials.llm_config,
     )
 
     # create a UserProxyAgent instance named "user_proxy"
@@ -1075,7 +1051,7 @@ async def test_function_registration_e2e_async() -> None:
     # 'await' is used to pause and resume code execution for async IO operations.
     # Without 'await', an async function returns a coroutine object but doesn't execute the function.
     # With 'await', the async function is executed and the current function is paused until the awaited function returns a result.
-    await user_proxy.a_initiate_chat(  # noqa: F704
+    await user_proxy.a_initiate_chat(
         coder,
         message="Create a timer for 1 second and then a stopwatch for 2 seconds.",
     )
@@ -1084,15 +1060,24 @@ async def test_function_registration_e2e_async() -> None:
     stopwatch_mock.assert_called_once_with(num_seconds="2")
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
-def test_max_turn():
-    config_list = autogen.config_list_from_json(OAI_CONFIG_LIST, KEY_LOC, filter_dict={"tags": ["gpt-3.5-turbo"]})
+@pytest.mark.parametrize("credentials_from_test_param", credentials_all_llms, indirect=True)
+@suppress_gemini_resource_exhausted
+@pytest.mark.asyncio
+async def test_function_registration_e2e_async(
+    credentials_from_test_param: Credentials,
+) -> None:
+    if credentials_from_test_param.api_type == "google":
+        pytest.skip("This test currently fails with gemini flash model")
+    await _test_function_registration_e2e_async(credentials_from_test_param)
 
+
+@pytest.mark.openai
+def test_max_turn(credentials_gpt_4o_mini: Credentials) -> None:
     # create an AssistantAgent instance named "assistant"
     assistant = autogen.AssistantAgent(
         name="assistant",
         max_consecutive_auto_reply=10,
-        llm_config={"config_list": config_list},
+        llm_config=credentials_gpt_4o_mini.llm_config,
     )
 
     user_proxy = autogen.UserProxyAgent(name="user", human_input_mode="ALWAYS", code_execution_config=False)
@@ -1106,8 +1091,8 @@ def test_max_turn():
     assert len(res.chat_history) <= 6
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
-def test_message_func():
+@pytest.mark.openai
+def test_message_func(credentials_gpt_4o_mini: Credentials):
     import random
 
     class Function:
@@ -1116,11 +1101,6 @@ def test_message_func():
         def get_random_number(self):
             self.call_count += 1
             return str(random.randint(0, 100))
-
-    config_list = autogen.config_list_from_json(
-        OAI_CONFIG_LIST,
-        file_location=KEY_LOC,
-    )
 
     def my_message_play(sender, recipient, context):
         final_msg = {}
@@ -1143,7 +1123,7 @@ def test_message_func():
         name="Player",
         system_message="You will use function `get_random_number` to get a random number. Stop only when you get at least 1 even number and 1 odd number. Reply TERMINATE to stop.",
         description="A player that makes function_calls.",
-        llm_config={"config_list": config_list},
+        llm_config=credentials_gpt_4o_mini.llm_config,
         function_map={"get_random_number": func.get_random_number},
     )
 
@@ -1162,8 +1142,8 @@ def test_message_func():
     print(chat_res_play.summary)
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
-def test_summary():
+@pytest.mark.openai
+def test_summary(credentials_gpt_4o_mini: Credentials):
     import random
 
     class Function:
@@ -1172,10 +1152,6 @@ def test_summary():
         def get_random_number(self):
             self.call_count += 1
             return str(random.randint(0, 100))
-
-    config_list = autogen.config_list_from_json(
-        OAI_CONFIG_LIST, file_location=KEY_LOC, filter_dict={"tags": ["gpt-3.5-turbo"]}
-    )
 
     def my_message_play(sender, recipient, context):
         final_msg = {}
@@ -1202,7 +1178,7 @@ def test_summary():
         name="Player",
         system_message="You will use function `get_random_number` to get a random number. Stop only when you get at least 1 even number and 1 odd number. Reply TERMINATE to stop.",
         description="A player that makes function_calls.",
-        llm_config={"config_list": config_list},
+        llm_config=credentials_gpt_4o_mini.llm_config,
         function_map={"get_random_number": func.get_random_number},
     )
 
@@ -1397,7 +1373,6 @@ def test_chat_history():
 
 
 def test_http_client():
-
     import httpx
 
     with pytest.raises(TypeError):
@@ -1418,7 +1393,6 @@ def test_http_client():
 
 
 def test_adding_duplicate_function_warning():
-
     config_base = [{"base_url": "http://0.0.0.0:8000", "api_key": "NULL"}]
 
     agent = autogen.ConversableAgent(
@@ -1527,7 +1501,36 @@ def test_handle_carryover():
     assert proc_content_empty_carryover == content, "Incorrect carryover processing"
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
+@pytest.mark.parametrize("credentials_from_test_param", credentials_all_llms, indirect=True)
+@suppress_gemini_resource_exhausted
+def test_conversable_agent_with_whitespaces_in_name_end2end(
+    credentials_from_test_param: Credentials,
+    request: pytest.FixtureRequest,
+) -> None:
+    agent = ConversableAgent(
+        name="first_agent",
+        llm_config=credentials_from_test_param.llm_config,
+    )
+
+    user_proxy = UserProxyAgent(
+        name="user proxy",
+        human_input_mode="NEVER",
+    )
+
+    # Get the parameter name request node
+    current_llm = request.node.callspec.id
+    if "gpt_4" in current_llm:
+        with pytest.raises(
+            ValueError,
+            match="This error typically occurs when the agent name contains invalid characters, such as spaces or special symbols.",
+        ):
+            user_proxy.initiate_chat(agent, message="Hello, how are you?", max_turns=2)
+    # anthropic and gemini will not raise an error if agent name contains whitespaces
+    else:
+        user_proxy.initiate_chat(agent, message="Hello, how are you?", max_turns=2)
+
+
+@pytest.mark.openai
 def test_context_variables():
     # Test initialization with context_variables
     initial_context = {"test_key": "test_value", "number": 42, "nested": {"inner": "value"}}
@@ -1586,6 +1589,54 @@ def test_context_variables():
         "test_key": "bulk_updated_value",
     }
     assert agent._context_variables == expected_final_context
+
+
+@pytest.mark.skip(reason="This test is failing. We need to investigate the issue.")
+@pytest.mark.gemini
+@suppress_gemini_resource_exhausted
+def test_gemini_with_tools_parameters_set_to_is_annotated_with_none_as_default_value(
+    credentials_gemini_flash: Credentials,
+) -> None:
+    agent = ConversableAgent(name="agent", llm_config=credentials_gemini_flash.llm_config)
+
+    user_proxy = UserProxyAgent(
+        name="user_proxy_1",
+        human_input_mode="NEVER",
+    )
+
+    mock = MagicMock()
+
+    @user_proxy.register_for_execution()
+    @agent.register_for_llm(description="Login function")
+    def login(
+        additional_notes: Annotated[Optional[str], "Additional notes"] = None,
+    ) -> str:
+        return "Login successful."
+
+    user_proxy.initiate_chat(agent, message="Please login", max_turns=2)
+
+    mock.assert_called_once()
+
+
+@pytest.mark.deepseek
+@suppress_json_decoder_error
+def test_conversable_agent_with_deepseek_reasoner(
+    credentials_deepseek_reasoner: Credentials,
+) -> None:
+    agent = ConversableAgent(
+        name="agent",
+        llm_config=credentials_deepseek_reasoner.llm_config,
+    )
+
+    user_proxy = UserProxyAgent(
+        name="user_proxy_1",
+        human_input_mode="NEVER",
+    )
+
+    result = user_proxy.initiate_chat(
+        agent, message="Hello, how are you?", summary_method="reflection_with_llm", max_turns=2
+    )
+    assert isinstance(result.summary, str)
 
 
 if __name__ == "__main__":

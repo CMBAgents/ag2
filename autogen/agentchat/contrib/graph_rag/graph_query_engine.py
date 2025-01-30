@@ -1,19 +1,18 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 from dataclasses import dataclass, field
-from typing import List, Optional, Protocol
+from typing import Optional, Protocol
 
 from .document import Document
 
 
 @dataclass
 class GraphStoreQueryResult:
-    """
-    A wrapper of graph store query results.
+    """A wrapper of graph store query results.
 
     answer: human readable answer to question/query.
     results: intermediate results to question/query, e.g. node entities.
@@ -29,9 +28,8 @@ class GraphQueryEngine(Protocol):
     This interface defines the basic methods for graph-based RAG.
     """
 
-    def init_db(self, input_doc: List[Document] | None = None):
-        """
-        This method initializes graph database with the input documents or records.
+    def init_db(self, input_doc: Optional[list[Document]] = None):
+        """This method initializes graph database with the input documents or records.
         Usually, it takes the following steps,
         1. connecting to a graph database.
         2. extract graph nodes, edges based on input data, graph schema and etc.
@@ -43,14 +41,10 @@ class GraphQueryEngine(Protocol):
         """
         pass
 
-    def add_records(self, new_records: List) -> bool:
-        """
-        Add new records to the underlying database and add to the graph if required.
-        """
+    def add_records(self, new_records: list) -> bool:
+        """Add new records to the underlying database and add to the graph if required."""
         pass
 
     def query(self, question: str, n_results: int = 1, **kwargs) -> GraphStoreQueryResult:
-        """
-        This method transform a string format question into database query and return the result.
-        """
+        """This method transform a string format question into database query and return the result."""
         pass

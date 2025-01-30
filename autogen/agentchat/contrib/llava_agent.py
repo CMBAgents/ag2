@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,17 +6,19 @@
 # SPDX-License-Identifier: MIT
 import json
 import logging
-from typing import List, Optional, Tuple
+from typing import Optional
 
-import replicate
 import requests
 
-from autogen.agentchat.agent import Agent
-from autogen.agentchat.contrib.img_utils import get_image_data, llava_formatter
-from autogen.agentchat.contrib.multimodal_conversable_agent import MultimodalConversableAgent
-from autogen.code_utils import content_str
-
+from ...code_utils import content_str
 from ...formatting_utils import colored
+from ...import_utils import optional_import_block, require_optional_import
+from ..agent import Agent
+from .img_utils import get_image_data, llava_formatter
+from .multimodal_conversable_agent import MultimodalConversableAgent
+
+with optional_import_block():
+    import replicate
 
 logger = logging.getLogger(__name__)
 
@@ -30,17 +32,16 @@ class LLaVAAgent(MultimodalConversableAgent):
     def __init__(
         self,
         name: str,
-        system_message: Optional[Tuple[str, List]] = DEFAULT_LLAVA_SYS_MSG,
+        system_message: Optional[tuple[str, list]] = DEFAULT_LLAVA_SYS_MSG,
         *args,
         **kwargs,
     ):
-        """
-        Args:
-            name (str): agent name.
-            system_message (str): system message for the ChatCompletion inference.
-                Please override this attribute if you want to reprogram the agent.
-            **kwargs (dict): Please refer to other kwargs in
-                [ConversableAgent](../conversable_agent#__init__).
+        """Args:
+        name (str): agent name.
+        system_message (str): system message for the ChatCompletion inference.
+            Please override this attribute if you want to reprogram the agent.
+        **kwargs (dict): Please refer to other kwargs in
+            [ConversableAgent](../conversable_agent#init).
         """
         super().__init__(
             name,
@@ -96,6 +97,7 @@ class LLaVAAgent(MultimodalConversableAgent):
         return True, out
 
 
+@require_optional_import("replicate", "lmm")
 def _llava_call_binary_with_config(
     prompt: str, images: list, config: dict, max_new_tokens: int = 1000, temperature: float = 0.5, seed: int = 1
 ):
@@ -141,6 +143,7 @@ def _llava_call_binary_with_config(
     return output
 
 
+@require_optional_import("replicate", "lmm")
 def llava_call_binary(
     prompt: str, images: list, config_list: list, max_new_tokens: int = 1000, temperature: float = 0.5, seed: int = 1
 ):
@@ -156,10 +159,7 @@ def llava_call_binary(
 
 
 def llava_call(prompt: str, llm_config: dict) -> str:
-    """
-    Makes a call to the LLaVA service to generate text based on a given prompt
-    """
-
+    """Makes a call to the LLaVA service to generate text based on a given prompt"""
     prompt, images = llava_formatter(prompt, order_image_tokens=False)
 
     for im in images:
@@ -172,5 +172,5 @@ def llava_call(prompt: str, llm_config: dict) -> str:
         config_list=llm_config["config_list"],
         max_new_tokens=llm_config.get("max_new_tokens", 2000),
         temperature=llm_config.get("temperature", 0.5),
-        seed=llm_config.get("seed", None),
+        seed=llm_config.get("seed"),
     )

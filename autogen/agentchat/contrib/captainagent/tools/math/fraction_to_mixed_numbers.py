@@ -1,9 +1,8 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 def fraction_to_mixed_numbers(numerator, denominator):
-    """
-    Simplifies a fraction to its lowest terms and returns it as a mixed number.
+    """Simplifies a fraction to its lowest terms and returns it as a mixed number.
 
     Args:
         numerator (int): The numerator of the fraction.

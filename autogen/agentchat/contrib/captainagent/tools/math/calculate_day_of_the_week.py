@@ -1,9 +1,8 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 def calculate_day_of_the_week(total_days: int, starting_day: str):
-    """
-    Calculates the day of the week after a given number of days starting from a specified day.
+    """Calculates the day of the week after a given number of days starting from a specified day.
 
     Args:
         total_days: The number of days to calculate.

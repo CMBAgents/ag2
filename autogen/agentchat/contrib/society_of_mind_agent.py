@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -7,9 +7,10 @@
 # ruff: noqa: E722
 import copy
 import traceback
-from typing import Callable, Dict, List, Literal, Optional, Tuple, Union
+from contextlib import suppress
+from typing import Callable, Literal, Optional, Union
 
-from autogen import Agent, ConversableAgent, GroupChat, GroupChatManager, OpenAIWrapper
+from ... import Agent, ConversableAgent, GroupChat, GroupChatManager, OpenAIWrapper
 
 
 class SocietyOfMindAgent(ConversableAgent):
@@ -38,13 +39,13 @@ class SocietyOfMindAgent(ConversableAgent):
         name: str,
         chat_manager: GroupChatManager,
         response_preparer: Optional[Union[str, Callable]] = None,
-        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
+        is_termination_msg: Optional[Callable[[dict], bool]] = None,
         max_consecutive_auto_reply: Optional[int] = None,
         human_input_mode: Literal["ALWAYS", "NEVER", "TERMINATE"] = "TERMINATE",
-        function_map: Optional[Dict[str, Callable]] = None,
-        code_execution_config: Union[Dict, Literal[False]] = False,
-        llm_config: Optional[Union[Dict, Literal[False]]] = False,
-        default_auto_reply: Optional[Union[str, Dict, None]] = "",
+        function_map: Optional[dict[str, Callable]] = None,
+        code_execution_config: Union[dict, Literal[False]] = False,
+        llm_config: Optional[Union[dict, Literal[False]]] = False,
+        default_auto_reply: Optional[Union[str, dict, None]] = "",
         **kwargs,
     ):
         super().__init__(
@@ -91,7 +92,6 @@ class SocietyOfMindAgent(ConversableAgent):
             prompt (str): The prompt used to extract the final response from the transcript.
             messages (list): The messages generated as part of the inner monologue group chat.
         """
-
         _messages = [
             {
                 "role": "system",
@@ -111,15 +111,12 @@ class SocietyOfMindAgent(ConversableAgent):
                 del message["tool_calls"]
             if "tool_responses" in message:
                 del message["tool_responses"]
-            if "function_call" in message:
-                if message["content"] == "":
-                    try:
-                        message["content"] = (
-                            message["function_call"]["name"] + "(" + message["function_call"]["arguments"] + ")"
-                        )
-                    except KeyError:
-                        pass
-                    del message["function_call"]
+            if "function_call" in message and message["content"] == "":
+                with suppress(KeyError):
+                    message["content"] = (
+                        message["function_call"]["name"] + "(" + message["function_call"]["arguments"] + ")"
+                    )
+                del message["function_call"]
 
             # Add the modified message to the transcript
             _messages.append(message)
@@ -162,10 +159,10 @@ class SocietyOfMindAgent(ConversableAgent):
 
     def generate_inner_monologue_reply(
         self,
-        messages: Optional[List[Dict]] = None,
+        messages: Optional[list[dict]] = None,
         sender: Optional[Agent] = None,
         config: Optional[OpenAIWrapper] = None,
-    ) -> Tuple[bool, Union[str, Dict, None]]:
+    ) -> tuple[bool, Union[str, dict, None]]:
         """Generate a reply by running the group chat"""
         if self.chat_manager is None:
             return False, None

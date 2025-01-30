@@ -1,11 +1,11 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from termcolor import colored
 
@@ -57,14 +57,13 @@ def filter_results_by_distance(results: QueryResults, distance_threshold: float 
     Returns:
         QueryResults | A filtered results containing only distances smaller than the threshold.
     """
-
     if distance_threshold > 0:
         results = [[(key, value) for key, value in data if value < distance_threshold] for data in results]
 
     return results
 
 
-def chroma_results_to_query_results(data_dict: Dict[str, List[List[Any]]], special_key="distances") -> QueryResults:
+def chroma_results_to_query_results(data_dict: dict[str, list[list[Any]]], special_key="distances") -> QueryResults:
     """Converts a dictionary with list-of-list values to a list of tuples.
 
     Args:
@@ -78,6 +77,7 @@ def chroma_results_to_query_results(data_dict: Dict[str, List[List[Any]]], speci
         special_key.
 
     Example:
+        ```python
         data_dict = {
             "key1s": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
             "key2s": [["a", "b", "c"], ["c", "d", "e"], ["e", "f", "g"]],
@@ -103,8 +103,8 @@ def chroma_results_to_query_results(data_dict: Dict[str, List[List[Any]]], speci
                 ({"key1": 9, "key2": "g", "key4": "6"}, 0.9),
             ],
         ]
+        ```
     """
-
     keys = [
         key
         for key in data_dict

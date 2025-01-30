@@ -1,16 +1,16 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
-from typing import Any, Dict, Optional, Tuple, Type, Union, get_args
+from typing import Any, Tuple, Union, get_args
 
 from pydantic import BaseModel
 from pydantic.version import VERSION as PYDANTIC_VERSION
 from typing_extensions import get_origin
 
-__all__ = ("JsonSchemaValue", "model_dump", "model_dump_json", "type2schema", "evaluate_forwardref")
+__all__ = ("JsonSchemaValue", "evaluate_forwardref", "model_dump", "model_dump_json", "type2schema")
 
 PYDANTIC_V1 = PYDANTIC_VERSION.startswith("1.")
 
@@ -30,7 +30,7 @@ if not PYDANTIC_V1:
         """
         return TypeAdapter(t).json_schema()
 
-    def model_dump(model: BaseModel) -> Dict[str, Any]:
+    def model_dump(model: BaseModel) -> dict[str, Any]:
         """Convert a pydantic model to a dict
 
         Args:
@@ -59,7 +59,7 @@ else:  # pragma: no cover
     from pydantic import schema_of
     from pydantic.typing import evaluate_forwardref as evaluate_forwardref  # type: ignore[no-redef]
 
-    JsonSchemaValue = Dict[str, Any]  # type: ignore[misc]
+    JsonSchemaValue = dict[str, Any]  # type: ignore[misc]
 
     def type2schema(t: Any) -> JsonSchemaValue:
         """Convert a type to a JSON schema
@@ -70,17 +70,17 @@ else:  # pragma: no cover
         Returns:
             JsonSchemaValue: The JSON schema
         """
-
         if t is None:
             return {"type": "null"}
         elif get_origin(t) is Union:
             return {"anyOf": [type2schema(tt) for tt in get_args(t)]}
+        # we need to support both syntaxes for Tuple
         elif get_origin(t) in [Tuple, tuple]:
-            prefixItems = [type2schema(tt) for tt in get_args(t)]
+            prefix_items = [type2schema(tt) for tt in get_args(t)]
             return {
-                "maxItems": len(prefixItems),
-                "minItems": len(prefixItems),
-                "prefixItems": prefixItems,
+                "maxItems": len(prefix_items),
+                "minItems": len(prefix_items),
+                "prefixItems": prefix_items,
                 "type": "array",
             }
         else:
@@ -92,7 +92,7 @@ else:  # pragma: no cover
 
             return d
 
-    def model_dump(model: BaseModel) -> Dict[str, Any]:
+    def model_dump(model: BaseModel) -> dict[str, Any]:
         """Convert a pydantic model to a dict
 
         Args:

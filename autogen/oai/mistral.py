@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -7,15 +7,15 @@
 """Create an OpenAI-compatible client using Mistral.AI's API.
 
 Example:
-    llm_config={
-        "config_list": [{
-            "api_type": "mistral",
-            "model": "open-mixtral-8x22b",
-            "api_key": os.environ.get("MISTRAL_API_KEY")
-            }
-    ]}
+    ```python
+    llm_config = {
+        "config_list": [
+            {"api_type": "mistral", "model": "open-mixtral-8x22b", "api_key": os.environ.get("MISTRAL_API_KEY")}
+        ]
+    }
 
     agent = autogen.AssistantAgent("my_agent", llm_config=llm_config)
+    ```
 
 Install Mistral.AI python library using: pip install --upgrade mistralai
 
@@ -25,33 +25,35 @@ Resources:
 NOTE: Requires mistralai package version >= 1.0.1
 """
 
-import inspect
 import json
 import os
 import time
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Union
 
-# Mistral libraries
-# pip install mistralai
-from mistralai import (
-    AssistantMessage,
-    Function,
-    FunctionCall,
-    Mistral,
-    SystemMessage,
-    ToolCall,
-    ToolMessage,
-    UserMessage,
-)
 from openai.types.chat import ChatCompletion, ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
 from openai.types.completion_usage import CompletionUsage
-from pydantic import BaseModel
 
-from autogen.oai.client_utils import should_hide_tools, validate_parameter
+from ..import_utils import optional_import_block, require_optional_import
+from .client_utils import should_hide_tools, validate_parameter
+
+with optional_import_block():
+    # Mistral libraries
+    # pip install mistralai
+    from mistralai import (
+        AssistantMessage,
+        Function,
+        FunctionCall,
+        Mistral,
+        SystemMessage,
+        ToolCall,
+        ToolMessage,
+        UserMessage,
+    )
 
 
+@require_optional_import("mistralai", "mistral")
 class MistralAIClient:
     """Client for Mistral.AI's API."""
 
@@ -61,38 +63,37 @@ class MistralAIClient:
         Args:
             api_key (str): The API key for using Mistral.AI (or environment variable MISTRAL_API_KEY needs to be set)
         """
-
         # Ensure we have the api_key upon instantiation
-        self.api_key = kwargs.get("api_key", None)
+        self.api_key = kwargs.get("api_key")
         if not self.api_key:
             self.api_key = os.getenv("MISTRAL_API_KEY", None)
 
-        assert (
-            self.api_key
-        ), "Please specify the 'api_key' in your config list entry for Mistral or set the MISTRAL_API_KEY env variable."
+        assert self.api_key, (
+            "Please specify the 'api_key' in your config list entry for Mistral or set the MISTRAL_API_KEY env variable."
+        )
 
         if "response_format" in kwargs and kwargs["response_format"] is not None:
             warnings.warn("response_format is not supported for Mistral.AI, it will be ignored.", UserWarning)
 
         self._client = Mistral(api_key=self.api_key)
 
-    def message_retrieval(self, response: ChatCompletion) -> Union[List[str], List[ChatCompletionMessage]]:
+    def message_retrieval(self, response: ChatCompletion) -> Union[list[str], list[ChatCompletionMessage]]:
         """Retrieve the messages from the response."""
-
         return [choice.message for choice in response.choices]
 
     def cost(self, response) -> float:
         return response.cost
 
-    def parse_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    @require_optional_import("mistralai", "mistral")
+    def parse_params(self, params: dict[str, Any]) -> dict[str, Any]:
         """Loads the parameters for Mistral.AI API from the passed in parameters and returns a validated set. Checks types, ranges, and sets defaults"""
         mistral_params = {}
 
         # 1. Validate models
-        mistral_params["model"] = params.get("model", None)
-        assert mistral_params[
-            "model"
-        ], "Please specify the 'model' in your config list entry to nominate the Mistral.ai model to use."
+        mistral_params["model"] = params.get("model")
+        assert mistral_params["model"], (
+            "Please specify the 'model' in your config list entry to nominate the Mistral.ai model to use."
+        )
 
         # 2. Validate allowed Mistral.AI parameters
         mistral_params["temperature"] = validate_parameter(params, "temperature", (int, float), True, 0.7, None, None)
@@ -173,7 +174,8 @@ class MistralAIClient:
 
         return mistral_params
 
-    def create(self, params: Dict[str, Any]) -> ChatCompletion:
+    @require_optional_import("mistralai", "mistral")
+    def create(self, params: dict[str, Any]) -> ChatCompletion:
         # 1. Parse parameters to Mistral.AI API's parameters
         mistral_params = self.parse_params(params)
 
@@ -224,7 +226,7 @@ class MistralAIClient:
         return response_oai
 
     @staticmethod
-    def get_usage(response: ChatCompletion) -> Dict:
+    def get_usage(response: ChatCompletion) -> dict:
         return {
             "prompt_tokens": response.usage.prompt_tokens if response.usage is not None else 0,
             "completion_tokens": response.usage.completion_tokens if response.usage is not None else 0,
@@ -236,9 +238,9 @@ class MistralAIClient:
         }
 
 
-def tool_def_to_mistral(tool_definitions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+@require_optional_import("mistralai", "mistral")
+def tool_def_to_mistral(tool_definitions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Converts AutoGen tool definition to a mistral tool format"""
-
     mistral_tools = []
 
     for autogen_tool in tool_definitions:
@@ -258,7 +260,6 @@ def tool_def_to_mistral(tool_definitions: List[Dict[str, Any]]) -> List[Dict[str
 
 def calculate_mistral_cost(input_tokens: int, output_tokens: int, model_name: str) -> float:
     """Calculate the cost of the mistral response."""
-
     # Prices per 1 thousand tokens
     # https://mistral.ai/technology/
     model_cost_map = {

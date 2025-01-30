@@ -1,37 +1,31 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
-from autogen import Agent, ConversableAgent, UserProxyAgent
-
+from .... import Agent, ConversableAgent, UserProxyAgent
 from .graph_query_engine import GraphStoreQueryResult
 from .graph_rag_capability import GraphRagCapability
 from .neo4j_graph_query_engine import Neo4jGraphQueryEngine
 
 
 class Neo4jGraphCapability(GraphRagCapability):
-    """
-    The Neo4j graph capability integrates Neo4j Property graph into a graph rag agent.
-    Ref: https://neo4j.com/labs/genai-ecosystem/llamaindex/#_property_graph_constructing_modules/
+    """The Neo4j graph capability integrates Neo4j Property graph into a graph rag agent.
+    Ref: https://neo4j.com/labs/genai-ecosystem/llamaindex/#_property_graph_constructing_modules
 
 
     For usage, please refer to example notebook/agentchat_graph_rag_neo4j.ipynb
     """
 
     def __init__(self, query_engine: Neo4jGraphQueryEngine):
-        """
-        initialize GraphRAG capability with a graph query engine
-        """
+        """Initialize GraphRAG capability with a graph query engine"""
         self.query_engine = query_engine
 
     def add_to_agent(self, agent: UserProxyAgent):
-        """
-        Add Neo4j GraphRAG capability to a UserProxyAgent.
+        """Add Neo4j GraphRAG capability to a UserProxyAgent.
         The restriction to a UserProxyAgent to make sure the returned message only contains information retrieved from the graph DB instead of any LLMs.
         """
-
         self.graph_rag_agent = agent
 
         # Validate the agent config
@@ -49,12 +43,11 @@ class Neo4jGraphCapability(GraphRagCapability):
     def _reply_using_neo4j_query(
         self,
         recipient: ConversableAgent,
-        messages: Optional[List[Dict]] = None,
+        messages: Optional[list[dict]] = None,
         sender: Optional[Agent] = None,
         config: Optional[Any] = None,
-    ) -> Tuple[bool, Union[str, Dict, None]]:
-        """
-        Query neo4j and return the message. Internally, it queries the Property graph
+    ) -> tuple[bool, Union[str, dict, None]]:
+        """Query neo4j and return the message. Internally, it queries the Property graph
         and returns the answer from the graph query engine.
         TODO: reply with a dictionary including both the answer and semantic source triplets.
 
@@ -73,11 +66,10 @@ class Neo4jGraphCapability(GraphRagCapability):
 
         return True, result.answer
 
-    def _get_last_question(self, message: Union[Dict, str]):
+    def _get_last_question(self, message: Union[dict, str]):
         """Retrieves the last message from the conversation history."""
         if isinstance(message, str):
             return message
-        if isinstance(message, Dict):
-            if "content" in message:
-                return message["content"]
+        if isinstance(message, dict) and "content" in message:
+            return message["content"]
         return None

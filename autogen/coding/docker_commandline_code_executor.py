@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -14,12 +14,13 @@ from hashlib import md5
 from pathlib import Path
 from time import sleep
 from types import TracebackType
-from typing import Any, ClassVar, Dict, List, Optional, Type, Union
+from typing import Any, ClassVar
 
 import docker
 from docker.errors import ImageNotFound
 
 from ..code_utils import TIMEOUT_MSG, _cmd
+from ..doc_utils import export_module
 from .base import CodeBlock, CodeExecutor, CodeExtractor, CommandLineCodeResult
 from .markdown_code_extractor import MarkdownCodeExtractor
 from .utils import _get_file_name_from_content, silence_pip
@@ -44,8 +45,9 @@ def _wait_for_ready(container: Any, timeout: int = 60, stop_time: float = 0.1) -
 __all__ = ("DockerCommandLineCodeExecutor",)
 
 
+@export_module("autogen.coding")
 class DockerCommandLineCodeExecutor(CodeExecutor):
-    DEFAULT_EXECUTION_POLICY: ClassVar[Dict[str, bool]] = {
+    DEFAULT_EXECUTION_POLICY: ClassVar[dict[str, bool]] = {
         "bash": True,
         "shell": True,
         "sh": True,
@@ -57,18 +59,18 @@ class DockerCommandLineCodeExecutor(CodeExecutor):
         "html": False,
         "css": False,
     }
-    LANGUAGE_ALIASES: ClassVar[Dict[str, str]] = {"py": "python", "js": "javascript"}
+    LANGUAGE_ALIASES: ClassVar[dict[str, str]] = {"py": "python", "js": "javascript"}
 
     def __init__(
         self,
         image: str = "python:3-slim",
-        container_name: Optional[str] = None,
+        container_name: str | None = None,
         timeout: int = 60,
-        work_dir: Union[Path, str] = Path("."),
-        bind_dir: Optional[Union[Path, str]] = None,
+        work_dir: Path | str = Path(),
+        bind_dir: Path | str | None = None,
         auto_remove: bool = True,
         stop_container: bool = True,
-        execution_policies: Optional[Dict[str, bool]] = None,
+        execution_policies: dict[str, bool] | None = None,
     ):
         """(Experimental) A code executor class that executes code through
         a command line environment in a Docker container.
@@ -183,15 +185,15 @@ class DockerCommandLineCodeExecutor(CodeExecutor):
         """(Experimental) Export a code extractor that can be used by an agent."""
         return MarkdownCodeExtractor()
 
-    def execute_code_blocks(self, code_blocks: List[CodeBlock]) -> CommandLineCodeResult:
+    def execute_code_blocks(self, code_blocks: list[CodeBlock]) -> CommandLineCodeResult:
         """(Experimental) Execute the code blocks and return the result.
 
         Args:
             code_blocks (List[CodeBlock]): The code blocks to execute.
 
         Returns:
-            CommandlineCodeResult: The result of the code execution."""
-
+            CommandlineCodeResult: The result of the code execution.
+        """
         if len(code_blocks) == 0:
             raise ValueError("No code blocks to execute.")
 
@@ -225,7 +227,7 @@ class DockerCommandLineCodeExecutor(CodeExecutor):
             files.append(code_path)
 
             if not execute_code:
-                outputs.append(f"Code saved to {str(code_path)}\n")
+                outputs.append(f"Code saved to {code_path!s}\n")
                 continue
 
             command = ["timeout", str(self._timeout), _cmd(lang), filename]
@@ -257,6 +259,6 @@ class DockerCommandLineCodeExecutor(CodeExecutor):
         return self
 
     def __exit__(
-        self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> None:
         self.stop()

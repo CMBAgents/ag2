@@ -1,18 +1,16 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
-from autogen.agentchat.contrib.capabilities.agent_capability import AgentCapability
-from autogen.agentchat.conversable_agent import ConversableAgent
-
+from ...conversable_agent import ConversableAgent
+from ..capabilities.agent_capability import AgentCapability
 from .graph_query_engine import GraphQueryEngine
 
 
 class GraphRagCapability(AgentCapability):
-    """
-    A graph-based RAG capability uses a graph query engine to give a conversable agent the graph-based RAG ability.
+    """A graph-based RAG capability uses a graph query engine to give a conversable agent the graph-based RAG ability.
 
     An agent class with graph-based RAG capability could
     1. create a graph in the underlying database with input documents.
@@ -20,6 +18,7 @@ class GraphRagCapability(AgentCapability):
     3. generate answers from retrieved information and send messages back.
 
     For example,
+    ```python
     graph_query_engine = GraphQueryEngine(...)
     graph_query_engine.init_db([Document(doc1), Document(doc2), ...])
 
@@ -50,13 +49,11 @@ class GraphRagCapability(AgentCapability):
             #   - Hugo Weaving',
             #   'role': 'user_proxy'},
         # ...)
-
+    ```
     """
 
     def __init__(self, query_engine: GraphQueryEngine):
-        """
-        Initialize graph-based RAG capability with a graph query engine
-        """
+        """Initialize graph-based RAG capability with a graph query engine"""
         ...
 
     def add_to_agent(self, agent: ConversableAgent):

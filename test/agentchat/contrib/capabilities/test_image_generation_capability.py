@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,39 +6,33 @@
 # SPDX-License-Identifier: MIT
 import itertools
 import os
-import sys
 import tempfile
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import pytest
 
 from autogen import code_utils
+from autogen.agentchat.contrib.capabilities import generate_images
+from autogen.agentchat.contrib.img_utils import get_pil_image
 from autogen.agentchat.conversable_agent import ConversableAgent
 from autogen.agentchat.user_proxy_agent import UserProxyAgent
 from autogen.cache.cache import Cache
+from autogen.import_utils import optional_import_block, skip_on_missing_imports
 from autogen.oai import openai_utils
 
-try:
+from ....conftest import MOCK_OPEN_AI_API_KEY
+
+with optional_import_block() as result:
     from PIL import Image
 
-    from autogen.agentchat.contrib.capabilities import generate_images
-    from autogen.agentchat.contrib.img_utils import get_pil_image
-except ImportError:
-    skip_requirement = True
-else:
-    skip_requirement = False
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from conftest import MOCK_OPEN_AI_API_KEY, skip_openai  # noqa: E402
+filter_dict = {"model": ["gpt-4o-mini"]}
 
-filter_dict = {"model": ["gpt-35-turbo-16k", "gpt-3.5-turbo-16k"]}
-
-RESOLUTIONS = ["256x256", "512x512", "1024x1024"]
+RESOLUTIONS = ["1024x1024", "1792x1024", "1024x1792"]
 QUALITIES = ["standard", "hd"]
 PROMPTS = [
-    "Generate an image of a robot holding a 'I Love Autogen' sign",
-    "Generate an image of a dog holding a 'I Love Autogen' sign",
+    "Generate an image of a robot holding a 'I Love AG2' sign",
+    "Generate an image of a dog holding a 'I Love AG2' sign",
 ]
 
 
@@ -57,31 +51,31 @@ def create_test_agent(name: str = "test_agent", default_auto_reply: str = "") ->
     return ConversableAgent(name=name, llm_config=False, default_auto_reply=default_auto_reply)
 
 
-def dalle_image_generator(dalle_config: Dict[str, Any], resolution: str, quality: str):
+def dalle_image_generator(dalle_config: dict[str, Any], resolution: str, quality: str):
     return generate_images.DalleImageGenerator(dalle_config, resolution=resolution, quality=quality, num_images=1)
 
 
 def api_key():
-    return MOCK_OPEN_AI_API_KEY if skip_openai else os.environ.get("OPENAI_API_KEY")
+    return os.environ.get("OPENAI_API_KEY", MOCK_OPEN_AI_API_KEY)
 
 
 @pytest.fixture
-def dalle_config() -> Dict[str, Any]:
-    config_list = openai_utils.config_list_from_models(model_list=["dall-e-2"], exclude="aoai")
+def dalle_config() -> dict[str, Any]:
+    config_list = openai_utils.config_list_from_models(model_list=["dall-e-3"], exclude="aoai")
     if not config_list:
-        config_list = [{"model": "dall-e-2", "api_key": api_key()}]
+        config_list = [{"model": "dall-e-3", "api_key": api_key()}]
     return {"config_list": config_list, "timeout": 120, "cache_seed": None}
 
 
 @pytest.fixture
-def gpt3_config() -> Dict[str, Any]:
+def gpt4_config() -> dict[str, Any]:
     config_list = [
         {
-            "model": "gpt-35-turbo-16k",
+            "model": "gpt-4o-mini",
             "api_key": api_key(),
         },
         {
-            "model": "gpt-3.5-turbo-16k",
+            "model": "gpt-4o",
             "api_key": api_key(),
         },
     ]
@@ -94,9 +88,9 @@ def image_gen_capability():
     return generate_images.ImageGeneration(image_generator)
 
 
-@pytest.mark.skipif(skip_openai, reason="Requested to skip.")
-@pytest.mark.skipif(skip_requirement, reason="Dependencies are not installed.")
-def test_dalle_image_generator(dalle_config: Dict[str, Any]):
+@pytest.mark.openai
+@skip_on_missing_imports("PIL", "unknown")
+def test_dalle_image_generator(dalle_config: dict[str, Any]):
     """Tests DalleImageGenerator capability to generate images by calling the OpenAI API."""
     dalle_generator = dalle_image_generator(dalle_config, RESOLUTIONS[0], QUALITIES[0])
     image = dalle_generator.generate_image(PROMPTS[0])
@@ -107,9 +101,9 @@ def test_dalle_image_generator(dalle_config: Dict[str, Any]):
 # Using cartesian product to generate all possible combinations of resolution, quality, and prompt
 @pytest.mark.parametrize("gen_config_1", itertools.product(RESOLUTIONS, QUALITIES, PROMPTS))
 @pytest.mark.parametrize("gen_config_2", itertools.product(RESOLUTIONS, QUALITIES, PROMPTS))
-@pytest.mark.skipif(skip_requirement, reason="Dependencies are not installed.")
+@skip_on_missing_imports(["PIL"], "unknown")
 def test_dalle_image_generator_cache_key(
-    dalle_config: Dict[str, Any], gen_config_1: Tuple[str, str, str], gen_config_2: Tuple[str, str, str]
+    dalle_config: dict[str, Any], gen_config_1: tuple[str, str, str], gen_config_2: tuple[str, str, str]
 ):
     """Tests if DalleImageGenerator creates unique cache keys.
 
@@ -118,7 +112,6 @@ def test_dalle_image_generator_cache_key(
         gen_config_1: A tuple containing the resolution, quality, and prompt for the first image generator.
         gen_config_2: A tuple containing the resolution, quality, and prompt for the second image generator.
     """
-
     dalle_generator_1 = dalle_image_generator(dalle_config, resolution=gen_config_1[0], quality=gen_config_1[1])
     dalle_generator_2 = dalle_image_generator(dalle_config, resolution=gen_config_2[0], quality=gen_config_2[1])
 
@@ -131,7 +124,7 @@ def test_dalle_image_generator_cache_key(
         assert cache_key_1 != cache_key_2
 
 
-@pytest.mark.skipif(skip_requirement, reason="Dependencies are not installed.")
+@skip_on_missing_imports(["PIL"], "unknown")
 def test_image_generation_capability_positive(monkeypatch, image_gen_capability):
     """Tests ImageGeneration capability to generate images by calling the ImageGenerator.
 
@@ -159,7 +152,7 @@ def test_image_generation_capability_positive(monkeypatch, image_gen_capability)
     assert auto_reply not in processed_message
 
 
-@pytest.mark.skipif(skip_requirement, reason="Dependencies are not installed.")
+@skip_on_missing_imports(["PIL"], "unknown")
 def test_image_generation_capability_negative(monkeypatch, image_gen_capability):
     """Tests ImageGeneration capability to generate images by calling the ImageGenerator.
 
@@ -187,7 +180,7 @@ def test_image_generation_capability_negative(monkeypatch, image_gen_capability)
     assert auto_reply == processed_message
 
 
-@pytest.mark.skipif(skip_requirement, reason="Dependencies are not installed.")
+@skip_on_missing_imports(["PIL"], "unknown")
 def test_image_generation_capability_cache(monkeypatch):
     """Tests ImageGeneration capability to cache the generated images."""
     test_image_size = (256, 256)
@@ -228,5 +221,5 @@ def test_image_generation_capability_cache(monkeypatch):
 
 if __name__ == "__main__":
     test_dalle_image_generator(
-        dalle_config={"config_list": openai_utils.config_list_from_models(model_list=["dall-e-2"], exclude="aoai")}
+        dalle_config={"config_list": openai_utils.config_list_from_models(model_list=["dall-e-3"], exclude="aoai")}
     )

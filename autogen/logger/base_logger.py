@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -9,24 +9,23 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, Union
 
 from openai import AzureOpenAI, OpenAI
 from openai.types.chat import ChatCompletion
 
 if TYPE_CHECKING:
-    from autogen import Agent, ConversableAgent, OpenAIWrapper
+    from .. import Agent, ConversableAgent, OpenAIWrapper
 
 F = TypeVar("F", bound=Callable[..., Any])
-ConfigItem = Dict[str, Union[str, List[str]]]
-LLMConfig = Dict[str, Union[None, float, int, ConfigItem, List[ConfigItem]]]
+ConfigItem = dict[str, Union[str, list[str]]]
+LLMConfig = dict[str, Union[None, float, int, ConfigItem, list[ConfigItem]]]
 
 
 class BaseLogger(ABC):
     @abstractmethod
     def start(self) -> str:
-        """
-        Open a connection to the logging database, and start recording.
+        """Open a connection to the logging database, and start recording.
 
         Returns:
             session_id (str):     a unique id for the logging session
@@ -39,15 +38,14 @@ class BaseLogger(ABC):
         invocation_id: uuid.UUID,
         client_id: int,
         wrapper_id: int,
-        source: Union[str, Agent],
-        request: Dict[str, Union[float, str, List[Dict[str, str]]]],
-        response: Union[str, ChatCompletion],
+        source: str | Agent,
+        request: dict[str, float | str | list[dict[str, str]]],
+        response: str | ChatCompletion,
         is_cached: int,
         cost: float,
         start_time: str,
     ) -> None:
-        """
-        Log a chat completion to database.
+        """Log a chat completion to database.
 
         In AutoGen, chat completions are somewhat complicated because they are handled by the `autogen.oai.OpenAIWrapper` class.
         One invocation to `create` can lead to multiple underlying OpenAI calls, depending on the llm_config list used, and
@@ -67,9 +65,8 @@ class BaseLogger(ABC):
         ...
 
     @abstractmethod
-    def log_new_agent(self, agent: ConversableAgent, init_args: Dict[str, Any]) -> None:
-        """
-        Log the birth of a new agent.
+    def log_new_agent(self, agent: ConversableAgent, init_args: dict[str, Any]) -> None:
+        """Log the birth of a new agent.
 
         Args:
             agent (ConversableAgent):   The agent to log.
@@ -78,9 +75,8 @@ class BaseLogger(ABC):
         ...
 
     @abstractmethod
-    def log_event(self, source: Union[str, Agent], name: str, **kwargs: Dict[str, Any]) -> None:
-        """
-        Log an event for an agent.
+    def log_event(self, source: str | Agent, name: str, **kwargs: dict[str, Any]) -> None:
+        """Log an event for an agent.
 
         Args:
             source (str or Agent):      The source/creator of the event as a string name or an Agent instance
@@ -90,9 +86,8 @@ class BaseLogger(ABC):
         ...
 
     @abstractmethod
-    def log_new_wrapper(self, wrapper: OpenAIWrapper, init_args: Dict[str, Union[LLMConfig, List[LLMConfig]]]) -> None:
-        """
-        Log the birth of a new OpenAIWrapper.
+    def log_new_wrapper(self, wrapper: OpenAIWrapper, init_args: dict[str, LLMConfig | list[LLMConfig]]) -> None:
+        """Log the birth of a new OpenAIWrapper.
 
         Args:
             wrapper (OpenAIWrapper):    The wrapper to log.
@@ -101,11 +96,8 @@ class BaseLogger(ABC):
         ...
 
     @abstractmethod
-    def log_new_client(
-        self, client: Union[AzureOpenAI, OpenAI], wrapper: OpenAIWrapper, init_args: Dict[str, Any]
-    ) -> None:
-        """
-        Log the birth of a new OpenAIWrapper.
+    def log_new_client(self, client: AzureOpenAI | OpenAI, wrapper: OpenAIWrapper, init_args: dict[str, Any]) -> None:
+        """Log the birth of a new OpenAIWrapper.
 
         Args:
             wrapper (OpenAI):           The OpenAI client to log.
@@ -114,9 +106,8 @@ class BaseLogger(ABC):
         ...
 
     @abstractmethod
-    def log_function_use(self, source: Union[str, Agent], function: F, args: Dict[str, Any], returns: Any) -> None:
-        """
-        Log the use of a registered function (could be a tool)
+    def log_function_use(self, source: str | Agent, function: F, args: dict[str, Any], returns: Any) -> None:
+        """Log the use of a registered function (could be a tool)
 
         Args:
             source (str or Agent):      The source/creator of the event as a string name or an Agent instance
@@ -127,14 +118,10 @@ class BaseLogger(ABC):
 
     @abstractmethod
     def stop(self) -> None:
-        """
-        Close the connection to the logging database, and stop logging.
-        """
+        """Close the connection to the logging database, and stop logging."""
         ...
 
     @abstractmethod
-    def get_connection(self) -> Union[None, sqlite3.Connection]:
-        """
-        Return a connection to the logging database.
-        """
+    def get_connection(self) -> None | sqlite3.Connection:
+        """Return a connection to the logging database."""
         ...

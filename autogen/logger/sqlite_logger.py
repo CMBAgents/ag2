@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -12,27 +12,26 @@ import os
 import sqlite3
 import threading
 import uuid
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from openai import AzureOpenAI, OpenAI
 from openai.types.chat import ChatCompletion
 
-from autogen.logger.base_logger import BaseLogger
-from autogen.logger.logger_utils import get_current_ts, to_dict
-
-from .base_logger import LLMConfig
+from ..doc_utils import export_module
+from .base_logger import BaseLogger, LLMConfig
+from .logger_utils import get_current_ts, to_dict
 
 if TYPE_CHECKING:
-    from autogen import Agent, ConversableAgent, OpenAIWrapper
-    from autogen.oai.anthropic import AnthropicClient
-    from autogen.oai.bedrock import BedrockClient
-    from autogen.oai.cerebras import CerebrasClient
-    from autogen.oai.cohere import CohereClient
-    from autogen.oai.gemini import GeminiClient
-    from autogen.oai.groq import GroqClient
-    from autogen.oai.mistral import MistralAIClient
-    from autogen.oai.ollama import OllamaClient
-    from autogen.oai.together import TogetherClient
+    from .. import Agent, ConversableAgent, OpenAIWrapper
+    from ..oai.anthropic import AnthropicClient
+    from ..oai.bedrock import BedrockClient
+    from ..oai.cerebras import CerebrasClient
+    from ..oai.cohere import CohereClient
+    from ..oai.gemini import GeminiClient
+    from ..oai.groq import GroqClient
+    from ..oai.mistral import MistralAIClient
+    from ..oai.ollama import OllamaClient
+    from ..oai.together import TogetherClient
 
 logger = logging.getLogger(__name__)
 lock = threading.Lock()
@@ -43,6 +42,15 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 def safe_serialize(obj: Any) -> str:
+    """Safely serialize an object to JSON.
+
+    Args:
+        obj (Any): Object to serialize.
+
+    Returns:
+        str: Serialized object.
+    """
+
     def default(o: Any) -> str:
         if hasattr(o, "to_json"):
             return str(o.to_json())
@@ -52,10 +60,18 @@ def safe_serialize(obj: Any) -> str:
     return json.dumps(obj, default=default)
 
 
+@export_module("autogen.logger")
 class SqliteLogger(BaseLogger):
+    """Sqlite logger class."""
+
     schema_version = 1
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
+        """Initialize the SqliteLogger.
+
+        Args:
+            config (dict[str, Any]): Configuration for the logger.
+        """
         self.config = config
 
         try:
@@ -169,7 +185,7 @@ class SqliteLogger(BaseLogger):
         finally:
             return self.session_id
 
-    def _get_current_db_version(self) -> Union[None, int]:
+    def _get_current_db_version(self) -> None | int:
         self.cur.execute("SELECT version_number FROM version ORDER BY id DESC LIMIT 1")
         result = self.cur.fetchone()
         return result[0] if result is not None else None
@@ -188,7 +204,7 @@ class SqliteLogger(BaseLogger):
         migrations_to_apply = [m for m in migrations if int(m.split("_")[0]) > current_version]
 
         for script in migrations_to_apply:
-            with open(script, "r") as f:
+            with open(script) as f:
                 migration_sql = f.read()
                 self._run_query_script(script=migration_sql)
 
@@ -197,9 +213,8 @@ class SqliteLogger(BaseLogger):
                 args = (latest_version,)
                 self._run_query(query=query, args=args)
 
-    def _run_query(self, query: str, args: Tuple[Any, ...] = ()) -> None:
-        """
-        Executes a given SQL query.
+    def _run_query(self, query: str, args: tuple[Any, ...] = ()) -> None:
+        """Executes a given SQL query.
 
         Args:
             query (str):        The SQL query to execute.
@@ -213,8 +228,7 @@ class SqliteLogger(BaseLogger):
             logger.error("[sqlite logger]Error running query with query %s and args %s: %s", query, args, e)
 
     def _run_query_script(self, script: str) -> None:
-        """
-        Executes SQL script.
+        """Executes SQL script.
 
         Args:
             script (str):       SQL script to execute.
@@ -231,13 +245,26 @@ class SqliteLogger(BaseLogger):
         invocation_id: uuid.UUID,
         client_id: int,
         wrapper_id: int,
-        source: Union[str, Agent],
-        request: Dict[str, Union[float, str, List[Dict[str, str]]]],
-        response: Union[str, ChatCompletion],
+        source: str | Agent,
+        request: dict[str, float | str | list[dict[str, str]]],
+        response: str | ChatCompletion,
         is_cached: int,
         cost: float,
         start_time: str,
     ) -> None:
+        """Log chat completion.
+
+        Args:
+            invocation_id (uuid.UUID): Invocation ID.
+            client_id (int): Client ID.
+            wrapper_id (int): Wrapper ID.
+            source (str | Agent): Source of the chat completion.
+            request (dict[str, float | str | list[dict[str, str]]]): Request for the chat completion.
+            response (str | ChatCompletion): Response for the chat completion.
+            is_cached (int): Whether the response is cached.
+            cost (float): Cost of the chat completion.
+            start_time (str): Start time of the chat completion.
+        """
         if self.con is None:
             return
 
@@ -248,11 +275,7 @@ class SqliteLogger(BaseLogger):
         else:
             response_messages = json.dumps(to_dict(response), indent=4)
 
-        source_name = None
-        if isinstance(source, str):
-            source_name = source
-        else:
-            source_name = source.name
+        source_name = source if isinstance(source, str) else source.name
 
         query = """
             INSERT INTO chat_completions (
@@ -275,8 +298,14 @@ class SqliteLogger(BaseLogger):
 
         self._run_query(query=query, args=args)
 
-    def log_new_agent(self, agent: ConversableAgent, init_args: Dict[str, Any]) -> None:
-        from autogen import Agent
+    def log_new_agent(self, agent: ConversableAgent, init_args: dict[str, Any]) -> None:
+        """Log new agent.
+
+        Args:
+            agent (ConversableAgent): Agent to log.
+            init_args (dict[str, Any]): Initialization arguments of the agent
+        """
+        from .. import Agent
 
         if self.con is None:
             return
@@ -317,7 +346,14 @@ class SqliteLogger(BaseLogger):
         )
         self._run_query(query=query, args=args)
 
-    def log_event(self, source: Union[str, Agent], name: str, **kwargs: Dict[str, Any]) -> None:
+    def log_event(self, source: str | Agent, name: str, **kwargs: dict[str, Any]) -> None:
+        """Log event.
+
+        Args:
+            source (str | Agent): Source of the event.
+            name (str): Name of the event.
+            **kwargs (dict[str, Any]): Additional arguments for the event.
+        """
         from autogen import Agent
 
         if self.con is None:
@@ -352,7 +388,13 @@ class SqliteLogger(BaseLogger):
             )
             self._run_query(query=query, args=args_str_based)
 
-    def log_new_wrapper(self, wrapper: OpenAIWrapper, init_args: Dict[str, Union[LLMConfig, List[LLMConfig]]]) -> None:
+    def log_new_wrapper(self, wrapper: OpenAIWrapper, init_args: dict[str, LLMConfig | list[LLMConfig]]) -> None:
+        """Log new wrapper.
+
+        Args:
+            wrapper (OpenAIWrapper): Wrapper to log.
+            init_args (dict[str, LLMConfig | list[LLMConfig]]): Initialization arguments of the wrapper
+        """
         if self.con is None:
             return
 
@@ -382,15 +424,22 @@ class SqliteLogger(BaseLogger):
         )
         self._run_query(query=query, args=args)
 
-    def log_function_use(self, source: Union[str, Agent], function: F, args: Dict[str, Any], returns: Any) -> None:
+    def log_function_use(self, source: str | Agent, function: F, args: dict[str, Any], returns: Any) -> None:
+        """Log function use.
 
+        Args:
+            source (str | Agent): Source of the function use.
+            function (F): Function to log.
+            args (dict[str, Any]): Arguments of the function.
+            returns (Any): Returns of the function.
+        """
         if self.con is None:
             return
 
         query = """
         INSERT INTO function_calls (source_id, source_name, function_name, args, returns, timestamp) VALUES (?, ?, ?, ?, ?, ?)
         """
-        query_args: Tuple[Any, ...] = (
+        query_args: tuple[Any, ...] = (
             id(source),
             source.name if hasattr(source, "name") else source,
             function.__name__,
@@ -402,22 +451,29 @@ class SqliteLogger(BaseLogger):
 
     def log_new_client(
         self,
-        client: Union[
-            AzureOpenAI,
-            OpenAI,
-            CerebrasClient,
-            GeminiClient,
-            AnthropicClient,
-            MistralAIClient,
-            TogetherClient,
-            GroqClient,
-            CohereClient,
-            OllamaClient,
-            BedrockClient,
-        ],
+        client: (
+            AzureOpenAI
+            | OpenAI
+            | CerebrasClient
+            | GeminiClient
+            | AnthropicClient
+            | MistralAIClient
+            | TogetherClient
+            | GroqClient
+            | CohereClient
+            | OllamaClient
+            | BedrockClient
+        ),
         wrapper: OpenAIWrapper,
-        init_args: Dict[str, Any],
+        init_args: dict[str, Any],
     ) -> None:
+        """Log new client.
+
+        Args:
+            client (AzureOpenAI | OpenAI | CerebrasClient | GeminiClient | AnthropicClient | MistralAIClient | TogetherClient | GroqClient | CohereClient | OllamaClient | BedrockClient): Client to log.
+            wrapper (OpenAIWrapper): Wrapper of the client.
+            init_args (dict[str, Any]): Initialization arguments of the client.
+        """
         if self.con is None:
             return
 
@@ -450,10 +506,12 @@ class SqliteLogger(BaseLogger):
         self._run_query(query=query, args=args)
 
     def stop(self) -> None:
+        """Stop the logger"""
         if self.con:
             self.con.close()
 
-    def get_connection(self) -> Union[None, sqlite3.Connection]:
+    def get_connection(self) -> None | sqlite3.Connection:
+        """Get connection."""
         if self.con:
             return self.con
         return None

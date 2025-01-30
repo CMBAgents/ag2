@@ -1,49 +1,47 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 import os
-from typing import Callable, List
+from typing import Callable
 
+from ....import_utils import optional_import_block, require_optional_import
 from .base import Document, ItemID, QueryResults, VectorDB
 from .utils import chroma_results_to_query_results, filter_results_by_distance, get_logger
 
-try:
+with optional_import_block() as result:
     import chromadb
-
-    if chromadb.__version__ < "0.4.15":
-        raise ImportError("Please upgrade chromadb to version 0.4.15 or later.")
     import chromadb.errors
     import chromadb.utils.embedding_functions as ef
     from chromadb.api.models.Collection import Collection
-except ImportError:
-    raise ImportError("Please install chromadb: `pip install chromadb`")
+
+if result.is_successful and chromadb.__version__ < "0.4.15":
+    raise ImportError("Please upgrade chromadb to version 0.4.15 or later.")
+
 
 CHROMADB_MAX_BATCH_SIZE = os.environ.get("CHROMADB_MAX_BATCH_SIZE", 40000)
 logger = get_logger(__name__)
 
 
+@require_optional_import("chromadb", "retrievechat")
 class ChromaVectorDB(VectorDB):
-    """
-    A vector database that uses ChromaDB as the backend.
-    """
+    """A vector database that uses ChromaDB as the backend."""
 
     def __init__(
         self, *, client=None, path: str = "tmp/db", embedding_function: Callable = None, metadata: dict = None, **kwargs
     ) -> None:
-        """
-        Initialize the vector database.
+        """Initialize the vector database.
 
         Args:
             client: chromadb.Client | The client object of the vector database. Default is None.
                 If provided, it will use the client object directly and ignore other arguments.
-            path: str | The path to the vector database. Default is `tmp/db`. The default was `None` for version <=0.2.24.
+            path: str | The path to the vector database. Default is `tmp/db`. The default was `None` for version `<=0.2.24`.
             embedding_function: Callable | The embedding function used to generate the vector representation
                 of the documents. Default is None, SentenceTransformerEmbeddingFunction("all-MiniLM-L6-v2") will be used.
             metadata: dict | The metadata of the vector database. Default is None. If None, it will use this
-                setting: {"hnsw:space": "ip", "hnsw:construction_ef": 30, "hnsw:M": 32}. For more details of
+                setting: `{"hnsw:space": "ip", "hnsw:construction_ef": 30, "hnsw:M": 32}`. For more details of
                 the metadata, please refer to [distances](https://github.com/nmslib/hnswlib#supported-distances),
                 [hnsw](https://github.com/chroma-core/chroma/blob/566bc80f6c8ee29f7d99b6322654f32183c368c4/chromadb/segment/impl/vector/local_hnsw.py#L184),
                 and [ALGO_PARAMS](https://github.com/nmslib/hnswlib/blob/master/ALGO_PARAMS.md).
@@ -70,9 +68,8 @@ class ChromaVectorDB(VectorDB):
 
     def create_collection(
         self, collection_name: str, overwrite: bool = False, get_or_create: bool = True
-    ) -> Collection:
-        """
-        Create a collection in the vector database.
+    ) -> "Collection":
+        """Create a collection in the vector database.
         Case 1. if the collection does not exist, create the collection.
         Case 2. the collection exists, if overwrite is True, it will overwrite the collection.
         Case 3. the collection exists and overwrite is False, if get_or_create is True, it will get the collection,
@@ -113,9 +110,8 @@ class ChromaVectorDB(VectorDB):
         else:
             raise ValueError(f"Collection {collection_name} already exists.")
 
-    def get_collection(self, collection_name: str = None) -> Collection:
-        """
-        Get the collection from the vector database.
+    def get_collection(self, collection_name: str = None) -> "Collection":
+        """Get the collection from the vector database.
 
         Args:
             collection_name: str | The name of the collection. Default is None. If None, return the
@@ -139,8 +135,7 @@ class ChromaVectorDB(VectorDB):
         return self.active_collection
 
     def delete_collection(self, collection_name: str) -> None:
-        """
-        Delete the collection from the vector database.
+        """Delete the collection from the vector database.
 
         Args:
             collection_name: str | The name of the collection.
@@ -153,7 +148,7 @@ class ChromaVectorDB(VectorDB):
             self.active_collection = None
 
     def _batch_insert(
-        self, collection: Collection, embeddings=None, ids=None, metadatas=None, documents=None, upsert=False
+        self, collection: "Collection", embeddings=None, ids=None, metadatas=None, documents=None, upsert=False
     ) -> None:
         batch_size = int(CHROMADB_MAX_BATCH_SIZE)
         for i in range(0, len(documents), min(batch_size, len(documents))):
@@ -169,9 +164,8 @@ class ChromaVectorDB(VectorDB):
             else:
                 collection.add(**collection_kwargs)
 
-    def insert_docs(self, docs: List[Document], collection_name: str = None, upsert: bool = False) -> None:
-        """
-        Insert documents into the collection of the vector database.
+    def insert_docs(self, docs: list[Document], collection_name: str = None, upsert: bool = False) -> None:
+        """Insert documents into the collection of the vector database.
 
         Args:
             docs: List[Document] | A list of documents. Each document is a TypedDict `Document`.
@@ -198,15 +192,11 @@ class ChromaVectorDB(VectorDB):
             embeddings = None
         else:
             embeddings = [doc.get("embedding") for doc in docs]
-        if docs[0].get("metadata") is None:
-            metadatas = None
-        else:
-            metadatas = [doc.get("metadata") for doc in docs]
+        metadatas = None if docs[0].get("metadata") is None else [doc.get("metadata") for doc in docs]
         self._batch_insert(collection, embeddings, ids, metadatas, documents, upsert)
 
-    def update_docs(self, docs: List[Document], collection_name: str = None) -> None:
-        """
-        Update documents in the collection of the vector database.
+    def update_docs(self, docs: list[Document], collection_name: str = None) -> None:
+        """Update documents in the collection of the vector database.
 
         Args:
             docs: List[Document] | A list of documents.
@@ -217,9 +207,8 @@ class ChromaVectorDB(VectorDB):
         """
         self.insert_docs(docs, collection_name, upsert=True)
 
-    def delete_docs(self, ids: List[ItemID], collection_name: str = None, **kwargs) -> None:
-        """
-        Delete documents from the collection of the vector database.
+    def delete_docs(self, ids: list[ItemID], collection_name: str = None, **kwargs) -> None:
+        """Delete documents from the collection of the vector database.
 
         Args:
             ids: List[ItemID] | A list of document ids. Each id is a typed `ItemID`.
@@ -234,21 +223,20 @@ class ChromaVectorDB(VectorDB):
 
     def retrieve_docs(
         self,
-        queries: List[str],
+        queries: list[str],
         collection_name: str = None,
         n_results: int = 10,
         distance_threshold: float = -1,
         **kwargs,
     ) -> QueryResults:
-        """
-        Retrieve documents from the collection of the vector database based on the queries.
+        """Retrieve documents from the collection of the vector database based on the queries.
 
         Args:
             queries: List[str] | A list of queries. Each query is a string.
             collection_name: str | The name of the collection. Default is None.
             n_results: int | The number of relevant documents to return. Default is 10.
             distance_threshold: float | The threshold for the distance score, only distance smaller than it will be
-                returned. Don't filter with it if < 0. Default is -1.
+                returned. Don't filter with it if `< 0`. Default is -1.
             kwargs: Dict | Additional keyword arguments.
 
         Returns:
@@ -269,7 +257,7 @@ class ChromaVectorDB(VectorDB):
         return results
 
     @staticmethod
-    def _chroma_get_results_to_list_documents(data_dict) -> List[Document]:
+    def _chroma_get_results_to_list_documents(data_dict) -> list[Document]:
         """Converts a dictionary with list values to a list of Document.
 
         Args:
@@ -279,6 +267,7 @@ class ChromaVectorDB(VectorDB):
             List[Document] | The list of Document.
 
         Example:
+            ```python
             data_dict = {
                 "key1s": [1, 2, 3],
                 "key2s": ["a", "b", "c"],
@@ -291,24 +280,23 @@ class ChromaVectorDB(VectorDB):
                 {"key1": 2, "key2": "b", "key4": "y"},
                 {"key1": 3, "key2": "c", "key4": "z"},
             ]
+            ```
         """
-
         results = []
         keys = [key for key in data_dict if data_dict[key] is not None]
 
         for i in range(len(data_dict[keys[0]])):
             sub_dict = {}
-            for key in data_dict.keys():
+            for key in data_dict:
                 if data_dict[key] is not None and len(data_dict[key]) > i:
                     sub_dict[key[:-1]] = data_dict[key][i]
             results.append(sub_dict)
         return results
 
     def get_docs_by_ids(
-        self, ids: List[ItemID] = None, collection_name: str = None, include=None, **kwargs
-    ) -> List[Document]:
-        """
-        Retrieve documents from the collection of the vector database based on the ids.
+        self, ids: list[ItemID] = None, collection_name: str = None, include=None, **kwargs
+    ) -> list[Document]:
+        """Retrieve documents from the collection of the vector database based on the ids.
 
         Args:
             ids: List[ItemID] | A list of document ids. If None, will return all the documents. Default is None.

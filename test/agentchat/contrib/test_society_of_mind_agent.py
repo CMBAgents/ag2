@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,23 +6,14 @@
 # SPDX-License-Identifier: MIT
 #!/usr/bin/env python3 -m pytest
 
-import os
-import sys
+from typing import Annotated
 
 import pytest
-from typing_extensions import Annotated
 
 import autogen
 from autogen.agentchat.contrib.society_of_mind_agent import SocietyOfMindAgent
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST  # noqa: E402
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from conftest import skip_openai  # noqa: E402
-
-if not skip_openai:
-    config_list = autogen.config_list_from_json(env_or_file=OAI_CONFIG_LIST, file_location=KEY_LOC)
+from ...conftest import Credentials
 
 
 def test_society_of_mind_agent():
@@ -215,14 +206,11 @@ def test_custom_preparer():
     assert external_agent.chat_messages[soc][-1]["content"] == "All tests passed."
 
 
-@pytest.mark.skipif(
-    skip_openai,
-    reason="do not run openai tests",
-)
-def test_function_calling():
-    llm_config = {"config_list": config_list}
+@pytest.mark.openai
+def test_function_calling(credentials_all: Credentials):
+    llm_config = {"config_list": credentials_all.config_list}
     inner_llm_config = {
-        "config_list": config_list,
+        "config_list": credentials_all.config_list,
         "functions": [
             {
                 "name": "reverse_print",
@@ -293,13 +281,10 @@ def test_function_calling():
     )
 
 
-@pytest.mark.skipif(
-    skip_openai,
-    reason="do not run openai tests",
-)
-def test_tool_use():
-    llm_config = {"config_list": config_list}
-    inner_llm_config = {"config_list": config_list}
+@pytest.mark.openai
+def test_tool_use(credentials_all: Credentials):
+    llm_config = credentials_all.llm_config
+    inner_llm_config = credentials_all.llm_config
 
     external_agent = autogen.ConversableAgent(
         "external_agent",

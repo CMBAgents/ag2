@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,23 +6,16 @@
 # SPDX-License-Identifier: MIT
 #!/usr/bin/env python3 -m pytest
 
-import os
-import sys
-from typing import List
-
 import pytest
 
 import autogen
 from autogen.agentchat.contrib.capabilities.agent_capability import AgentCapability
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from conftest import reason, skip_openai  # noqa: E402
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST  # noqa: E402
+from ..conftest import Credentials
 
 
 class MockAgentReplies(AgentCapability):
-    def __init__(self, mock_messages: List[str]):
+    def __init__(self, mock_messages: list[str]):
         self.mock_messages = mock_messages
         self.mock_message_index = 0
 
@@ -38,16 +31,11 @@ class MockAgentReplies(AgentCapability):
         agent.register_reply([autogen.Agent, None], mock_reply, position=2)
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
-def test_nested():
-    config_list = autogen.config_list_from_json(env_or_file=OAI_CONFIG_LIST, file_location=KEY_LOC)
-    config_list_35 = autogen.config_list_from_json(
-        OAI_CONFIG_LIST,
-        file_location=KEY_LOC,
-        filter_dict={"tags": ["gpt-3.5-turbo"]},
-    )
-    llm_config = {"config_list": config_list}
-
+@pytest.mark.openai
+def test_nested(
+    credentials_gpt_4o_mini: Credentials,
+    credentials_gpt_4o: Credentials,
+):
     tasks = [
         """What's the date today?""",
         """Make a pleasant joke about it.""",
@@ -55,7 +43,7 @@ def test_nested():
 
     inner_assistant = autogen.AssistantAgent(
         "Inner-assistant",
-        llm_config=llm_config,
+        llm_config=credentials_gpt_4o_mini.llm_config,
         is_termination_msg=lambda x: x.get("content", "").find("TERMINATE") >= 0,
     )
 
@@ -81,7 +69,7 @@ def test_nested():
     manager = autogen.GroupChatManager(
         groupchat=groupchat,
         is_termination_msg=lambda x: x.get("content", "").find("TERMINATE") >= 0,
-        llm_config=llm_config,
+        llm_config=credentials_gpt_4o.llm_config,
         code_execution_config={
             "work_dir": "coding",
             "use_docker": False,
@@ -96,7 +84,7 @@ def test_nested():
 
     assistant_2 = autogen.AssistantAgent(
         name="Assistant",
-        llm_config={"config_list": config_list_35},
+        llm_config=credentials_gpt_4o_mini.llm_config,
         # is_termination_msg=lambda x: x.get("content", "") == "",
     )
 
@@ -124,7 +112,7 @@ def test_nested():
 
     writer = autogen.AssistantAgent(
         name="Writer",
-        llm_config={"config_list": config_list_35},
+        llm_config=credentials_gpt_4o_mini.llm_config,
         system_message="""
         You are a professional writer, known for
         your insightful and engaging articles.
@@ -135,7 +123,7 @@ def test_nested():
 
     autogen.AssistantAgent(
         name="Reviewer",
-        llm_config={"config_list": config_list_35},
+        llm_config=credentials_gpt_4o_mini.llm_config,
         system_message="""
         You are a compliance reviewer, known for your thoroughness and commitment to standards.
         Your task is to scrutinize content for any harmful elements or regulatory violations, ensuring
@@ -169,11 +157,9 @@ def test_nested():
 
 def test_sync_nested_chat():
     def is_termination(msg):
-        if isinstance(msg, str) and msg == "FINAL_RESULT":
-            return True
-        elif isinstance(msg, dict) and msg.get("content") == "FINAL_RESULT":
-            return True
-        return False
+        return (isinstance(msg, str) and msg == "FINAL_RESULT") or (
+            isinstance(msg, dict) and msg.get("content") == "FINAL_RESULT"
+        )
 
     inner_assistant = autogen.AssistantAgent(
         "Inner-assistant",
@@ -207,12 +193,10 @@ def test_sync_nested_chat():
 
 @pytest.mark.asyncio
 async def test_async_nested_chat():
-    def is_termination(msg):
-        if isinstance(msg, str) and msg == "FINAL_RESULT":
-            return True
-        elif isinstance(msg, dict) and msg.get("content") == "FINAL_RESULT":
-            return True
-        return False
+    def is_termination(msg) -> bool:
+        return (isinstance(msg, str) and msg == "FINAL_RESULT") or (
+            isinstance(msg, dict) and msg.get("content") == "FINAL_RESULT"
+        )
 
     inner_assistant = autogen.AssistantAgent(
         "Inner-assistant",
@@ -248,12 +232,10 @@ async def test_async_nested_chat():
 
 @pytest.mark.asyncio
 async def test_async_nested_chat_chat_id_validation():
-    def is_termination(msg):
-        if isinstance(msg, str) and msg == "FINAL_RESULT":
-            return True
-        elif isinstance(msg, dict) and msg.get("content") == "FINAL_RESULT":
-            return True
-        return False
+    def is_termination(msg) -> bool:
+        return (isinstance(msg, str) and msg == "FINAL_RESULT") or (
+            isinstance(msg, dict) and msg.get("content") == "FINAL_RESULT"
+        )
 
     inner_assistant = autogen.AssistantAgent(
         "Inner-assistant",
@@ -285,12 +267,10 @@ async def test_async_nested_chat_chat_id_validation():
 
 
 def test_sync_nested_chat_in_group():
-    def is_termination(msg):
-        if isinstance(msg, str) and msg == "FINAL_RESULT":
-            return True
-        elif isinstance(msg, dict) and msg.get("content") == "FINAL_RESULT":
-            return True
-        return False
+    def is_termination(msg) -> bool:
+        return (isinstance(msg, str) and msg == "FINAL_RESULT") or (
+            isinstance(msg, dict) and msg.get("content") == "FINAL_RESULT"
+        )
 
     inner_assistant = autogen.AssistantAgent(
         "Inner-assistant",
@@ -332,12 +312,10 @@ def test_sync_nested_chat_in_group():
 
 @pytest.mark.asyncio
 async def test_async_nested_chat_in_group():
-    def is_termination(msg):
-        if isinstance(msg, str) and msg == "FINAL_RESULT":
-            return True
-        elif isinstance(msg, dict) and msg.get("content") == "FINAL_RESULT":
-            return True
-        return False
+    def is_termination(msg) -> bool:
+        return (isinstance(msg, str) and msg == "FINAL_RESULT") or (
+            isinstance(msg, dict) and msg.get("content") == "FINAL_RESULT"
+        )
 
     inner_assistant = autogen.AssistantAgent(
         "Inner-assistant",

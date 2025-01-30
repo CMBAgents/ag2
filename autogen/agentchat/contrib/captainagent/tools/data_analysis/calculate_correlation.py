@@ -1,9 +1,8 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 def calculate_correlation(csv_path: str, column1: str, column2: str, method: str = "pearson") -> float:
-    """
-    Calculate the correlation between two columns in a CSV file.
+    """Calculate the correlation between two columns in a CSV file.
 
     Args:
     csv_path (str): The path to the CSV file.

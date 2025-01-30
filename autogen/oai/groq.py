@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -7,15 +7,13 @@
 """Create an OpenAI-compatible client using Groq's API.
 
 Example:
-    llm_config={
-        "config_list": [{
-            "api_type": "groq",
-            "model": "mixtral-8x7b-32768",
-            "api_key": os.environ.get("GROQ_API_KEY")
-            }
-    ]}
+    ```python
+    llm_config = {
+        "config_list": [{"api_type": "groq", "model": "mixtral-8x7b-32768", "api_key": os.environ.get("GROQ_API_KEY")}]
+    }
 
     agent = autogen.AssistantAgent("my_agent", llm_config=llm_config)
+    ```
 
 Install Groq's python library using: pip install --upgrade groq
 
@@ -29,15 +27,17 @@ import copy
 import os
 import time
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from groq import Groq, Stream
 from openai.types.chat import ChatCompletion, ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
 from openai.types.completion_usage import CompletionUsage
-from pydantic import BaseModel
 
-from autogen.oai.client_utils import should_hide_tools, validate_parameter
+from ..import_utils import optional_import_block, require_optional_import
+from .client_utils import should_hide_tools, validate_parameter
+
+with optional_import_block():
+    from groq import Groq, Stream
 
 # Cost per thousand tokens - Input / Output (NOTE: Convert $/Million to $/K)
 GROQ_PRICING_1K = {
@@ -58,21 +58,20 @@ class GroqClient:
             api_key (str): The API key for using Groq (or environment variable GROQ_API_KEY needs to be set)
         """
         # Ensure we have the api_key upon instantiation
-        self.api_key = kwargs.get("api_key", None)
+        self.api_key = kwargs.get("api_key")
         if not self.api_key:
             self.api_key = os.getenv("GROQ_API_KEY")
 
-        assert (
-            self.api_key
-        ), "Please include the api_key in your config list entry for Groq or set the GROQ_API_KEY env variable."
+        assert self.api_key, (
+            "Please include the api_key in your config list entry for Groq or set the GROQ_API_KEY env variable."
+        )
 
         if "response_format" in kwargs and kwargs["response_format"] is not None:
             warnings.warn("response_format is not supported for Groq API, it will be ignored.", UserWarning)
-        self.base_url = kwargs.get("base_url", None)
+        self.base_url = kwargs.get("base_url")
 
-    def message_retrieval(self, response) -> List:
-        """
-        Retrieve and return a list of strings or a list of Choice.Message from the response.
+    def message_retrieval(self, response) -> list:
+        """Retrieve and return a list of strings or a list of Choice.Message from the response.
 
         NOTE: if a list of Choice.Message is returned, it currently needs to contain the fields of OpenAI's ChatCompletion Message object,
         since that is expected for function or tool calling in the rest of the codebase at the moment, unless a custom agent is being used.
@@ -83,7 +82,7 @@ class GroqClient:
         return response.cost
 
     @staticmethod
-    def get_usage(response) -> Dict:
+    def get_usage(response) -> dict:
         """Return usage summary of the response using RESPONSE_USAGE_KEYS."""
         # ...  # pragma: no cover
         return {
@@ -94,16 +93,16 @@ class GroqClient:
             "model": response.model,
         }
 
-    def parse_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_params(self, params: dict[str, Any]) -> dict[str, Any]:
         """Loads the parameters for Groq API from the passed in parameters and returns a validated set. Checks types, ranges, and sets defaults"""
         groq_params = {}
 
         # Check that we have what we need to use Groq's API
         # We won't enforce the available models as they are likely to change
-        groq_params["model"] = params.get("model", None)
-        assert groq_params[
-            "model"
-        ], "Please specify the 'model' in your config list entry to nominate the Groq model to use."
+        groq_params["model"] = params.get("model")
+        assert groq_params["model"], (
+            "Please specify the 'model' in your config list entry to nominate the Groq model to use."
+        )
 
         # Validate allowed Groq parameters
         # https://console.groq.com/docs/api-reference#chat
@@ -130,7 +129,8 @@ class GroqClient:
 
         return groq_params
 
-    def create(self, params: Dict) -> ChatCompletion:
+    @require_optional_import("groq", "groq")
+    def create(self, params: dict) -> ChatCompletion:
         messages = params.get("messages", [])
 
         # Convert AutoGen messages to Groq messages
@@ -255,11 +255,10 @@ class GroqClient:
         return response_oai
 
 
-def oai_messages_to_groq_messages(messages: list[Dict[str, Any]]) -> list[dict[str, Any]]:
+def oai_messages_to_groq_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Convert messages from OAI format to Groq's format.
     We correct for any specific role orders and types.
     """
-
     groq_messages = copy.deepcopy(messages)
 
     # Remove the name field

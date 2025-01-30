@@ -1,11 +1,10 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 import os
-import sys
 
 import pytest
 
@@ -15,15 +14,11 @@ from autogen.code_utils import (
     is_docker_running,
 )
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from conftest import reason, skip_openai
-
 
 def docker_running():
     return is_docker_running() or in_docker_container()
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
 def test_agent_setup_with_code_execution_off():
     user_proxy = UserProxyAgent(
         name="test_agent",
@@ -34,7 +29,6 @@ def test_agent_setup_with_code_execution_off():
     assert user_proxy._code_execution_config is False
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
 def test_agent_setup_with_use_docker_false():
     user_proxy = UserProxyAgent(
         name="test_agent",
@@ -45,7 +39,6 @@ def test_agent_setup_with_use_docker_false():
     assert user_proxy._code_execution_config["use_docker"] is False
 
 
-@pytest.mark.skipif(skip_openai, reason=reason)
 def test_agent_setup_with_env_variable_false_and_docker_running(monkeypatch):
     monkeypatch.setenv("AUTOGEN_USE_DOCKER", "False")
 
@@ -57,7 +50,7 @@ def test_agent_setup_with_env_variable_false_and_docker_running(monkeypatch):
     assert user_proxy._code_execution_config["use_docker"] is False
 
 
-@pytest.mark.skipif(skip_openai or (not docker_running()), reason=reason + " OR docker not running")
+@pytest.mark.skipif((not docker_running()), reason="docker not running")
 def test_agent_setup_with_default_and_docker_running(monkeypatch):
     monkeypatch.delenv("AUTOGEN_USE_DOCKER", raising=False)
 
@@ -73,7 +66,7 @@ def test_agent_setup_with_default_and_docker_running(monkeypatch):
     assert user_proxy._code_execution_config["use_docker"] is True
 
 
-@pytest.mark.skipif(skip_openai or (docker_running()), reason=reason + " OR docker running")
+@pytest.mark.skipif((docker_running()), reason="docker running")
 def test_raises_error_agent_setup_with_default_and_docker_not_running(monkeypatch):
     monkeypatch.delenv("AUTOGEN_USE_DOCKER", raising=False)
     with pytest.raises(RuntimeError):
@@ -83,7 +76,7 @@ def test_raises_error_agent_setup_with_default_and_docker_not_running(monkeypatc
         )
 
 
-@pytest.mark.skipif(skip_openai or (docker_running()), reason=" OR docker running")
+@pytest.mark.skipif((docker_running()), reason="docker running")
 def test_raises_error_agent_setup_with_env_variable_true_and_docker_not_running(monkeypatch):
     monkeypatch.setenv("AUTOGEN_USE_DOCKER", "True")
 
@@ -94,7 +87,7 @@ def test_raises_error_agent_setup_with_env_variable_true_and_docker_not_running(
         )
 
 
-@pytest.mark.skipif(skip_openai or (not docker_running()), reason=" OR docker not running")
+@pytest.mark.skipif((not docker_running()), reason="docker not running")
 def test_agent_setup_with_env_variable_true_and_docker_running(monkeypatch):
     monkeypatch.setenv("AUTOGEN_USE_DOCKER", "True")
 

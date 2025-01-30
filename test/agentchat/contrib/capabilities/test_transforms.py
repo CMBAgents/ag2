@@ -1,12 +1,11 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 import copy
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, patch
+from typing import Any
 
 import pytest
 
@@ -18,14 +17,15 @@ from autogen.agentchat.contrib.capabilities.transforms import (
     TextMessageContentName,
 )
 from autogen.agentchat.contrib.capabilities.transforms_util import count_text_tokens
+from autogen.import_utils import optional_import_block
 
 
 class _MockTextCompressor:
-    def compress_text(self, text: str, **compression_params) -> Dict[str, Any]:
+    def compress_text(self, text: str, **compression_params) -> dict[str, Any]:
         return {"compressed_prompt": ""}
 
 
-def get_long_messages() -> List[Dict]:
+def get_long_messages() -> list[dict]:
     return [
         {"role": "assistant", "content": [{"type": "text", "text": "are you doing?"}]},
         {"role": "user", "content": "very very very very very very long string"},
@@ -35,7 +35,7 @@ def get_long_messages() -> List[Dict]:
     ]
 
 
-def get_short_messages() -> List[Dict]:
+def get_short_messages() -> list[dict]:
     return [
         {"role": "user", "content": "hello"},
         {"role": "assistant", "content": [{"type": "text", "text": "there"}]},
@@ -43,11 +43,11 @@ def get_short_messages() -> List[Dict]:
     ]
 
 
-def get_no_content_messages() -> List[Dict]:
+def get_no_content_messages() -> list[dict]:
     return [{"role": "user", "function_call": "example"}, {"role": "assistant", "content": None}]
 
 
-def get_tool_messages() -> List[Dict]:
+def get_tool_messages() -> list[dict]:
     return [
         {"role": "user", "content": "hello"},
         {"role": "tool_calls", "content": "calling_tool"},
@@ -57,7 +57,7 @@ def get_tool_messages() -> List[Dict]:
     ]
 
 
-def get_tool_messages_kept() -> List[Dict]:
+def get_tool_messages_kept() -> list[dict]:
     return [
         {"role": "user", "content": "hello"},
         {"role": "tool_calls", "content": "calling_tool"},
@@ -67,7 +67,7 @@ def get_tool_messages_kept() -> List[Dict]:
     ]
 
 
-def get_messages_with_names() -> List[Dict]:
+def get_messages_with_names() -> list[dict]:
     return [
         {"role": "system", "content": "I am the system."},
         {"role": "user", "name": "charlie", "content": "I think the sky is blue."},
@@ -76,7 +76,7 @@ def get_messages_with_names() -> List[Dict]:
     ]
 
 
-def get_messages_with_names_post_start() -> List[Dict]:
+def get_messages_with_names_post_start() -> list[dict]:
     return [
         {"role": "system", "content": "I am the system."},
         {"role": "user", "name": "charlie", "content": "'charlie' said:\nI think the sky is blue."},
@@ -85,7 +85,7 @@ def get_messages_with_names_post_start() -> List[Dict]:
     ]
 
 
-def get_messages_with_names_post_end() -> List[Dict]:
+def get_messages_with_names_post_end() -> list[dict]:
     return [
         {"role": "system", "content": "I am the system."},
         {"role": "user", "name": "charlie", "content": "I think the sky is blue.\n(said 'charlie')"},
@@ -94,7 +94,7 @@ def get_messages_with_names_post_end() -> List[Dict]:
     ]
 
 
-def get_messages_with_names_post_filtered() -> List[Dict]:
+def get_messages_with_names_post_filtered() -> list[dict]:
     return [
         {"role": "system", "content": "I am the system."},
         {"role": "user", "name": "charlie", "content": "I think the sky is blue."},
@@ -103,14 +103,15 @@ def get_messages_with_names_post_filtered() -> List[Dict]:
     ]
 
 
-def get_text_compressors() -> List[TextCompressor]:
-    compressors: List[TextCompressor] = [_MockTextCompressor()]
-    try:
+def get_text_compressors() -> list[TextCompressor]:
+    compressors: list[TextCompressor] = [_MockTextCompressor()]
+    with optional_import_block() as result:
+        import llmlingua  # noqa: F401
+
+    if result.is_successful:
         from autogen.agentchat.contrib.capabilities.text_compressors import LLMLingua
 
         compressors.append(LLMLingua())
-    except ImportError:
-        pass
 
     return compressors
 
@@ -136,7 +137,7 @@ def message_token_limiter_with_threshold() -> MessageTokenLimiter:
 
 
 def _filter_dict_test(
-    post_transformed_message: Dict, pre_transformed_messages: Dict, roles: List[str], exclude_filter: bool
+    post_transformed_message: dict, pre_transformed_messages: dict, roles: list[str], exclude_filter: bool
 ) -> bool:
     is_role = post_transformed_message["role"] in roles
     if exclude_filter:
@@ -297,7 +298,6 @@ def test_message_token_limiter_get_logs(message_token_limiter, messages, expecte
 @pytest.mark.parametrize("text_compressor", get_text_compressors())
 def test_text_compression(text_compressor):
     """Test the TextMessageCompressor transform."""
-
     compressor = TextMessageCompressor(text_compressor=text_compressor)
 
     text = "Run this test with a long string. "

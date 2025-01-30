@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -8,14 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-try:
-    from autogen.oai.groq import GroqClient, calculate_groq_cost
-
-    skip = False
-except ImportError:
-    GroqClient = object
-    InternalServerError = object
-    skip = True
+from autogen.import_utils import skip_on_missing_imports
+from autogen.oai.groq import GroqClient, calculate_groq_cost
 
 
 # Fixtures for mock data
@@ -37,13 +31,9 @@ def groq_client():
     return GroqClient(api_key="fake_api_key")
 
 
-skip_reason = "Groq dependency is not installed"
-
-
 # Test initialization and configuration
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["groq"], "groq")
 def test_initialization():
-
     # Missing any api_key
     with pytest.raises(AssertionError) as assertinfo:
         GroqClient()  # Should raise an AssertionError due to missing api_key
@@ -57,13 +47,13 @@ def test_initialization():
 
 
 # Test standard initialization
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["groq"], "groq")
 def test_valid_initialization(groq_client):
     assert groq_client.api_key == "fake_api_key", "Config api_key should be correctly set"
 
 
 # Test parameters
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["groq"], "groq")
 def test_parsing_params(groq_client):
     # All parameters
     params = {
@@ -144,7 +134,7 @@ def test_parsing_params(groq_client):
 
 
 # Test cost calculation
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["groq"], "groq")
 def test_cost_calculation(mock_response):
     response = mock_response(
         text="Example response",
@@ -160,7 +150,7 @@ def test_cost_calculation(mock_response):
 
 
 # Test text generation
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["groq"], "groq")
 @patch("autogen.oai.groq.GroqClient.create")
 def test_create_response(mock_chat, groq_client):
     # Mock GroqClient.chat response
@@ -184,9 +174,9 @@ def test_create_response(mock_chat, groq_client):
     response = groq_client.create(params)
 
     # Assertions to check if response is structured as expected
-    assert (
-        response.choices[0].message.content == "Example Groq response"
-    ), "Response content should match expected output"
+    assert response.choices[0].message.content == "Example Groq response", (
+        "Response content should match expected output"
+    )
     assert response.id == "mock_groq_response_id", "Response ID should match the mocked response ID"
     assert response.model == "llama3-70b-8192", "Response model should match the mocked response model"
     assert response.usage.prompt_tokens == 10, "Response prompt tokens should match the mocked response usage"
@@ -194,7 +184,7 @@ def test_create_response(mock_chat, groq_client):
 
 
 # Test functions/tools
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["groq"], "groq")
 @patch("autogen.oai.groq.GroqClient.create")
 def test_create_response_with_tool_call(mock_chat, groq_client):
     # Mock `groq_response = client.chat(**groq_params)`

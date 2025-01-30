@@ -1,9 +1,11 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
+from contextlib import suppress
+
+
 def modular_inverse_sum(expressions, modulus):
-    """
-    Calculates the sum of modular inverses of the given expressions modulo the specified modulus.
+    """Calculates the sum of modular inverses of the given expressions modulo the specified modulus.
 
     Args:
         expressions (list): A list of numbers for which the modular inverses need to be calculated.
@@ -16,8 +18,6 @@ def modular_inverse_sum(expressions, modulus):
 
     mod_sum = 0
     for number in expressions:
-        try:
+        with suppress(ValueError):
             mod_sum += mod_inverse(number, modulus)
-        except ValueError:
-            pass  # If modular inverse does not exist, skip the term
     return mod_sum % modulus

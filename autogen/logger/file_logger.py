@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -11,27 +11,26 @@ import logging
 import os
 import threading
 import uuid
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from openai import AzureOpenAI, OpenAI
 from openai.types.chat import ChatCompletion
 
-from autogen.logger.base_logger import BaseLogger
-from autogen.logger.logger_utils import get_current_ts, to_dict
-
-from .base_logger import LLMConfig
+from ..doc_utils import export_module
+from .base_logger import BaseLogger, LLMConfig
+from .logger_utils import get_current_ts, to_dict
 
 if TYPE_CHECKING:
-    from autogen import Agent, ConversableAgent, OpenAIWrapper
-    from autogen.oai.anthropic import AnthropicClient
-    from autogen.oai.bedrock import BedrockClient
-    from autogen.oai.cerebras import CerebrasClient
-    from autogen.oai.cohere import CohereClient
-    from autogen.oai.gemini import GeminiClient
-    from autogen.oai.groq import GroqClient
-    from autogen.oai.mistral import MistralAIClient
-    from autogen.oai.ollama import OllamaClient
-    from autogen.oai.together import TogetherClient
+    from .. import Agent, ConversableAgent, OpenAIWrapper
+    from ..oai.anthropic import AnthropicClient
+    from ..oai.bedrock import BedrockClient
+    from ..oai.cerebras import CerebrasClient
+    from ..oai.cohere import CohereClient
+    from ..oai.gemini import GeminiClient
+    from ..oai.groq import GroqClient
+    from ..oai.mistral import MistralAIClient
+    from ..oai.ollama import OllamaClient
+    from ..oai.together import TogetherClient
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +49,9 @@ def safe_serialize(obj: Any) -> str:
     return json.dumps(obj, default=default)
 
 
+@export_module("autogen.logger")
 class FileLogger(BaseLogger):
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         self.config = config
         self.session_id = str(uuid.uuid4())
 
@@ -85,22 +85,16 @@ class FileLogger(BaseLogger):
         invocation_id: uuid.UUID,
         client_id: int,
         wrapper_id: int,
-        source: Union[str, Agent],
-        request: Dict[str, Union[float, str, List[Dict[str, str]]]],
-        response: Union[str, ChatCompletion],
+        source: str | Agent,
+        request: dict[str, float | str | list[dict[str, str]]],
+        response: str | ChatCompletion,
         is_cached: int,
         cost: float,
         start_time: str,
     ) -> None:
-        """
-        Log a chat completion.
-        """
+        """Log a chat completion."""
         thread_id = threading.get_ident()
-        source_name = None
-        if isinstance(source, str):
-            source_name = source
-        else:
-            source_name = source.name
+        source_name = source if isinstance(source, str) else source.name
         try:
             log_data = json.dumps(
                 {
@@ -122,10 +116,8 @@ class FileLogger(BaseLogger):
         except Exception as e:
             self.logger.error(f"[file_logger] Failed to log chat completion: {e}")
 
-    def log_new_agent(self, agent: ConversableAgent, init_args: Dict[str, Any] = {}) -> None:
-        """
-        Log a new agent instance.
-        """
+    def log_new_agent(self, agent: ConversableAgent, init_args: dict[str, Any] = {}) -> None:
+        """Log a new agent instance."""
         thread_id = threading.get_ident()
 
         try:
@@ -147,11 +139,9 @@ class FileLogger(BaseLogger):
         except Exception as e:
             self.logger.error(f"[file_logger] Failed to log new agent: {e}")
 
-    def log_event(self, source: Union[str, Agent], name: str, **kwargs: Dict[str, Any]) -> None:
-        """
-        Log an event from an agent or a string source.
-        """
-        from autogen import Agent
+    def log_event(self, source: str | Agent, name: str, **kwargs: dict[str, Any]) -> None:
+        """Log an event from an agent or a string source."""
+        from .. import Agent
 
         # This takes an object o as input and returns a string. If the object o cannot be serialized, instead of raising an error,
         # it returns a string indicating that the object is non-serializable, along with its type's qualified name obtained using __qualname__.
@@ -191,12 +181,8 @@ class FileLogger(BaseLogger):
             except Exception as e:
                 self.logger.error(f"[file_logger] Failed to log event {e}")
 
-    def log_new_wrapper(
-        self, wrapper: OpenAIWrapper, init_args: Dict[str, Union[LLMConfig, List[LLMConfig]]] = {}
-    ) -> None:
-        """
-        Log a new wrapper instance.
-        """
+    def log_new_wrapper(self, wrapper: OpenAIWrapper, init_args: dict[str, LLMConfig | list[LLMConfig]] = {}) -> None:
+        """Log a new wrapper instance."""
         thread_id = threading.get_ident()
 
         try:
@@ -229,11 +215,9 @@ class FileLogger(BaseLogger):
             | BedrockClient
         ),
         wrapper: OpenAIWrapper,
-        init_args: Dict[str, Any],
+        init_args: dict[str, Any],
     ) -> None:
-        """
-        Log a new client instance.
-        """
+        """Log a new client instance."""
         thread_id = threading.get_ident()
 
         try:
@@ -252,10 +236,8 @@ class FileLogger(BaseLogger):
         except Exception as e:
             self.logger.error(f"[file_logger] Failed to log event {e}")
 
-    def log_function_use(self, source: Union[str, Agent], function: F, args: Dict[str, Any], returns: Any) -> None:
-        """
-        Log a registered function(can be a tool) use from an agent or a string source.
-        """
+    def log_function_use(self, source: str | Agent, function: F, args: dict[str, Any], returns: Any) -> None:
+        """Log a registered function(can be a tool) use from an agent or a string source."""
         thread_id = threading.get_ident()
 
         try:

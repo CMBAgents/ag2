@@ -1,12 +1,13 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 import re
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Union
 
+from ..doc_utils import export_module
 from .agent import Agent
 
 
@@ -27,12 +28,13 @@ def consolidate_chat_info(chat_info, uniform_sender=None) -> None:
             or summary_method in ("last_msg", "reflection_with_llm")
         ), "summary_method must be a string chosen from 'reflection_with_llm' or 'last_msg' or a callable, or None."
         if summary_method == "reflection_with_llm":
-            assert (
-                sender.client is not None or c["recipient"].client is not None
-            ), "llm client must be set in either the recipient or sender when summary_method is reflection_with_llm."
+            assert sender.client is not None or c["recipient"].client is not None, (
+                "llm client must be set in either the recipient or sender when summary_method is reflection_with_llm."
+            )
 
 
-def gather_usage_summary(agents: List[Agent]) -> Dict[Dict[str, Dict], Dict[str, Dict]]:
+@export_module("autogen")
+def gather_usage_summary(agents: list[Agent]) -> dict[dict[str, dict], dict[str, dict]]:
     r"""Gather usage summary from all agents.
 
     Args:
@@ -44,37 +46,34 @@ def gather_usage_summary(agents: List[Agent]) -> Dict[Dict[str, Dict], Dict[str,
           - "usage_excluding_cached_inference": Cost information on the usage of tokens, excluding the tokens in cache. No larger than "usage_including_cached_inference".
 
     Example:
-
     ```python
     {
-        "usage_including_cached_inference" : {
+        "usage_including_cached_inference": {
             "total_cost": 0.0006090000000000001,
             "gpt-35-turbo": {
-                    "cost": 0.0006090000000000001,
-                    "prompt_tokens": 242,
-                    "completion_tokens": 123,
-                    "total_tokens": 365
+                "cost": 0.0006090000000000001,
+                "prompt_tokens": 242,
+                "completion_tokens": 123,
+                "total_tokens": 365,
             },
         },
-
-        "usage_excluding_cached_inference" : {
+        "usage_excluding_cached_inference": {
             "total_cost": 0.0006090000000000001,
             "gpt-35-turbo": {
-                    "cost": 0.0006090000000000001,
-                    "prompt_tokens": 242,
-                    "completion_tokens": 123,
-                    "total_tokens": 365
+                "cost": 0.0006090000000000001,
+                "prompt_tokens": 242,
+                "completion_tokens": 123,
+                "total_tokens": 365,
             },
-        }
+        },
     }
     ```
 
     Note:
-
     If none of the agents incurred any cost (not having a client), then the usage_including_cached_inference and usage_excluding_cached_inference will be `{'total_cost': 0}`.
     """
 
-    def aggregate_summary(usage_summary: Dict[str, Any], agent_summary: Dict[str, Any]) -> None:
+    def aggregate_summary(usage_summary: dict[str, Any], agent_summary: dict[str, Any]) -> None:
         if agent_summary is None:
             return
         usage_summary["total_cost"] += agent_summary.get("total_cost", 0)
@@ -102,7 +101,7 @@ def gather_usage_summary(agents: List[Agent]) -> Dict[Dict[str, Dict], Dict[str,
     }
 
 
-def parse_tags_from_content(tag: str, content: Union[str, List[Dict[str, Any]]]) -> List[Dict[str, Dict[str, str]]]:
+def parse_tags_from_content(tag: str, content: Union[str, list[dict[str, Any]]]) -> list[dict[str, dict[str, str]]]:
     """Parses HTML style tags from message contents.
 
     The parsing is done by looking for patterns in the text that match the format of HTML tags. The tag to be parsed is
@@ -111,9 +110,9 @@ def parse_tags_from_content(tag: str, content: Union[str, List[Dict[str, Any]]])
     can be a single string or a set of attribute-value pairs.
 
     Examples:
-        <img http://example.com/image.png> -> [{"tag": "img", "attr": {"src": "http://example.com/image.png"}, "match": re.Match}]
-        <audio text="Hello I'm a robot" prompt="whisper"> ->
-                [{"tag": "audio", "attr": {"text": "Hello I'm a robot", "prompt": "whisper"}, "match": re.Match}]
+        `<img http://example.com/image.png> -> [{"tag": "img", "attr": {"src": "http://example.com/image.png"}, "match": re.Match}]`
+        ```<audio text="Hello I'm a robot" prompt="whisper"> ->
+                [{"tag": "audio", "attr": {"text": "Hello I'm a robot", "prompt": "whisper"}, "match": re.Match}]```
 
     Args:
         tag (str): The HTML style tag to be parsed.
@@ -142,7 +141,7 @@ def parse_tags_from_content(tag: str, content: Union[str, List[Dict[str, Any]]])
     return results
 
 
-def _parse_tags_from_text(tag: str, text: str) -> List[Dict[str, str]]:
+def _parse_tags_from_text(tag: str, text: str) -> list[dict[str, str]]:
     pattern = re.compile(f"<{tag} (.*?)>")
 
     results = []
@@ -180,7 +179,7 @@ def _parse_attributes_from_tags(tag_content: str):
     return content
 
 
-def _reconstruct_attributes(attrs: List[str]) -> List[str]:
+def _reconstruct_attributes(attrs: list[str]) -> list[str]:
     """Reconstructs attributes from a list of strings where some attributes may be split across multiple elements."""
 
     def is_attr(attr: str) -> bool:

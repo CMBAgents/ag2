@@ -1,15 +1,16 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
-from typing import Any, Dict, Hashable, List, Optional, Tuple
+from collections.abc import Hashable
+from typing import Any, Optional
 
-from autogen import token_count_utils
-from autogen.cache.abstract_cache_base import AbstractCache
-from autogen.oai.openai_utils import filter_config
-from autogen.types import MessageContentType
+from .... import token_count_utils
+from ....cache.abstract_cache_base import AbstractCache
+from ....oai.openai_utils import filter_config
+from ....types import MessageContentType
 
 
 def cache_key(content: MessageContentType, *args: Hashable) -> str:
@@ -23,7 +24,7 @@ def cache_key(content: MessageContentType, *args: Hashable) -> str:
     return "".join(str_keys)
 
 
-def cache_content_get(cache: Optional[AbstractCache], key: str) -> Optional[Tuple[MessageContentType, ...]]:
+def cache_content_get(cache: Optional[AbstractCache], key: str) -> Optional[tuple[MessageContentType, ...]]:
     """Retrieves cachedd content from the cache.
 
     Args:
@@ -50,7 +51,7 @@ def cache_content_set(cache: Optional[AbstractCache], key: str, content: Message
         cache.set(key, cache_value)
 
 
-def min_tokens_reached(messages: List[Dict], min_tokens: Optional[int]) -> bool:
+def min_tokens_reached(messages: list[dict], min_tokens: Optional[int]) -> bool:
     """Returns True if the total number of tokens in the messages is greater than or equal to the specified value.
 
     Args:
@@ -106,7 +107,7 @@ def is_content_text_empty(content: MessageContentType) -> bool:
         return True
 
 
-def should_transform_message(message: Dict[str, Any], filter_dict: Optional[Dict[str, Any]], exclude: bool) -> bool:
+def should_transform_message(message: dict[str, Any], filter_dict: Optional[dict[str, Any]], exclude: bool) -> bool:
     """Validates whether the transform should be applied according to the filter dictionary.
 
     Args:

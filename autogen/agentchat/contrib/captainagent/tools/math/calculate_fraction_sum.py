@@ -1,11 +1,10 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 def calculate_fraction_sum(
     fraction1_numerator: int, fraction1_denominator: int, fraction2_numerator: int, fraction2_denominator: int
 ):
-    """
-    Calculates the sum of two fractions and returns the result as a mixed number.
+    """Calculates the sum of two fractions and returns the result as a mixed number.
 
     Args:
         fraction1_numerator: The numerator of the first fraction.

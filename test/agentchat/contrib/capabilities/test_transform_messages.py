@@ -1,13 +1,10 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
-import os
-import sys
 import tempfile
-from typing import Any, Dict, List, Union
 
 import pytest
 
@@ -15,31 +12,18 @@ import autogen
 from autogen.agentchat.contrib.capabilities.transform_messages import TransformMessages
 from autogen.agentchat.contrib.capabilities.transforms import MessageHistoryLimiter, MessageTokenLimiter
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from conftest import skip_openai  # noqa: E402
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST  # noqa: E402
+from ....conftest import Credentials
 
 
-@pytest.mark.skipif(skip_openai, reason="Requested to skip openai test.")
-def test_transform_messages_capability():
+@pytest.mark.openai
+def test_transform_messages_capability(credentials_gpt_4o_mini: Credentials) -> None:
     """Test the TransformMessages capability to handle long contexts.
 
     This test is a replica of test_transform_chat_history_with_agents in test_context_handling.py
     """
     with tempfile.TemporaryDirectory() as temp_dir:
-        config_list = autogen.config_list_from_json(
-            OAI_CONFIG_LIST,
-            KEY_LOC,
-            filter_dict={
-                "model": "gpt-3.5-turbo",
-            },
-        )
-
-        assistant = autogen.AssistantAgent(
-            "assistant", llm_config={"config_list": config_list}, max_consecutive_auto_reply=1
-        )
+        llm_config = credentials_gpt_4o_mini.llm_config
+        assistant = autogen.AssistantAgent("assistant", llm_config=llm_config, max_consecutive_auto_reply=1)
 
         context_handling = TransformMessages(
             transforms=[
@@ -72,7 +56,7 @@ def test_transform_messages_capability():
                 clear_history=False,
             )
         except Exception as e:
-            assert False, f"Chat initiation failed with error {str(e)}"
+            assert False, f"Chat initiation failed with error {e!s}"
 
 
 if __name__ == "__main__":

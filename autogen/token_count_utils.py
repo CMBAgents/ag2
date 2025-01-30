@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -7,20 +7,23 @@
 import json
 import logging
 import re
-from typing import Dict, List, Union
+from typing import Union
 
 import tiktoken
 
-try:
-    from autogen.agentchat.contrib.img_utils import num_tokens_from_gpt_image
+from .agentchat.contrib.img_utils import num_tokens_from_gpt_image
+from .import_utils import optional_import_block
 
-    img_util_imported = True
-except ImportError:
+# if PIL is not imported, we will redefine num_tokens_from_gpt_image to return 0 tokens for images
+# Otherwise, it would raise an ImportError
+with optional_import_block() as result:
+    import PIL  # noqa: F401
+
+pil_imported = result.is_successful
+if not pil_imported:
 
     def num_tokens_from_gpt_image(*args, **kwargs):
         return 0
-
-    img_util_imported = False
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +70,7 @@ def percentile_used(input, model="gpt-3.5-turbo-0613"):
     return count_token(input) / get_max_token_limit(model)
 
 
-def token_left(input: Union[str, List, Dict], model="gpt-3.5-turbo-0613") -> int:
+def token_left(input: Union[str, list, dict], model="gpt-3.5-turbo-0613") -> int:
     """Count number of tokens left for an OpenAI model.
 
     Args:
@@ -80,8 +83,9 @@ def token_left(input: Union[str, List, Dict], model="gpt-3.5-turbo-0613") -> int
     return get_max_token_limit(model) - count_token(input, model=model)
 
 
-def count_token(input: Union[str, List, Dict], model: str = "gpt-3.5-turbo-0613") -> int:
+def count_token(input: Union[str, list, dict], model: str = "gpt-3.5-turbo-0613") -> int:
     """Count number of tokens used by an OpenAI model.
+
     Args:
         input: (str, list, dict): Input to the model.
         model: (str): Model name.
@@ -91,7 +95,7 @@ def count_token(input: Union[str, List, Dict], model: str = "gpt-3.5-turbo-0613"
     """
     if isinstance(input, str):
         return _num_token_from_text(input, model=model)
-    elif isinstance(input, list) or isinstance(input, dict):
+    elif isinstance(input, (list, dict)):
         return _num_token_from_messages(input, model=model)
     else:
         raise ValueError(f"input must be str, list or dict, but we got {type(input)}")
@@ -107,7 +111,7 @@ def _num_token_from_text(text: str, model: str = "gpt-3.5-turbo-0613"):
     return len(encoding.encode(text))
 
 
-def _num_token_from_messages(messages: Union[List, Dict], model="gpt-3.5-turbo-0613"):
+def _num_token_from_messages(messages: Union[list, dict], model="gpt-3.5-turbo-0613"):
     """Return the number of tokens used by a list of messages.
 
     retrieved from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb/
@@ -156,6 +160,9 @@ def _num_token_from_messages(messages: Union[List, Dict], model="gpt-3.5-turbo-0
     elif "mistral-" in model or "mixtral-" in model:
         logger.info("Mistral.AI models are not supported in tiktoken. Returning num tokens assuming gpt-4-0613.")
         return _num_token_from_messages(messages, model="gpt-4-0613")
+    elif "deepseek" in model:
+        logger.info("Deepseek models are not supported in tiktoken. Returning num tokens assuming gpt-4-0613.")
+        return _num_token_from_messages(messages, model="gpt-4-0613")
     else:
         raise NotImplementedError(
             f"""_num_token_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens."""
@@ -176,7 +183,7 @@ def _num_token_from_messages(messages: Union[List, Dict], model="gpt-3.5-turbo-0
                         num_tokens += len(encoding.encode(part["text"]))
                     if "image_url" in part:
                         assert "url" in part["image_url"]
-                        if not img_util_imported and not logger.img_dependency_warned:
+                        if not pil_imported and not logger.img_dependency_warned:
                             logger.warning(
                                 "img_utils or PIL not imported. Skipping image token count."
                                 "Please install autogen with [lmm] option.",
@@ -232,9 +239,9 @@ def num_tokens_from_functions(functions, model="gpt-3.5-turbo-0613") -> int:
         if "parameters" in function:
             parameters = function["parameters"]
             if "properties" in parameters:
-                for propertiesKey in parameters["properties"]:
-                    function_tokens += len(encoding.encode(propertiesKey))
-                    v = parameters["properties"][propertiesKey]
+                for properties_key in parameters["properties"]:
+                    function_tokens += len(encoding.encode(properties_key))
+                    v = parameters["properties"][properties_key]
                     for field in v:
                         if field == "type":
                             function_tokens += 2

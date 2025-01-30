@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -7,46 +7,29 @@
 #!/usr/bin/env python3 -m pytest
 
 import os
-import sys
 
 import pytest
-from sentence_transformers import SentenceTransformer
 
-from autogen import AssistantAgent, config_list_from_json
+from autogen import AssistantAgent
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import (
+    RetrieveUserProxyAgent,
+)
+from autogen.import_utils import optional_import_block, skip_on_missing_imports
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from conftest import skip_openai  # noqa: E402
+from ....conftest import Credentials
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST  # noqa: E402
-
-try:
-    import pgvector
-
-    from autogen.agentchat.contrib.retrieve_user_proxy_agent import (
-        RetrieveUserProxyAgent,
-    )
-except ImportError:
-    skip = True
-else:
-    skip = False
+with optional_import_block() as result:
+    import pgvector  # noqa: F401
+    from sentence_transformers import SentenceTransformer
 
 
 test_dir = os.path.join(os.path.dirname(__file__), "../../..", "test_files")
 
 
-@pytest.mark.skipif(
-    skip or skip_openai,
-    reason="dependency is not installed OR requested to skip",
-)
-def test_retrievechat():
+@pytest.mark.openai
+@skip_on_missing_imports(["chromadb", "pgvector", "IPython", "sentence_transformers"], "retrievechat-pgvector")
+def test_retrievechat(credentials_gpt_4o_mini: Credentials):
     conversations = {}
-    # ChatCompletion.start_logging(conversations)  # deprecated in v0.2
-
-    config_list = config_list_from_json(
-        OAI_CONFIG_LIST,
-        file_location=KEY_LOC,
-    )
 
     assistant = AssistantAgent(
         name="assistant",
@@ -54,7 +37,7 @@ def test_retrievechat():
         llm_config={
             "timeout": 600,
             "seed": 42,
-            "config_list": config_list,
+            "config_list": credentials_gpt_4o_mini.config_list,
         },
     )
 
@@ -76,7 +59,7 @@ def test_retrievechat():
             ],
             "custom_text_types": ["non-existent-type"],
             "chunk_token_size": 2000,
-            "model": config_list[0]["model"],
+            "model": credentials_gpt_4o_mini.config_list[0]["model"],
             "vector_db": "pgvector",  # PGVector database
             "collection_name": "test_collection",
             "db_config": {

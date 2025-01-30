@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -6,15 +6,18 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-from typing import Any, List, Literal, Mapping, Optional, Protocol, TypedDict, Union, runtime_checkable
+from collections.abc import Mapping
+from typing import Any, Literal, Optional, Protocol, TypedDict, Union, runtime_checkable
 
 from pydantic import BaseModel, Field
 
+from ..doc_utils import export_module
 from ..types import UserMessageImageContentPart, UserMessageTextContentPart
 
-__all__ = ("CodeBlock", "CodeResult", "CodeExtractor", "CodeExecutor", "CodeExecutionConfig")
+__all__ = ("CodeBlock", "CodeExecutionConfig", "CodeExecutor", "CodeExtractor", "CodeResult")
 
 
+@export_module("autogen.coding")
 class CodeBlock(BaseModel):
     """(Experimental) A class that represents a code block."""
 
@@ -23,6 +26,7 @@ class CodeBlock(BaseModel):
     language: str = Field(description="The language of the code.")
 
 
+@export_module("autogen.coding")
 class CodeResult(BaseModel):
     """(Experimental) A class that represents the result of a code execution."""
 
@@ -31,12 +35,13 @@ class CodeResult(BaseModel):
     output: str = Field(description="The output of the code execution.")
 
 
+@export_module("autogen.coding")
 class CodeExtractor(Protocol):
     """(Experimental) A code extractor class that extracts code blocks from a message."""
 
     def extract_code_blocks(
-        self, message: Union[str, List[Union[UserMessageTextContentPart, UserMessageImageContentPart]], None]
-    ) -> List[CodeBlock]:
+        self, message: str | list[Union[UserMessageTextContentPart, UserMessageImageContentPart]] | None
+    ) -> list[CodeBlock]:
         """(Experimental) Extract code blocks from a message.
 
         Args:
@@ -49,6 +54,7 @@ class CodeExtractor(Protocol):
 
 
 @runtime_checkable
+@export_module("autogen.coding")
 class CodeExecutor(Protocol):
     """(Experimental) A code executor class that executes code blocks and returns the result."""
 
@@ -57,7 +63,7 @@ class CodeExecutor(Protocol):
         """(Experimental) The code extractor used by this code executor."""
         ...  # pragma: no cover
 
-    def execute_code_blocks(self, code_blocks: List[CodeBlock]) -> CodeResult:
+    def execute_code_blocks(self, code_blocks: list[CodeBlock]) -> CodeResult:
         """(Experimental) Execute code blocks and return the result.
 
         This method should be implemented by the code executor.
@@ -83,7 +89,7 @@ class CodeExecutor(Protocol):
 class IPythonCodeResult(CodeResult):
     """(Experimental) A code result class for IPython code executor."""
 
-    output_files: List[str] = Field(
+    output_files: list[str] = Field(
         default_factory=list,
         description="The list of files that the executed code blocks generated.",
     )
@@ -95,7 +101,7 @@ CodeExecutionConfig = TypedDict(
         "executor": Union[Literal["ipython-embedded", "commandline-local"], CodeExecutor],
         "last_n_messages": Union[int, Literal["auto"]],
         "timeout": int,
-        "use_docker": Union[bool, str, List[str]],
+        "use_docker": Union[bool, str, list[str]],
         "work_dir": str,
         "ipython-embedded": Mapping[str, Any],
         "commandline-local": Mapping[str, Any],

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -8,14 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-try:
-    from autogen.oai.cerebras import CerebrasClient, calculate_cerebras_cost
-
-    skip = False
-except ImportError:
-    CerebrasClient = object
-    InternalServerError = object
-    skip = True
+from autogen.import_utils import skip_on_missing_imports
+from autogen.oai.cerebras import CerebrasClient, calculate_cerebras_cost
 
 
 # Fixtures for mock data
@@ -37,13 +31,9 @@ def cerebras_client():
     return CerebrasClient(api_key="fake_api_key")
 
 
-skip_reason = "Cerebras dependency is not installed"
-
-
 # Test initialization and configuration
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["cerebras"], "cerebras")
 def test_initialization():
-
     # Missing any api_key
     with pytest.raises(AssertionError) as assertinfo:
         CerebrasClient()  # Should raise an AssertionError due to missing api_key
@@ -58,13 +48,13 @@ def test_initialization():
 
 
 # Test standard initialization
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["cerebras"], "cerebras")
 def test_valid_initialization(cerebras_client):
     assert cerebras_client.api_key == "fake_api_key", "Config api_key should be correctly set"
 
 
 # Test parameters
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["cerebras"], "cerebras")
 def test_parsing_params(cerebras_client):
     # All parameters
     params = {
@@ -135,14 +125,14 @@ def test_parsing_params(cerebras_client):
 
 
 # Test cost calculation
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["cerebras"], "cerebras")
 def test_cost_calculation(mock_response):
     response = mock_response(
         text="Example response",
         choices=[{"message": "Test message 1"}],
         usage={"prompt_tokens": 500, "completion_tokens": 300, "total_tokens": 800},
         cost=None,
-        model="llama3.1-70b",
+        model="llama-3.3-70b",
     )
     calculated_cost = calculate_cerebras_cost(
         response.usage["prompt_tokens"], response.usage["completion_tokens"], response.model
@@ -157,7 +147,7 @@ def test_cost_calculation(mock_response):
 
 
 # Test text generation
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["cerebras"], "cerebras")
 @patch("autogen.oai.cerebras.CerebrasClient.create")
 def test_create_response(mock_chat, cerebras_client):
     # Mock CerebrasClient.chat response
@@ -166,7 +156,7 @@ def test_create_response(mock_chat, cerebras_client):
         MagicMock(finish_reason="stop", message=MagicMock(content="Example Cerebras response", tool_calls=None))
     ]
     mock_cerebras_response.id = "mock_cerebras_response_id"
-    mock_cerebras_response.model = "llama3.1-70b"
+    mock_cerebras_response.model = "llama-3.3-70b"
     mock_cerebras_response.usage = MagicMock(prompt_tokens=10, completion_tokens=20)  # Example token usage
 
     mock_chat.return_value = mock_cerebras_response
@@ -174,24 +164,24 @@ def test_create_response(mock_chat, cerebras_client):
     # Test parameters
     params = {
         "messages": [{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "World"}],
-        "model": "llama3.1-70b",
+        "model": "llama-3.3-70b",
     }
 
     # Call the create method
     response = cerebras_client.create(params)
 
     # Assertions to check if response is structured as expected
-    assert (
-        response.choices[0].message.content == "Example Cerebras response"
-    ), "Response content should match expected output"
+    assert response.choices[0].message.content == "Example Cerebras response", (
+        "Response content should match expected output"
+    )
     assert response.id == "mock_cerebras_response_id", "Response ID should match the mocked response ID"
-    assert response.model == "llama3.1-70b", "Response model should match the mocked response model"
+    assert response.model == "llama-3.3-70b", "Response model should match the mocked response model"
     assert response.usage.prompt_tokens == 10, "Response prompt tokens should match the mocked response usage"
     assert response.usage.completion_tokens == 20, "Response completion tokens should match the mocked response usage"
 
 
 # Test functions/tools
-@pytest.mark.skipif(skip, reason=skip_reason)
+@skip_on_missing_imports(["cerebras"], "cerebras")
 @patch("autogen.oai.cerebras.CerebrasClient.create")
 def test_create_response_with_tool_call(mock_chat, cerebras_client):
     # Mock `cerebras_response = client.chat(**cerebras_params)`
@@ -217,7 +207,7 @@ def test_create_response_with_tool_call(mock_chat, cerebras_client):
             )
         ],
         id="mock_cerebras_response_id",
-        model="llama3.1-70b",
+        model="llama-3.3-70b",
         usage=MagicMock(prompt_tokens=10, completion_tokens=20),
     )
 
@@ -245,7 +235,7 @@ def test_create_response_with_tool_call(mock_chat, cerebras_client):
 
     # Call the create method
     response = cerebras_client.create(
-        {"messages": cerebras_messages, "tools": converted_functions, "model": "llama3.1-70b"}
+        {"messages": cerebras_messages, "tools": converted_functions, "model": "llama-3.3-70b"}
     )
 
     # Assertions to check if the functions and content are included in the response

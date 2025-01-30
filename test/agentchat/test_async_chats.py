@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -7,27 +7,18 @@
 #!/usr/bin/env python3 -m pytest
 
 import asyncio
-import os
-import sys
 
 import pytest
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
 
-import autogen
 from autogen import AssistantAgent, UserProxyAgent
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from conftest import skip_openai  # noqa: E402
+from ..conftest import Credentials
 
 
-@pytest.mark.skipif(skip_openai, reason="requested to skip openai tests")
+@pytest.mark.openai
 @pytest.mark.asyncio
-async def test_async_chats():
-    config_list_35 = autogen.config_list_from_json(
-        OAI_CONFIG_LIST,
-        file_location=KEY_LOC,
-        filter_dict={"tags": ["gpt-3.5-turbo"]},
-    )
+async def test_async_chats(credentials_gpt_4o_mini: Credentials):
+    config_list_4omini = credentials_gpt_4o_mini.config_list
 
     financial_tasks = [
         """What are the full names of NVDA and TESLA.""",
@@ -39,16 +30,16 @@ async def test_async_chats():
 
     financial_assistant_1 = AssistantAgent(
         name="Financial_assistant_1",
-        llm_config={"config_list": config_list_35},
+        llm_config={"config_list": config_list_4omini},
         system_message="You are a knowledgeable AI Assistant. Reply TERMINATE when everything is done.",
     )
     financial_assistant_2 = AssistantAgent(
         name="Financial_assistant_2",
-        llm_config={"config_list": config_list_35},
+        llm_config={"config_list": config_list_4omini},
     )
     writer = AssistantAgent(
         name="Writer",
-        llm_config={"config_list": config_list_35},
+        llm_config={"config_list": config_list_4omini},
         is_termination_msg=lambda x: x.get("content", "").find("TERMINATE") >= 0,
         system_message="""
             You are a professional writer, known for

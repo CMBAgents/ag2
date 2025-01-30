@@ -1,44 +1,30 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 import os
-import sys
 import tempfile
 import time
 
 import pytest
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
 
 import autogen
 from autogen.agentchat import AssistantAgent, UserProxyAgent
 from autogen.cache import Cache
+from autogen.import_utils import skip_on_missing_imports
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from conftest import skip_openai, skip_redis  # noqa: E402
-
-try:
-    from openai import OpenAI
-except ImportError:
-    skip_openai_tests = True
-else:
-    skip_openai_tests = False or skip_openai
-
-try:
-    import redis
-except ImportError:
-    skip_redis_tests = True
-else:
-    skip_redis_tests = False or skip_redis
+from ..conftest import Credentials, suppress_gemini_resource_exhausted
 
 
-@pytest.mark.skipif(skip_openai_tests, reason="openai not installed OR requested to skip")
-def test_legacy_disk_cache():
+@pytest.mark.openai
+@skip_on_missing_imports(["openai"])
+def test_legacy_disk_cache(credentials_gpt_4o_mini: Credentials):
     random_cache_seed = int.from_bytes(os.urandom(2), "big")
     start_time = time.time()
     cold_cache_messages = run_conversation(
+        credentials_gpt_4o_mini,
         cache_seed=random_cache_seed,
     )
     end_time = time.time()
@@ -46,6 +32,7 @@ def test_legacy_disk_cache():
 
     start_time = time.time()
     warm_cache_messages = run_conversation(
+        credentials_gpt_4o_mini,
         cache_seed=random_cache_seed,
     )
     end_time = time.time()
@@ -54,18 +41,17 @@ def test_legacy_disk_cache():
     assert duration_with_warm_cache < duration_with_cold_cache
 
 
-@pytest.mark.skipif(skip_openai_tests or skip_redis_tests, reason="redis not installed OR requested to skip")
-def test_redis_cache():
+def _test_redis_cache(credentials: Credentials):
     random_cache_seed = int.from_bytes(os.urandom(2), "big")
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     start_time = time.time()
     with Cache.redis(random_cache_seed, redis_url) as cache_client:
-        cold_cache_messages = run_conversation(cache_seed=None, cache=cache_client)
+        cold_cache_messages = run_conversation(credentials, cache_seed=None, cache=cache_client)
         end_time = time.time()
         duration_with_cold_cache = end_time - start_time
 
         start_time = time.time()
-        warm_cache_messages = run_conversation(cache_seed=None, cache=cache_client)
+        warm_cache_messages = run_conversation(credentials, cache_seed=None, cache=cache_client)
         end_time = time.time()
         duration_with_warm_cache = end_time - start_time
         assert cold_cache_messages == warm_cache_messages
@@ -73,29 +59,54 @@ def test_redis_cache():
 
     random_cache_seed = int.from_bytes(os.urandom(2), "big")
     with Cache.redis(random_cache_seed, redis_url) as cache_client:
-        cold_cache_messages = run_groupchat_conversation(cache=cache_client)
+        cold_cache_messages = run_groupchat_conversation(credentials, cache=cache_client)
         end_time = time.time()
         duration_with_cold_cache = end_time - start_time
 
         start_time = time.time()
-        warm_cache_messages = run_groupchat_conversation(cache=cache_client)
+        warm_cache_messages = run_groupchat_conversation(credentials, cache=cache_client)
         end_time = time.time()
         duration_with_warm_cache = end_time - start_time
         assert cold_cache_messages == warm_cache_messages
         assert duration_with_warm_cache < duration_with_cold_cache
 
 
-@pytest.mark.skipif(skip_openai_tests, reason="openai not installed OR requested to skip")
-def test_disk_cache():
+@pytest.mark.openai
+@pytest.mark.redis
+@skip_on_missing_imports(["openai", "redis"], "redis")
+def test_redis_cache(credentials_gpt_4o_mini: Credentials):
+    _test_redis_cache(credentials_gpt_4o_mini)
+
+
+@pytest.mark.skip(reason="Currently not working")
+@pytest.mark.gemini
+@suppress_gemini_resource_exhausted
+@pytest.mark.redis
+@skip_on_missing_imports(["openai", "redis"], "redis")
+def test_redis_cache_gemini(credentials_gemini_flash: Credentials):
+    _test_redis_cache(credentials_gemini_flash)
+
+
+@pytest.mark.skip(reason="Currently not working")
+@pytest.mark.anthropic
+@pytest.mark.redis
+@skip_on_missing_imports(["openai", "redis"], "redis")
+def test_redis_cache_anthropic(credentials_anthropic_claude_sonnet: Credentials):
+    _test_redis_cache(credentials_anthropic_claude_sonnet)
+
+
+@pytest.mark.openai
+@skip_on_missing_imports(["openai"])
+def test_disk_cache(credentials_gpt_4o_mini: Credentials):
     random_cache_seed = int.from_bytes(os.urandom(2), "big")
     start_time = time.time()
     with Cache.disk(random_cache_seed) as cache_client:
-        cold_cache_messages = run_conversation(cache_seed=None, cache=cache_client)
+        cold_cache_messages = run_conversation(credentials_gpt_4o_mini, cache_seed=None, cache=cache_client)
         end_time = time.time()
         duration_with_cold_cache = end_time - start_time
 
         start_time = time.time()
-        warm_cache_messages = run_conversation(cache_seed=None, cache=cache_client)
+        warm_cache_messages = run_conversation(credentials_gpt_4o_mini, cache_seed=None, cache=cache_client)
         end_time = time.time()
         duration_with_warm_cache = end_time - start_time
         assert cold_cache_messages == warm_cache_messages
@@ -103,26 +114,22 @@ def test_disk_cache():
 
     random_cache_seed = int.from_bytes(os.urandom(2), "big")
     with Cache.disk(random_cache_seed) as cache_client:
-        cold_cache_messages = run_groupchat_conversation(cache=cache_client)
+        cold_cache_messages = run_groupchat_conversation(credentials_gpt_4o_mini, cache=cache_client)
         end_time = time.time()
         duration_with_cold_cache = end_time - start_time
 
         start_time = time.time()
-        warm_cache_messages = run_groupchat_conversation(cache=cache_client)
+        warm_cache_messages = run_groupchat_conversation(credentials_gpt_4o_mini, cache=cache_client)
         end_time = time.time()
         duration_with_warm_cache = end_time - start_time
         assert cold_cache_messages == warm_cache_messages
         assert duration_with_warm_cache < duration_with_cold_cache
 
 
-def run_conversation(cache_seed, human_input_mode="NEVER", max_consecutive_auto_reply=5, cache=None):
-    config_list = autogen.config_list_from_json(
-        OAI_CONFIG_LIST,
-        file_location=KEY_LOC,
-        filter_dict={
-            "tags": ["gpt-3.5-turbo", "gpt-3.5-turbo-16k"],
-        },
-    )
+def run_conversation(
+    credentials: Credentials, cache_seed, human_input_mode="NEVER", max_consecutive_auto_reply=5, cache=None
+):
+    config_list = credentials.config_list
     llm_config = {
         "cache_seed": cache_seed,
         "config_list": config_list,
@@ -160,16 +167,8 @@ def run_conversation(cache_seed, human_input_mode="NEVER", max_consecutive_auto_
         return user.chat_messages[assistant]
 
 
-def run_groupchat_conversation(cache, human_input_mode="NEVER", max_consecutive_auto_reply=5):
-    KEY_LOC = "notebook"
-    OAI_CONFIG_LIST = "OAI_CONFIG_LIST"
-    config_list = autogen.config_list_from_json(
-        OAI_CONFIG_LIST,
-        file_location=KEY_LOC,
-        filter_dict={
-            "tags": ["gpt-3.5-turbo", "gpt-3.5-turbo-16k"],
-        },
-    )
+def run_groupchat_conversation(credentials: Credentials, cache, human_input_mode="NEVER", max_consecutive_auto_reply=5):
+    config_list = credentials.config_list
     llm_config = {
         "cache_seed": None,
         "config_list": config_list,

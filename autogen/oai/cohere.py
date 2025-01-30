@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -7,6 +7,7 @@
 """Create an OpenAI-compatible client using Cohere's API.
 
 Example:
+    ```python
     llm_config={
         "config_list": [{
             "api_type": "cohere",
@@ -17,6 +18,7 @@ Example:
     ]}
 
     agent = autogen.AssistantAgent("my_agent", llm_config=llm_config)
+    ```
 
 Install Cohere's python library using: pip install --upgrade cohere
 
@@ -33,16 +35,19 @@ import random
 import sys
 import time
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from cohere import Client as Cohere
-from cohere.types import ToolParameterDefinitionsValue, ToolResult
 from openai.types.chat import ChatCompletion, ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
 from openai.types.completion_usage import CompletionUsage
-from pydantic import BaseModel
 
-from autogen.oai.client_utils import logging_formatter, validate_parameter
+from ..import_utils import optional_import_block, require_optional_import
+from .client_utils import logging_formatter, validate_parameter
+
+with optional_import_block():
+    from cohere import Client as Cohere
+    from cohere.types import ToolParameterDefinitionsValue, ToolResult
+
 
 logger = logging.getLogger(__name__)
 if not logger.handlers:
@@ -72,20 +77,19 @@ class CohereClient:
             api_key (str): The API key for using Cohere (or environment variable COHERE_API_KEY needs to be set)
         """
         # Ensure we have the api_key upon instantiation
-        self.api_key = kwargs.get("api_key", None)
+        self.api_key = kwargs.get("api_key")
         if not self.api_key:
             self.api_key = os.getenv("COHERE_API_KEY")
 
-        assert (
-            self.api_key
-        ), "Please include the api_key in your config list entry for Cohere or set the COHERE_API_KEY env variable."
+        assert self.api_key, (
+            "Please include the api_key in your config list entry for Cohere or set the COHERE_API_KEY env variable."
+        )
 
         if "response_format" in kwargs and kwargs["response_format"] is not None:
             warnings.warn("response_format is not supported for Cohere, it will be ignored.", UserWarning)
 
-    def message_retrieval(self, response) -> List:
-        """
-        Retrieve and return a list of strings or a list of Choice.Message from the response.
+    def message_retrieval(self, response) -> list:
+        """Retrieve and return a list of strings or a list of Choice.Message from the response.
 
         NOTE: if a list of Choice.Message is returned, it currently needs to contain the fields of OpenAI's ChatCompletion Message object,
         since that is expected for function or tool calling in the rest of the codebase at the moment, unless a custom agent is being used.
@@ -96,7 +100,7 @@ class CohereClient:
         return response.cost
 
     @staticmethod
-    def get_usage(response) -> Dict:
+    def get_usage(response) -> dict:
         """Return usage summary of the response using RESPONSE_USAGE_KEYS."""
         # ...  # pragma: no cover
         return {
@@ -107,16 +111,16 @@ class CohereClient:
             "model": response.model,
         }
 
-    def parse_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_params(self, params: dict[str, Any]) -> dict[str, Any]:
         """Loads the parameters for Cohere API from the passed in parameters and returns a validated set. Checks types, ranges, and sets defaults"""
         cohere_params = {}
 
         # Check that we have what we need to use Cohere's API
         # We won't enforce the available models as they are likely to change
-        cohere_params["model"] = params.get("model", None)
-        assert cohere_params[
-            "model"
-        ], "Please specify the 'model' in your config list entry to nominate the Cohere model to use."
+        cohere_params["model"] = params.get("model")
+        assert cohere_params["model"], (
+            "Please specify the 'model' in your config list entry to nominate the Cohere model to use."
+        )
 
         # Validate allowed Cohere parameters
         # https://docs.cohere.com/reference/chat
@@ -151,7 +155,8 @@ class CohereClient:
 
         return cohere_params
 
-    def create(self, params: Dict) -> ChatCompletion:
+    @require_optional_import("cohere", "cohere")
+    def create(self, params: dict) -> ChatCompletion:
         messages = params.get("messages", [])
         client_name = params.get("client_name") or "autogen-cohere"
         # Parse parameters to the Cohere API's parameters
@@ -173,7 +178,7 @@ class CohereClient:
         total_tokens = 0
 
         # Stream if in parameters
-        streaming = True if "stream" in params and params["stream"] else False
+        streaming = params.get("stream")
         cohere_finish = "stop"
         tool_calls = None
         ans = None
@@ -223,7 +228,6 @@ class CohereClient:
                 cohere_finish = "tool_calls"
                 tool_calls = []
                 for tool_call in response.tool_calls:
-
                     # if parameters are null, clear them out (Cohere can return a string "null" if no parameter values)
 
                     tool_calls.append(
@@ -263,16 +267,16 @@ class CohereClient:
         return response_oai
 
 
-def extract_to_cohere_tool_results(tool_call_id: str, content_output: str, all_tool_calls) -> List[Dict[str, Any]]:
+@require_optional_import("cohere", "cohere")
+def extract_to_cohere_tool_results(tool_call_id: str, content_output: str, all_tool_calls) -> list[dict[str, Any]]:
     temp_tool_results = []
 
     for tool_call in all_tool_calls:
         if tool_call["id"] == tool_call_id:
-
             call = {
                 "name": tool_call["function"]["name"],
                 "parameters": json.loads(
-                    tool_call["function"]["arguments"] if not tool_call["function"]["arguments"] == "" else "{}"
+                    tool_call["function"]["arguments"] if tool_call["function"]["arguments"] != "" else "{}"
                 ),
             }
             output = [{"value": content_output}]
@@ -280,8 +284,9 @@ def extract_to_cohere_tool_results(tool_call_id: str, content_output: str, all_t
     return temp_tool_results
 
 
+@require_optional_import("cohere", "cohere")
 def oai_messages_to_cohere_messages(
-    messages: list[Dict[str, Any]], params: Dict[str, Any], cohere_params: Dict[str, Any]
+    messages: list[dict[str, Any]], params: dict[str, Any], cohere_params: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], str, str]:
     """Convert messages from OAI format to Cohere's format.
     We correct for any specific role orders and types.
@@ -296,7 +301,6 @@ def oai_messages_to_cohere_messages(
         str:                    Preamble (system message)
         str:                    Message (the final user message)
     """
-
     cohere_messages = []
     preamble = ""
 
@@ -304,7 +308,6 @@ def oai_messages_to_cohere_messages(
     if "tools" in params:
         cohere_tools = []
         for tool in params["tools"]:
-
             # build list of properties
             parameters = {}
 
@@ -349,13 +352,9 @@ def oai_messages_to_cohere_messages(
     # tool_results go into tool_results parameter
     messages_length = len(messages)
     for index, message in enumerate(messages):
-
         if "role" in message and message["role"] == "system":
             # System message
-            if preamble == "":
-                preamble = message["content"]
-            else:
-                preamble = preamble + "\n" + message["content"]
+            preamble = (preamble if preamble == "" else f"{preamble}\n") + message["content"]
         elif "tool_calls" in message:
             # Suggested tool calls, build up the list before we put it into the tool_results
             for tool_call in message["tool_calls"]:
@@ -420,7 +419,6 @@ def oai_messages_to_cohere_messages(
         return cohere_messages, preamble, ""
 
     else:
-
         # We need to get the last message to assign to the message field for Cohere,
         # if the last message is a user message, use that, otherwise put in 'continue'.
         if cohere_messages[-1]["role"] == "USER":

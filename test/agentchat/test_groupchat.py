@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024, Owners of https://github.com/ag2ai
+# Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -10,17 +10,19 @@ import builtins
 import io
 import json
 import logging
+import tempfile
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional
-from unittest import TestCase, mock
+from typing import Any, Optional
+from unittest import mock
 
 import pytest
-from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
 
 import autogen
 from autogen import Agent, AssistantAgent, GroupChat, GroupChatManager
 from autogen.agentchat.contrib.capabilities import transform_messages, transforms
 from autogen.exception_utils import AgentNameConflict, UndefinedNextAgent
+
+from ..conftest import Credentials, suppress_json_decoder_error
 
 
 def test_func_call_groupchat():
@@ -131,7 +133,7 @@ def _test_selection_method(method: str):
         messages=[],
         max_round=6,
         speaker_selection_method=method,
-        allow_repeat_speaker=False if method == "manual" else True,
+        allow_repeat_speaker=method != "manual",
     )
     group_chat_manager = autogen.GroupChatManager(groupchat=groupchat, llm_config=False)
 
@@ -144,11 +146,7 @@ def _test_selection_method(method: str):
             "This is bob speaking.",
             "This is charlie speaking.",
         ] * 2
-    elif method == "auto":
-        agent1.initiate_chat(group_chat_manager, message="This is alice speaking.")
-        assert len(agent1.chat_messages[group_chat_manager]) == 6
-        assert len(groupchat.messages) == 6
-    elif method == "random":
+    elif method == "auto" or method == "random":
         agent1.initiate_chat(group_chat_manager, message="This is alice speaking.")
         assert len(agent1.chat_messages[group_chat_manager]) == 6
         assert len(groupchat.messages) == 6
@@ -528,7 +526,7 @@ def test_send_intros():
         assert "The first agent." in messages[0]["content"]
         assert "The second agent." in messages[0]["content"]
         assert "The third agent." in messages[0]["content"]
-        assert "The initiating message." == messages[1]["content"]
+        assert messages[1]["content"] == "The initiating message."
         assert messages[2]["content"] == agent1._default_auto_reply
 
     # Reset and start again
@@ -552,7 +550,7 @@ def test_send_intros():
     for a in [agent1, agent2, agent3]:
         messages = agent1.chat_messages[group_chat_manager2]
         assert len(messages) == 2
-        assert "The initiating message." == messages[0]["content"]
+        assert messages[0]["content"] == "The initiating message."
         assert messages[1]["content"] == agent1._default_auto_reply
 
 
@@ -602,9 +600,7 @@ def test_init_default_parameters():
     agents = [autogen.ConversableAgent(name=f"Agent{i}", llm_config=False) for i in range(3)]
     group_chat = GroupChat(agents=agents, messages=[], max_round=3)
     for agent in agents:
-        assert set([a.name for a in group_chat.allowed_speaker_transitions_dict[agent]]) == set(
-            [a.name for a in agents]
-        )
+        assert {a.name for a in group_chat.allowed_speaker_transitions_dict[agent]} == {a.name for a in agents}
 
 
 def test_graph_parameters():
@@ -889,7 +885,7 @@ def test_get_agent_by_name():
             llm_config=False,
         )
 
-    def team(members: List[autogen.Agent], name: str) -> autogen.Agent:
+    def team(members: list[autogen.Agent], name: str) -> autogen.Agent:
         gc = autogen.GroupChat(agents=members, messages=[])
 
         return autogen.GroupChatManager(groupchat=gc, name=name, llm_config=False)
@@ -963,7 +959,7 @@ def test_nested_teams_chat():
     team1_msg = {"content": "Hello from team 1"}
     team2_msg = {"content": "Hello from team 2"}
 
-    def agent(name: str, auto_reply: Optional[Dict[str, Any]] = None) -> autogen.ConversableAgent:
+    def agent(name: str, auto_reply: Optional[dict[str, Any]] = None) -> autogen.ConversableAgent:
         return autogen.ConversableAgent(
             name=name,
             max_consecutive_auto_reply=10,
@@ -972,7 +968,7 @@ def test_nested_teams_chat():
             default_auto_reply=auto_reply,
         )
 
-    def team(name: str, auto_reply: Optional[Dict[str, Any]] = None) -> autogen.ConversableAgent:
+    def team(name: str, auto_reply: Optional[dict[str, Any]] = None) -> autogen.ConversableAgent:
         member1 = agent(f"member1_{name}", auto_reply=auto_reply)
         member2 = agent(f"member2_{name}", auto_reply=auto_reply)
 
@@ -1054,14 +1050,12 @@ def test_custom_speaker_selection():
 
 
 def test_custom_speaker_selection_with_transition_graph():
-    """
-    In this test, although speaker_selection_method is defined, the speaker transitions are also defined.
+    """In this test, although speaker_selection_method is defined, the speaker transitions are also defined.
     There are 26 agents here, a to z.
     The speaker transitions are defined such that the agents can transition to the next alphabet.
     In addition, because we want the transition order to be a,u,t,o,g,e,n, we also define the speaker transitions for these agents.
     The speaker_selection_method is defined to return the next agent in the expected sequence.
     """
-
     # For loop that creates UserProxyAgent with names from a to z
     agents = [
         autogen.UserProxyAgent(
@@ -1095,9 +1089,7 @@ def test_custom_speaker_selection_with_transition_graph():
         previous_agent = current_agent
 
     def custom_speaker_selection_func(last_speaker: Agent, groupchat: GroupChat) -> Optional[Agent]:
-        """
-        Define a customized speaker selection function.
-        """
+        """Define a customized speaker selection function."""
         expected_sequence = ["a", "u", "t", "o", "g", "e", "n"]
 
         last_speaker_char = last_speaker.name
@@ -1131,11 +1123,9 @@ def test_custom_speaker_selection_with_transition_graph():
 
 
 def test_custom_speaker_selection_overrides_transition_graph():
-    """
-    In this test, team A engineer can transition to team A executor and team B engineer, but team B engineer cannot transition to team A executor.
+    """In this test, team A engineer can transition to team A executor and team B engineer, but team B engineer cannot transition to team A executor.
     The expected behaviour is that the custom speaker selection function will override the constraints of the graph.
     """
-
     # For loop that creates UserProxyAgent with names from a to z
     agents = [
         autogen.UserProxyAgent(
@@ -1272,11 +1262,9 @@ def test_role_for_select_speaker_messages():
 
 
 def test_select_speaker_message_and_prompt_templates():
-    """
-    In this test, two agents are part of a group chat which has customized select speaker message and select speaker prompt templates. Both valid and empty string values will be used.
+    """In this test, two agents are part of a group chat which has customized select speaker message and select speaker prompt templates. Both valid and empty string values will be used.
     The expected behaviour is that the customized speaker selection message and prompts will override the default values or throw exceptions if empty.
     """
-
     agent1 = autogen.ConversableAgent(
         "Alice",
         description="A wonderful employee named Alice.",
@@ -1367,11 +1355,9 @@ def test_select_speaker_message_and_prompt_templates():
 
 
 def test_speaker_selection_agent_name_match():
-    """
-    In this test a group chat, with auto speaker selection, the speaker name match
+    """In this test a group chat, with auto speaker selection, the speaker name match
     function is tested against the extended name match regex.
     """
-
     user_proxy = autogen.UserProxyAgent(
         name="User_proxy",
         system_message="A human admin.",
@@ -1501,8 +1487,7 @@ def test_role_for_reflection_summary():
 
 
 def test_speaker_selection_auto_process_result():
-    """
-    Tests the return result of the 2-agent chat used for speaker selection for the auto method.
+    """Tests the return result of the 2-agent chat used for speaker selection for the auto method.
     The last message of the messages passed in will contain a pass or fail.
     If passed, the message will contain the name of the correct agent and that agent will be returned.
     If failed, the message will contain the reason for failure for the last attempt and the next
@@ -1546,9 +1531,9 @@ def test_speaker_selection_auto_process_result():
     assert groupchat._process_speaker_selection_result(chat_result, cmo, agent_list) == pm
 
     ### Agent not selected successfully
-    chat_result.chat_history[3][
-        "content"
-    ] = "[AGENT SELECTION FAILED]Select speaker attempt #3 of 3 failed as it did not include any agent names."
+    chat_result.chat_history[3]["content"] = (
+        "[AGENT SELECTION FAILED]Select speaker attempt #3 of 3 failed as it did not include any agent names."
+    )
 
     # The next speaker in the list will be selected, which will be the Product_Manager (as the last speaker is the Chief_Marketing_Officer)
     assert groupchat._process_speaker_selection_result(chat_result, cmo, agent_list) == pm
@@ -1561,8 +1546,7 @@ def test_speaker_selection_auto_process_result():
 
 
 def test_speaker_selection_validate_speaker_name():
-    """
-    Tests the speaker name validation function used to evaluate the return result of the LLM
+    """Tests the speaker name validation function used to evaluate the return result of the LLM
     during speaker selection in 'auto' mode.
 
     Function: _validate_speaker_name
@@ -1575,7 +1559,6 @@ def test_speaker_selection_validate_speaker_name():
 
     When returning a message, it will include the 'override_role' key and value to support the GroupChat role_for_select_speaker_messages attribute
     """
-
     # Group Chat setup
     cmo = autogen.ConversableAgent(
         name="Chief_Marketing_Officer",
@@ -1730,11 +1713,9 @@ def test_speaker_selection_validate_speaker_name():
 
 
 def test_select_speaker_auto_messages():
-    """
-    In this test, two agents are part of a group chat which has customized select speaker "auto" multiple and no-name prompt messages. Both valid and empty string values will be used.
+    """In this test, two agents are part of a group chat which has customized select speaker "auto" multiple and no-name prompt messages. Both valid and empty string values will be used.
     The expected behaviour is that the customized speaker selection "auto" messages will override the default values or throw exceptions if empty.
     """
-
     agent1 = autogen.ConversableAgent(
         "Alice",
         description="A wonderful employee named Alice.",
@@ -1866,7 +1847,6 @@ def test_manager_messages_from_string():
 
 def test_manager_resume_functions():
     """Tests functions within the resume chat functionality"""
-
     # Setup
     coder = AssistantAgent(name="Coder", llm_config=None)
     groupchat = GroupChat(messages=[], agents=[coder])
@@ -1931,10 +1911,8 @@ def test_manager_resume_functions():
 
     # Tests termination message replacement with function
     def termination_func(x: str) -> str:
-        if "APPROVED" in x:
-            x = x.replace("APPROVED", "")
-        else:
-            x = x.replace("TERMINATE", "")
+        old = "APPROVED" if "APPROVED" in x else "TERMINATE"
+        x = x.replace(old, "")
         return x
 
     final_msg1 = "Product_Manager has created 3 new product ideas. APPROVED"
@@ -2015,7 +1993,6 @@ def test_manager_resume_functions():
 
 def test_manager_resume_returns():
     """Tests the return resume chat functionality"""
-
     # Test the return agent and message is correct
     coder = AssistantAgent(name="Coder", llm_config=None)
     groupchat = GroupChat(messages=[], agents=[coder])
@@ -2048,7 +2025,6 @@ def test_manager_resume_returns():
 
 def test_manager_resume_messages():
     """Tests that the messages passed into resume are the correct format"""
-
     coder = AssistantAgent(name="Coder", llm_config=None)
     groupchat = GroupChat(messages=[], agents=[coder])
     manager = GroupChatManager(groupchat)
@@ -2125,7 +2101,6 @@ def test_custom_model_client():
 
 def test_select_speaker_transform_messages():
     """Tests adding transform messages to a GroupChat for speaker selection when in 'auto' mode"""
-
     # Test adding a TransformMessages to a group chat
     test_add_transforms = transform_messages.TransformMessages(
         transforms=[
@@ -2165,7 +2140,6 @@ def test_select_speaker_transform_messages():
 
 def test_manager_resume_message_assignment():
     """Tests that the messages passed in are assigned to agents correctly"""
-
     # Setup
     agent_a = AssistantAgent(name="Agent_A", llm_config=None)
     agent_b = AssistantAgent(name="Agent_B", llm_config=None)
@@ -2206,6 +2180,52 @@ def test_manager_resume_message_assignment():
 
     # Compare agent_a's message state to previous messages (excludes last message)
     assert list(agent_a.chat_messages.values())[0] == prev_messages[:-1]
+
+
+@pytest.mark.deepseek
+@suppress_json_decoder_error
+def test_groupchat_with_deepseek_reasoner(
+    credentials_gpt_4o_mini: Credentials,
+    credentials_deepseek_reasoner: Credentials,
+) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        user_proxy = autogen.UserProxyAgent(
+            "user_proxy",
+            human_input_mode="NEVER",
+            code_execution_config={"work_dir": tmp_dir, "use_docker": False},
+        )
+
+        supervisor = autogen.AssistantAgent(
+            "supervisor",
+            llm_config={
+                "config_list": credentials_deepseek_reasoner.config_list,
+            },
+        )
+
+        assistant = autogen.AssistantAgent(
+            "assistant",
+            llm_config={
+                "config_list": credentials_deepseek_reasoner.config_list,
+            },
+        )
+
+        groupchat = autogen.GroupChat(
+            agents=[user_proxy, supervisor, assistant],
+            messages=["A group chat"],
+            max_round=5,
+        )
+
+        manager = autogen.GroupChatManager(
+            groupchat=groupchat,
+            llm_config={
+                "config_list": credentials_gpt_4o_mini.config_list,
+            },
+        )
+
+        result = user_proxy.initiate_chat(
+            manager, message="""Give me some info about the stock market""", summary_method="reflection_with_llm"
+        )
+        assert isinstance(result.summary, str)
 
 
 if __name__ == "__main__":
