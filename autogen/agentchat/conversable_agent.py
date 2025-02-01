@@ -901,78 +901,91 @@ class ConversableAgent(LLMAgent):
                 "Message can't be converted into a valid ChatCompletion message. Either content or function_call must be provided."
             )
 
-    def _print_received_message(self, message: Union[Dict, str], sender: Agent, skip_head: bool = False):
-        iostream = IOStream.get_default()
+    def _print_received_message(self, message: Union[dict, str], sender: Agent, skip_head: bool = False):
         # print the message received
         ## cmbagent debug print: 
-        # print('in conversable_agent.py _print_received_message: ', message)
-        if not skip_head:
-            if sender.name == 'classy_sz_agent':
-                iostream.print(colored(f"Sending message from {sender.name} to rag_software_formatter...\n", "yellow"), flush=True)
-            else:
-                iostream.print(colored(f"Message from {sender.name}:\n", "yellow"), flush=True)
+        print('\n \n in conversable_agent.py _print_received_message: ', message)
+        message = self._message_to_dict(message)
+        print("\n getting message model")
+        message_model = create_received_message_model(message=message, sender=sender, recipient=self)
+        print("\n message model: ", message_model)
+        iostream = IOStream.get_default()
+        # message_model.print(iostream.print)
+        print("\n sending message model")
+        # try:
+        #     print(message_model.content.get("content"))
+        # except:
+        #     print(message_model.content)
+        # display(Markdown(message_model.content))
+        iostream.send(message_model)
+        print("\n message model sent")
+        # if not skip_head:
+        #     if sender.name == 'classy_sz_agent':
+        #         iostream.print(colored(f"Sending message from {sender.name} to rag_software_formatter...\n", "yellow"), flush=True)
+        #     else:
+        #         iostream.print(colored(f"Message from {sender.name}:\n", "yellow"), flush=True)
 
-        if message.get("tool_responses"):  # Handle tool multi-call responses
-            for tool_response in message["tool_responses"]:
-                self._print_received_message(tool_response, sender, skip_head=True)
-            if message.get("role") == "tool":
-                return  # If role is tool, then content is just a concatenation of all tool_responses
+        # if message.get("tool_responses"):  # Handle tool multi-call responses
+        #     for tool_response in message["tool_responses"]:
+        #         self._print_received_message(tool_response, sender, skip_head=True)
+        #     if message.get("role") == "tool":
+        #         return  # If role is tool, then content is just a concatenation of all tool_responses
 
-        if message.get("role") in ["function", "tool"]:
-            ## cmbagent debug print: 
-            # print('in conversable_agent.py message role: ', message["role"])
-            if message["role"] == "function":
-                id_key = "name"
-            else:
-                id_key = "tool_call_id"
-            id = message.get(id_key, "No id found")
-            func_print = f"***** Response from calling {message['role']} ({id}) *****"
-            iostream.print(colored(func_print, "green"), flush=True)
-            iostream.print(message["content"], flush=True)
-            iostream.print(colored("*" * len(func_print), "green"), flush=True)
-        else:
-            content = message.get("content")
-            if content is not None:
-                if "context" in message:
-                    ## cmbagent debug print: 
-                    # print('in conversable_agent.py message context: ', message["context"])
-                    content = OpenAIWrapper.instantiate(
-                        content,
-                        message["context"],
-                        self.llm_config and self.llm_config.get("allow_format_str_template", False),
-                    )
-                ## cmbagent modification
-                if sender.name not in ['classy_sz_agent']:
-                    if sender.name in ["planner", "rag_software_formatter", "engineer"]:
-                        display(Markdown(content))
-                    else:
-                        iostream.print(content_str(content), flush=True)
-            if "function_call" in message and message["function_call"]:
-                function_call = dict(message["function_call"])
-                func_print = (
-                    f"***** Suggested function call: {function_call.get('name', '(No function name found)')} *****"
-                )
-                iostream.print(colored(func_print, "green"), flush=True)
-                iostream.print(
-                    "Arguments: \n",
-                    function_call.get("arguments", "(No arguments found)"),
-                    flush=True,
-                    sep="",
-                )
-                iostream.print(colored("*" * len(func_print), "green"), flush=True)
-            if "tool_calls" in message and message["tool_calls"]:
-                for tool_call in message["tool_calls"]:
-                    id = tool_call.get("id", "No tool call id found")
-                    function_call = dict(tool_call.get("function", {}))
-                    func_print = f"***** Suggested tool call ({id}): {function_call.get('name', '(No function name found)')} *****"
-                    iostream.print(colored(func_print, "green"), flush=True)
-                    iostream.print(
-                        "Arguments: \n",
-                        function_call.get("arguments", "(No arguments found)"),
-                        flush=True,
-                        sep="",
-                    )
-                    iostream.print(colored("*" * len(func_print), "green"), flush=True)
+        # if message.get("role") in ["function", "tool"]:
+        #     ## cmbagent debug print: 
+        #     # print('in conversable_agent.py message role: ', message["role"])
+        #     if message["role"] == "function":
+        #         id_key = "name"
+        #     else:
+        #         id_key = "tool_call_id"
+        #     id = message.get(id_key, "No id found")
+        #     func_print = f"***** Response from calling {message['role']} ({id}) *****"
+        #     iostream.print(colored(func_print, "green"), flush=True)
+        #     iostream.print(message["content"], flush=True)
+        #     iostream.print(colored("*" * len(func_print), "green"), flush=True)
+        # else:
+        #     content = message.get("content")
+        #     if content is not None:
+        #         if "context" in message:
+        #             ## cmbagent debug print: 
+        #             # print('in conversable_agent.py message context: ', message["context"])
+        #             content = OpenAIWrapper.instantiate(
+        #                 content,
+        #                 message["context"],
+        #                 self.llm_config and self.llm_config.get("allow_format_str_template", False),
+        #             )
+        #         ## cmbagent modification
+        #         if sender.name not in ['classy_sz_agent']:
+        #             if sender.name in ["planner", "rag_software_formatter", "engineer"]:
+        #                 display(Markdown(content))
+        #             else:
+        #                 iostream.print(content_str(content), flush=True)
+        #     if "function_call" in message and message["function_call"]:
+        #         function_call = dict(message["function_call"])
+        #         func_print = (
+        #             f"***** Suggested function call: {function_call.get('name', '(No function name found)')} *****"
+        #         )
+        #         iostream.print(colored(func_print, "green"), flush=True)
+        #         iostream.print(
+        #             "Arguments: \n",
+        #             function_call.get("arguments", "(No arguments found)"),
+        #             flush=True,
+        #             sep="",
+        #         )
+        #         iostream.print(colored("*" * len(func_print), "green"), flush=True)
+        #     if "tool_calls" in message and message["tool_calls"]:
+        #         for tool_call in message["tool_calls"]:
+        #             id = tool_call.get("id", "No tool call id found")
+        #             function_call = dict(tool_call.get("function", {}))
+        #             func_print = f"***** Suggested tool call ({id}): {function_call.get('name', '(No function name found)')} *****"
+        #             iostream.print(colored(func_print, "green"), flush=True)
+        #             iostream.print(
+        #                 "Arguments: \n",
+        #                 function_call.get("arguments", "(No arguments found)"),
+        #                 flush=True,
+        #                 sep="",
+        #             )
+        #             iostream.print(colored("*" * len(func_print), "green"), flush=True)
  
         ## cmbagent removing line break after each message: 
         # iostream.print("\n", "-" * 80, flush=True, sep="")
@@ -1562,8 +1575,8 @@ class ConversableAgent(LLMAgent):
         if messages is None:
             messages = self._oai_messages[sender]
         extracted_response = self._generate_oai_reply_from_client(
-            client, self._oai_system_message + messages, self.client_cache, self.response_format
-        )
+            client, self._oai_system_message + messages, self.client_cache)
+
         return (False, None) if extracted_response is None else (True, extracted_response)
 
     def _generate_oai_reply_from_client(self, llm_client, messages, cache) -> Union[str, dict, None]:
@@ -1633,7 +1646,7 @@ class ConversableAgent(LLMAgent):
 
         else:
             extracted_response = llm_client.extract_text_or_completion_object(response)[0]
-        # print('\n\nin conversable_agent.py extracted_response: \n\n',extracted_response)
+        print('\n\nin conversable_agent.py extracted_response: \n\n',extracted_response)
         # print('\n\n')
 
         if extracted_response is None:

@@ -1292,7 +1292,8 @@ class GroupChatManager(ConversableAgent):
                 
                 if not silent:
                     iostream = IOStream.get_default()
-                    iostream.print(colored(f"\nCalling {speaker.name}...\n", "green"), flush=True)
+                    # iostream.print(colored(f"\nCalling {speaker.name}...\n", "green"), flush=True)
+                    # iostream.print(f"\nCalling {speaker.name}...\n", flush=True)
                     iostream.send(GroupChatRunChatMessage(speaker=speaker, silent=silent))
                 # let the speaker speak
                 reply = speaker.generate_reply(sender=self)

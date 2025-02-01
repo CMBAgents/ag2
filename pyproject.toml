@@ -7,7 +7,7 @@ license_file = "LICENSE"
 description-file = "README.md"
 
 [project]
-name = "pyautogen"
+name = "cmbagent_autogen"
 description = "A programming framework for agentic AI"
 readme = "README.md"
 authors = [

@@ -10,6 +10,9 @@ from uuid import UUID
 from pydantic import BaseModel
 from termcolor import colored
 
+from IPython.display import display
+from IPython.display import Markdown
+
 from ..code_utils import content_str
 from ..oai.client import OpenAIWrapper
 from .base_message import BaseMessage, wrap_message
@@ -52,7 +55,8 @@ class BasePrintReceivedMessage(BaseMessage, ABC):
 
     def print(self, f: Optional[Callable[..., Any]] = None) -> None:
         f = f or print
-        f(f"{colored(self.sender_name, 'yellow')} (to {self.recipient_name}):\n", flush=True)
+        # f(f"{colored(self.sender_name, 'yellow')} (to {self.recipient_name}):\n", flush=True)
+        f(f"{colored(f'Message from {self.sender_name}:\n', 'yellow')}", flush=True)
 
 
 @wrap_message
@@ -196,7 +200,9 @@ class TextMessage(BasePrintReceivedMessage):
         super().print(f)
 
         if self.content is not None:
-            f(content_str(self.content), flush=True)  # type: ignore [arg-type]
+            # f(content_str(self.content), flush=True)  # type: ignore [arg-type]
+            # print("\n content: ", self.content)
+            display(Markdown(self.content))
 
         f("\n", "-" * 80, flush=True, sep="")
 

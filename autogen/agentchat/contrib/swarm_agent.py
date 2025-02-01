@@ -140,6 +140,7 @@ def _prepare_swarm_agents(
         if agent.after_work is not None and isinstance(agent.after_work.agent, SwarmAgent):
             assert agent.after_work.agent in agents, "Agent in hand-off must be in the agents list"
 
+    print("\n in swarm_agent.py _prepare_swarm_agents creating tool_execution")
     tool_execution = SwarmAgent(
         name=__TOOL_EXECUTOR_NAME__,
         system_message="Tool Execution",
@@ -148,6 +149,7 @@ def _prepare_swarm_agents(
 
     nested_chat_agents = []
     for agent in agents:
+        print("\n in swarm_agent.py agent.name: ", agent.name)
         _create_nested_chats(agent, nested_chat_agents)
 
     # Update tool execution agent with all the functions from all the agents
@@ -292,23 +294,36 @@ def _determine_next_agent(
         user_agent (UserProxyAgent): Optional user proxy agent.
         swarm_after_work (Union[AfterWorkOption, Callable]): Method to handle conversation continuation when an agent doesn't select the next agent.
     """
+    print("\n in swarm_agent.py _determine_next_agent")
+   
+
+    print("\n use_initial_agent: ", use_initial_agent)
     if use_initial_agent:
         return initial_agent
 
+
     if "tool_calls" in groupchat.messages[-1]:
+        print("\n tool_calls in groupchat.messages[-1]")
+        print("\n transition to tool_execution")
         return tool_execution
+
+
 
     after_work_condition = None
 
     if tool_execution._next_agent is not None:
+        print("\n tool_execution._next_agent is not None")
         next_agent = tool_execution._next_agent
         tool_execution._next_agent = None
 
         if not isinstance(next_agent, AfterWorkOption):
             # Check for string, access agent from group chat.
-
+            print("\n Check for string, access agent from group chat.")
+            print("\n next_agent: ", next_agent)
             if isinstance(next_agent, str):
+                print("\n next_agent is a string")
                 if next_agent in swarm_agent_names:
+                    print("\n next_agent is in swarm_agent_names, pick it")
                     next_agent = groupchat.agent_by_name(name=next_agent)
                 else:
                     raise ValueError(
@@ -319,7 +334,11 @@ def _determine_next_agent(
         else:
             after_work_condition = next_agent
 
+    print("\n after_work_condition: ", after_work_condition)
+   
+
     # get the last swarm agent
+    print("\n getting the last swarm agent")
     last_swarm_speaker = None
     for message in reversed(groupchat.messages):
         if "name" in message and message["name"] in swarm_agent_names and message["name"] != __TOOL_EXECUTOR_NAME__:
@@ -327,25 +346,40 @@ def _determine_next_agent(
             if isinstance(agent, SwarmAgent):
                 last_swarm_speaker = agent
                 break
+    print("\n last_swarm_speaker: ", last_swarm_speaker)
+    
     if last_swarm_speaker is None:
         raise ValueError("No swarm agent found in the message history")
 
     if after_work_condition is None:
         # If the user last spoke, return to the agent prior
+        print("\n after_work_condition is None")
+        print("\n the user last spoke, try to return to the agent prior")
         if (user_agent and last_speaker == user_agent) or groupchat.messages[-1]["role"] == "tool":
+            print("\n return to the agent prior, last_swarm_speaker: ", last_swarm_speaker)
             return last_swarm_speaker
 
         # Resolve after_work condition (agent-level overrides global)
         after_work_condition = (
             last_swarm_speaker.after_work if last_swarm_speaker.after_work is not None else swarm_after_work
         )
+        print("\n after_work_condition after override: ", after_work_condition)
+        
+
 
         if isinstance(after_work_condition, AFTER_WORK):
+            print("\n after_work_condition is an AFTER_WORK")
+            print("\n after_work_condition.agent: ", after_work_condition.agent)
             after_work_condition = after_work_condition.agent
+
+        
 
         # Evaluate callable after_work
         if isinstance(after_work_condition, Callable):
+            print("\n after_work_condition is a Callable")
             after_work_condition = after_work_condition(last_swarm_speaker, groupchat.messages, groupchat)
+
+        
 
     if isinstance(after_work_condition, str):  # Agent name in a string
         if after_work_condition in swarm_agent_names:
@@ -358,6 +392,8 @@ def _determine_next_agent(
         if after_work_condition == AfterWorkOption.TERMINATE:
             return None
         elif after_work_condition == AfterWorkOption.REVERT_TO_USER:
+            print("\n after_work_condition == AfterWorkOption.REVERT_TO_USER")
+            print("\n trying to revert to user_agent: ", user_agent)
             return None if user_agent is None else user_agent
         elif after_work_condition == AfterWorkOption.STAY:
             return last_swarm_speaker
@@ -388,7 +424,7 @@ def create_swarm_transition(
     """
     # Create enclosed state, this will be set once per creation so will only be True on the first execution
     # of swarm_transition
-    state = {"use_initial_agent": True}
+    state = {"use_initial_agent": True} # set to False to start in cmbagent
 
     def swarm_transition(last_speaker: SwarmAgent, groupchat: GroupChat) -> Optional[Agent]:
         result = _determine_next_agent(
