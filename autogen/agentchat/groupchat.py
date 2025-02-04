@@ -1193,11 +1193,11 @@ class GroupChatManager(ConversableAgent):
         silent = getattr(self, "_silent", False)
 
         if send_introductions:
-            print("\n in groupchat.py send_introductions: ", send_introductions)
+            # print("\n in groupchat.py send_introductions: ", send_introductions)
             
             # Broadcast the intro
             intro = groupchat.introductions_msg()
-            print("\n in groupchat.py intro: ", intro)
+            # print("\n in groupchat.py intro: ", intro)
             for agent in groupchat.agents:
                 self.send(intro, agent, request_reply=False, silent=True)
             # NOTE: We do not also append to groupchat.messages,
@@ -1208,7 +1208,7 @@ class GroupChatManager(ConversableAgent):
                 a.previous_cache = a.client_cache
                 a.client_cache = self.client_cache
         for i in range(groupchat.max_round):
-            print("\n in groupchat.py i: ", i)
+            # print("\n in groupchat.py i: ", i)
             self._last_speaker = speaker
             groupchat.append(message, speaker)
             # broadcast the message to all agents except the speaker
@@ -1236,63 +1236,65 @@ class GroupChatManager(ConversableAgent):
                         self.last_admin_summarizer_speaker = "admin"
 
                 elif i == 0:  # Default to 'planner' in standard case
-                    print("\n in groupchat.py, i == 0")
+                    # print("\n in groupchat.py, i == 0")
                     if "memory_agent" in [agent.name for agent in groupchat.agents]:
                         speaker = groupchat.agent_by_name("memory_agent")
                     else:
                         speaker = groupchat.agent_by_name("planner")
 
                 else:
-                    if groupchat.verbose:
-                        print("--> in groupchat.py speaker.name: ", speaker.name)
-                        print("--> in groupchat.py groupchat.agents names: ", [agent.name for agent in groupchat.agents])
+                    # if groupchat.verbose:
+                    #     print("--> in groupchat.py speaker.name: ", speaker.name)
+                    #     print("--> in groupchat.py groupchat.agents names: ", [agent.name for agent in groupchat.agents])
                     
-                    if speaker.name == "admin":
-                        # selected_agent, agents, messages = self._prepare_and_select_agents(last_speaker)
-                        # print("--> in groupchat.py selected_agent: ", selected_agent)
-                        # print("--> in groupchat.py agents: ", agents)
-                        # print("--> in groupchat.py message by admin: ", message)
-                        print("--> in groupchat.py message by admin: ", message["content"])
-                        if message["content"] == "proceed":
-                            print("\n in groupchat.py proceed")
-                            # print("--> in groupchat.py previous message:",messages[-2])
-                            # print("--> in groupchat.py previous message content:",messages[-2]["content"])
-                            if "**Next Agent Suggestion:**" in messages[-2]["content"]:
-                                next_agent_suggestion = extract_next_agent_suggestion(messages[-2]["content"])
-                                # print("--> in groupchat.py next_agent_suggestion: ", next_agent_suggestion)
-                                speaker = groupchat.agent_by_name(next_agent_suggestion)
-                            else:
-                                speaker = groupchat.select_speaker(speaker, self)
+                    # if speaker.name == "admin":
+                    #     # selected_agent, agents, messages = self._prepare_and_select_agents(last_speaker)
+                    #     # print("--> in groupchat.py selected_agent: ", selected_agent)
+                    #     # print("--> in groupchat.py agents: ", agents)
+                    #     # print("--> in groupchat.py message by admin: ", message)
+                    #     # print("--> in groupchat.py message by admin: ", message["content"])
+                    #     if message["content"] == "proceed":
+                    #         print("\n in groupchat.py proceed")
+                    #         # print("--> in groupchat.py previous message:",messages[-2])
+                    #         # print("--> in groupchat.py previous message content:",messages[-2]["content"])
+                    #         if "**Next Agent Suggestion:**" in messages[-2]["content"]:
+                    #             next_agent_suggestion = extract_next_agent_suggestion(messages[-2]["content"])
+                    #             # print("--> in groupchat.py next_agent_suggestion: ", next_agent_suggestion)
+                    #             speaker = groupchat.agent_by_name(next_agent_suggestion)
+                    #         else:
+                    #             speaker = groupchat.select_speaker(speaker, self)
 
-                        else:
+                    #     else:
 
-                            speaker = groupchat.select_speaker(speaker, self)
+                    #         speaker = groupchat.select_speaker(speaker, self)
+
+                    speaker = groupchat.select_speaker(speaker, self)
                     
 
-                    elif groupchat.rag_agents is not None:
-                        if groupchat.verbose:
-                            print("--> in groupchat.py groupchat.rag_agents names: ", [agent.name for agent in groupchat.rag_agents])
-                        if speaker.name in [agent.name for agent in groupchat.rag_agents]:
-                            if groupchat.verbose:
-                                print("switching to rag_software_formatter")
-                            print("switching to rag_software_formatter, message: ", messages)
-                            speaker = groupchat.agent_by_name("rag_software_formatter")
+                    # elif groupchat.rag_agents is not None:
+                    #     if groupchat.verbose:
+                    #         print("--> in groupchat.py groupchat.rag_agents names: ", [agent.name for agent in groupchat.rag_agents])
+                    #     if speaker.name in [agent.name for agent in groupchat.rag_agents]:
+                    #         if groupchat.verbose:
+                    #             print("switching to rag_software_formatter")
+                    #         print("switching to rag_software_formatter, message: ", messages)
+                    #         speaker = groupchat.agent_by_name("rag_software_formatter")
 
-                        elif speaker.name == "rag_software_formatter":
-                            speaker = groupchat.agent_by_name("admin")
+                    #     elif speaker.name == "rag_software_formatter":
+                    #         speaker = groupchat.agent_by_name("admin")
                         
-                        else:
-                            speaker = groupchat.select_speaker(speaker, self)
+                    #     else:
+                    #         speaker = groupchat.select_speaker(speaker, self)
                     
-                    else:
-                        speaker = groupchat.select_speaker(speaker, self)
+                    # else:
+                    #     speaker = groupchat.select_speaker(speaker, self)
 
-                    if groupchat.verbose:
-                        print("--> in groupchat.py speaker.name after select_speaker: ", speaker.name)
+                    # if groupchat.verbose:
+                    #     print("--> in groupchat.py speaker.name after select_speaker: ", speaker.name)
                 
                 if not silent:
                     iostream = IOStream.get_default()
-                    iostream.print(colored(f"\nCalling {speaker.name}...\n", "green"), flush=True)
+                    # iostream.print(colored(f"\nCalling {speaker.name}...\n", "green"), flush=True)
                     iostream.send(GroupChatRunChatMessage(speaker=speaker, silent=silent))
                 # let the speaker speak
                 reply = speaker.generate_reply(sender=self)

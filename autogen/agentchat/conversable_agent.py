@@ -901,91 +901,91 @@ class ConversableAgent(LLMAgent):
                 "Message can't be converted into a valid ChatCompletion message. Either content or function_call must be provided."
             )
 
-    def _print_received_message(self, message: Union[Dict, str], sender: Agent, skip_head: bool = False):
-        iostream = IOStream.get_default()
-        # print the message received
-        ## cmbagent debug print: 
-        # print('in conversable_agent.py _print_received_message: ', message)
-        if not skip_head:
-            if sender.name == 'classy_sz_agent':
-                iostream.print(colored(f"Sending message from {sender.name} to rag_software_formatter...\n", "yellow"), flush=True)
-            else:
-                iostream.print(colored(f"Message from {sender.name}:\n", "yellow"), flush=True)
+    # def _print_received_message(self, message: Union[dict, str], sender: Agent, skip_head: bool = False):
+    #     iostream = IOStream.get_default()
+    #     # print the message received
+    #     ## cmbagent debug print: 
+    #     # print('in conversable_agent.py _print_received_message: ', message)
+    #     if not skip_head:
+    #         if sender.name == 'classy_sz_agent':
+    #             iostream.print(colored(f"Sending message from {sender.name} to rag_software_formatter...\n", "yellow"), flush=True)
+    #         else:
+    #             iostream.print(colored(f"Message from {sender.name}:\n", "yellow"), flush=True)
 
-        if message.get("tool_responses"):  # Handle tool multi-call responses
-            for tool_response in message["tool_responses"]:
-                self._print_received_message(tool_response, sender, skip_head=True)
-            if message.get("role") == "tool":
-                return  # If role is tool, then content is just a concatenation of all tool_responses
+    #     if message.get("tool_responses"):  # Handle tool multi-call responses
+    #         for tool_response in message["tool_responses"]:
+    #             self._print_received_message(tool_response, sender, skip_head=True)
+    #         if message.get("role") == "tool":
+    #             return  # If role is tool, then content is just a concatenation of all tool_responses
 
-        if message.get("role") in ["function", "tool"]:
-            ## cmbagent debug print: 
-            # print('in conversable_agent.py message role: ', message["role"])
-            if message["role"] == "function":
-                id_key = "name"
-            else:
-                id_key = "tool_call_id"
-            id = message.get(id_key, "No id found")
-            func_print = f"***** Response from calling {message['role']} ({id}) *****"
-            iostream.print(colored(func_print, "green"), flush=True)
-            iostream.print(message["content"], flush=True)
-            iostream.print(colored("*" * len(func_print), "green"), flush=True)
-        else:
-            content = message.get("content")
-            if content is not None:
-                if "context" in message:
-                    ## cmbagent debug print: 
-                    # print('in conversable_agent.py message context: ', message["context"])
-                    content = OpenAIWrapper.instantiate(
-                        content,
-                        message["context"],
-                        self.llm_config and self.llm_config.get("allow_format_str_template", False),
-                    )
-                ## cmbagent modification
-                if sender.name not in ['classy_sz_agent']:
-                    if sender.name in ["planner", "rag_software_formatter", "engineer"]:
-                        display(Markdown(content))
-                    else:
-                        iostream.print(content_str(content), flush=True)
-            if "function_call" in message and message["function_call"]:
-                function_call = dict(message["function_call"])
-                func_print = (
-                    f"***** Suggested function call: {function_call.get('name', '(No function name found)')} *****"
-                )
-                iostream.print(colored(func_print, "green"), flush=True)
-                iostream.print(
-                    "Arguments: \n",
-                    function_call.get("arguments", "(No arguments found)"),
-                    flush=True,
-                    sep="",
-                )
-                iostream.print(colored("*" * len(func_print), "green"), flush=True)
-            if "tool_calls" in message and message["tool_calls"]:
-                for tool_call in message["tool_calls"]:
-                    id = tool_call.get("id", "No tool call id found")
-                    function_call = dict(tool_call.get("function", {}))
-                    func_print = f"***** Suggested tool call ({id}): {function_call.get('name', '(No function name found)')} *****"
-                    iostream.print(colored(func_print, "green"), flush=True)
-                    iostream.print(
-                        "Arguments: \n",
-                        function_call.get("arguments", "(No arguments found)"),
-                        flush=True,
-                        sep="",
-                    )
-                    iostream.print(colored("*" * len(func_print), "green"), flush=True)
+    #     if message.get("role") in ["function", "tool"]:
+    #         ## cmbagent debug print: 
+    #         # print('in conversable_agent.py message role: ', message["role"])
+    #         if message["role"] == "function":
+    #             id_key = "name"
+    #         else:
+    #             id_key = "tool_call_id"
+    #         id = message.get(id_key, "No id found")
+    #         func_print = f"***** Response from calling {message['role']} ({id}) *****"
+    #         iostream.print(colored(func_print, "green"), flush=True)
+    #         iostream.print(message["content"], flush=True)
+    #         iostream.print(colored("*" * len(func_print), "green"), flush=True)
+    #     else:
+    #         content = message.get("content")
+    #         if content is not None:
+    #             if "context" in message:
+    #                 ## cmbagent debug print: 
+    #                 # print('in conversable_agent.py message context: ', message["context"])
+    #                 content = OpenAIWrapper.instantiate(
+    #                     content,
+    #                     message["context"],
+    #                     self.llm_config and self.llm_config.get("allow_format_str_template", False),
+    #                 )
+    #             ## cmbagent modification
+    #             if sender.name not in ['classy_sz_agent']:
+    #                 if sender.name in ["planner", "rag_software_formatter", "engineer"]:
+    #                     display(Markdown(content))
+    #                 else:
+    #                     iostream.print(content_str(content), flush=True)
+    #         if "function_call" in message and message["function_call"]:
+    #             function_call = dict(message["function_call"])
+    #             func_print = (
+    #                 f"***** Suggested function call: {function_call.get('name', '(No function name found)')} *****"
+    #             )
+    #             iostream.print(colored(func_print, "green"), flush=True)
+    #             iostream.print(
+    #                 "Arguments: \n",
+    #                 function_call.get("arguments", "(No arguments found)"),
+    #                 flush=True,
+    #                 sep="",
+    #             )
+    #             iostream.print(colored("*" * len(func_print), "green"), flush=True)
+    #         if "tool_calls" in message and message["tool_calls"]:
+    #             for tool_call in message["tool_calls"]:
+    #                 id = tool_call.get("id", "No tool call id found")
+    #                 function_call = dict(tool_call.get("function", {}))
+    #                 func_print = f"***** Suggested tool call ({id}): {function_call.get('name', '(No function name found)')} *****"
+    #                 iostream.print(colored(func_print, "green"), flush=True)
+    #                 iostream.print(
+    #                     "Arguments: \n",
+    #                     function_call.get("arguments", "(No arguments found)"),
+    #                     flush=True,
+    #                     sep="",
+    #                 )
+    #                 iostream.print(colored("*" * len(func_print), "green"), flush=True)
  
-        ## cmbagent removing line break after each message: 
-        # iostream.print("\n", "-" * 80, flush=True, sep="")
-        ## cmbagent debug print: 
-        # print('in conversable_agent.py _print_received_message: ', message)
+    #     ## cmbagent removing line break after each message: 
+    #     # iostream.print("\n", "-" * 80, flush=True, sep="")
+    #     ## cmbagent debug print: 
+    #     # print('in conversable_agent.py _print_received_message: ', message)
 
     ####### new ag2 function: 
-#    def _print_received_message(self, message: Union[dict, str], sender: Agent, skip_head: bool = False):
-#         message = self._message_to_dict(message)
-#         message_model = create_received_message_model(message=message, sender=sender, recipient=self)
-#         iostream = IOStream.get_default()
-#         # message_model.print(iostream.print)
-#         iostream.send(message_model)
+    def _print_received_message(self, message: Union[dict, str], sender: Agent, skip_head: bool = False):
+        message = self._message_to_dict(message)
+        message_model = create_received_message_model(message=message, sender=sender, recipient=self)
+        iostream = IOStream.get_default()
+        # message_model.print(iostream.print)
+        iostream.send(message_model)
         
 
     def _process_received_message(self, message: Union[dict, str], sender: Agent, silent: bool):
@@ -1562,7 +1562,7 @@ class ConversableAgent(LLMAgent):
         if messages is None:
             messages = self._oai_messages[sender]
         extracted_response = self._generate_oai_reply_from_client(
-            client, self._oai_system_message + messages, self.client_cache, self.response_format
+            client, self._oai_system_message + messages, self.client_cache #self.response_format
         )
         return (False, None) if extracted_response is None else (True, extracted_response)
 
@@ -1624,15 +1624,15 @@ class ConversableAgent(LLMAgent):
             self.cost_dict['Completion Tokens'].append(completion_tokens)
             self.cost_dict['Total Tokens'].append(total_tokens)
 
-        if name == 'summarizer':
+        # if name == 'summarizer':
 
-            content = response.choices[0].message.content
-            extracted_response = content
+        #     content = response.choices[0].message.content
+        #     extracted_response = content
 
-            print('\n\n'+llm_client.extract_text_or_completion_object(response)[0])
+        #     print('\n\n'+llm_client.extract_text_or_completion_object(response)[0])
 
-        else:
-            extracted_response = llm_client.extract_text_or_completion_object(response)[0]
+        # else:
+        extracted_response = llm_client.extract_text_or_completion_object(response)[0]
         # print('\n\nin conversable_agent.py extracted_response: \n\n',extracted_response)
         # print('\n\n')
 
@@ -1745,20 +1745,18 @@ class ConversableAgent(LLMAgent):
 
             # found code blocks, execute code.
             code_result = self._code_executor.execute_code_blocks(code_blocks)
-            exitcode2str = "EXECUTION SUCCEEDED" if code_result.exit_code == 0 else "EXECUTION FAILED"
-            exitcode2str_to_print = colored(
-                    f"\n>>>>>>>> {exitcode2str}",
-                    "green" if code_result.exit_code == 0 else "red"
-                )
+            exitcode2str = "execution succeeded" if code_result.exit_code == 0 else "execution failed"
+            return True, f"exitcode: {code_result.exit_code} ({exitcode2str})\nCode output: {code_result.output}"
 
-            ## cmbagent tuned output: 
-            if code_result.output is not None and len(code_result.output) > 0:
-                # print('in conversable agent.py len(code_result.output): ', len(code_result.output))
-                # print('in conversable_agent.py code_result.output: ', code_result.output)
-                return_message = f"{exitcode2str_to_print}\nCode output: {code_result.output}"
-            else:
-                return_message = f"{exitcode2str_to_print}"
-            return True, return_message
+
+            # ## cmbagent tuned output: 
+            # if code_result.output is not None and len(code_result.output) > 0:
+            #     # print('in conversable agent.py len(code_result.output): ', len(code_result.output))
+            #     # print('in conversable_agent.py code_result.output: ', code_result.output)
+            #     return_message = f"{exitcode2str_to_print}\nCode output: {code_result.output}"
+            # else:
+            #     return_message = f"{exitcode2str_to_print}"
+            # return True, return_message
 
         return False, None
 
