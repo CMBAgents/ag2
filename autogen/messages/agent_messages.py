@@ -183,7 +183,11 @@ class ToolCallMessage(BasePrintReceivedMessage):
         super().print(f)
 
         if self.content is not None:
-            f(self.content, flush=True)
+            # original ag2 code
+            # f(self.content, flush=True)
+            # cmbagent debug
+            # print("\n in agent_messages.py ToolCallMessage print... cmbagent debug")
+            display(Markdown(self.content))
 
         for tool_call in self.tool_calls:
             tool_call.print(f)
@@ -200,8 +204,11 @@ class TextMessage(BasePrintReceivedMessage):
         super().print(f)
 
         if self.content is not None:
-            # f(content_str(self.content), flush=True)  # type: ignore [arg-type]
+            # original code
+            # f(content_str(self.content), flush=True)  # type: ignore [arg-type] 
             # print("\n content: ", self.content)
+            # cmbagent debug
+            # print("\n in agent_messages.py TextMessage print... cmbagent debug")
             display(Markdown(self.content))
 
         f("\n", "-" * 80, flush=True, sep="")

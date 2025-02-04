@@ -12,7 +12,7 @@ from collections import defaultdict
 from typing import Any, Optional, Union
 
 from ... import OpenAIWrapper
-from ...oai.openai_utils import create_gpt_assistant, retrieve_assistants_by_name, update_gpt_assistant
+from ...oai.openai_utils import create_gpt_assistant, retrieve_assistants_by_name, update_gpt_assistant, OAI_PRICE1K
 from ...runtime_logging import log_new_agent, logging_enabled
 from ..agent import Agent
 from ..assistant_agent import AssistantAgent, ConversableAgent

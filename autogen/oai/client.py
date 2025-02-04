@@ -383,10 +383,20 @@ class OpenAIClient:
         """
         iostream = IOStream.get_default()
 
+        # print("in client.py create... params:",params)
+        # import json
+        # print(json.dumps(params, indent=4, default=str))
+        # if "tools" in params and len(params['tools']):
+        #     # try:
+        #     print("tools type.....:",params['tools'][0]['type'])
+        #     if params['tools'][0]['type'] == 'function':
+        #         print("setting response format to none")
+        #         self.response_format = None
+
         if self.response_format is not None:
 
             ## cmbagent print to help debug
-            ## print('in oai/client.py self.response_format: ',self.response_format)
+            # print('in oai/client.py self.response_format: ',self.response_format)
 
             def _create_or_parse(*args, **kwargs):
                 if "stream" in kwargs:
@@ -397,6 +407,8 @@ class OpenAIClient:
             create_or_parse = _create_or_parse
         else:
             completions = self._oai_client.chat.completions if "messages" in params else self._oai_client.completions  # type: ignore [attr-defined]
+            # cmbagent debug
+            # print("\n\n setting up create or parse....\n\n")
             create_or_parse = completions.create
         # Wrap _create_or_parse with exception handling
         create_or_parse = OpenAIClient._handle_openai_bad_request_error(create_or_parse)
@@ -412,7 +424,7 @@ class OpenAIClient:
 
             # Set the terminal text color to green
             ### cmbagent debug
-            print('in ModelClient client.py:',params)
+            # print('in ModelClient client.py:',params)
 
             # Prepare for potential function call
             full_function_call: Optional[dict[str, Any]] = None
@@ -515,7 +527,14 @@ class OpenAIClient:
                 response.choices.append(choice)
         else:
             # If streaming is not enabled, send a regular chat completion request
+            # original ag2 code
+            # print("\n\n in client.py regular chat completion....")
             params = params.copy()
+            # cmbagent debug
+            # if "response_format" in params:
+            #     # print("\n response_format: ", params['response_format'])
+            #     # params.pop("response_format")
+            # print("\n\n in client.py in regular chat.....: ",params)
             if is_o1:
                 # add a warning that model does not support stream
                 if params.get("stream", False):
@@ -947,6 +966,8 @@ class OpenAIWrapper:
             - RuntimeError: If all declared custom model clients are not registered
             - APIError: If any model client create call raises an APIError
         """
+        # cmbagent debug
+        # print('\n\n in oai/client.py create config: ', config)
         if ERROR:
             raise ERROR
         invocation_id = str(uuid.uuid4())
@@ -962,6 +983,8 @@ class OpenAIWrapper:
         for i, client in enumerate(self._clients):
             # merge the input config with the i-th config in the config list
             full_config = {**config, **self._config_list[i]}
+            # cmbagent debug
+            # print('\n\n in oai/client.py create full_config: ', full_config)
             # separate the config into create_config and extra_kwargs
             create_config, extra_kwargs = self._separate_create_config(full_config)
             api_type = extra_kwargs.get("api_type")
@@ -1042,8 +1065,20 @@ class OpenAIWrapper:
                             return response
                         continue  # filter is not passed; try the next config
             try:
+                # print('\n\n in oai/client.py create params:')
+                # import json 
+                # print(json.dumps(params, indent=4, default=str))
+                # cmbagent debug
+                # if "tools" in params:
+                    # print("\n tools in params: ", params["tools"])
+                    # cmbagent debug
+                    # if "response_format" in params:
+                    #     print("\n response_format: ", params['response_format'])
+                    
                 request_ts = get_current_ts()
                 response = client.create(params)
+                # cmbagent debug
+                # print("\n response created: ", response)
             except APITimeoutError as err:
                 logger.debug(f"config {i} timed out", exc_info=True)
                 if i == last:

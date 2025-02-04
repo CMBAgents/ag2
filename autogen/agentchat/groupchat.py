@@ -464,6 +464,7 @@ class GroupChat:
     ) -> tuple[Optional[Agent], list[Agent], Optional[list[dict]]]:
         # If self.speaker_selection_method is a callable, call it to get the next speaker.
         # If self.speaker_selection_method is a string, return it.
+        # print("\n in groupchat.py _prepare_and_select_agents last_speaker: ", last_speaker)
         speaker_selection_method = self.speaker_selection_method
         if isinstance(self.speaker_selection_method, Callable):
             selected_agent = self.speaker_selection_method(last_speaker, self)
@@ -472,6 +473,11 @@ class GroupChat:
                     "Custom speaker selection function returned None. Terminating conversation."
                 )
             elif isinstance(selected_agent, Agent):
+                # cmbagent debug print: 
+                # print("\n in groupchat.py _prepare_and_select_agents selected_agent: ", selected_agent)
+                # cmbagent debug
+                # for agent in self.agents:
+                    # print("\n in groupchat.py _prepare_and_select_agents agent: ", agent.name)
                 if selected_agent in self.agents:
                     return selected_agent, self.agents, None
                 else:
@@ -1186,18 +1192,30 @@ class GroupChatManager(ConversableAgent):
         """Run a group chat."""
         if messages is None:
             messages = self._oai_messages[sender]
+        # cmbagent debug
+        # print("\n in groupchat.py messages: ", messages)
         message = messages[-1]
         speaker = sender
         groupchat = config
+        try:
+            groupchat.verbose
+        except:
+            groupchat.verbose = False
+        try:
+            groupchat.rag_agents
+        except:
+            groupchat.rag_agents = None
         send_introductions = getattr(groupchat, "send_introductions", False)
         silent = getattr(self, "_silent", False)
 
         if send_introductions:
-            print("\n in groupchat.py send_introductions: ", send_introductions)
+            # cmbagent debug
+            # print("\n in groupchat.py send_introductions: ", send_introductions)
             
             # Broadcast the intro
             intro = groupchat.introductions_msg()
-            print("\n in groupchat.py intro: ", intro)
+            # cmbagent debug
+            # print("\n in groupchat.py intro: ", intro)
             for agent in groupchat.agents:
                 self.send(intro, agent, request_reply=False, silent=True)
             # NOTE: We do not also append to groupchat.messages,
@@ -1208,7 +1226,8 @@ class GroupChatManager(ConversableAgent):
                 a.previous_cache = a.client_cache
                 a.client_cache = self.client_cache
         for i in range(groupchat.max_round):
-            print("\n in groupchat.py i: ", i)
+            # cmbagent debug
+            # print("\n in groupchat.py i: ", i)
             self._last_speaker = speaker
             groupchat.append(message, speaker)
             # broadcast the message to all agents except the speaker
@@ -1235,12 +1254,12 @@ class GroupChatManager(ConversableAgent):
                         speaker = groupchat.agent_by_name("admin")
                         self.last_admin_summarizer_speaker = "admin"
 
-                elif i == 0:  # Default to 'planner' in standard case
-                    print("\n in groupchat.py, i == 0")
-                    if "memory_agent" in [agent.name for agent in groupchat.agents]:
-                        speaker = groupchat.agent_by_name("memory_agent")
-                    else:
-                        speaker = groupchat.agent_by_name("planner")
+                # elif i == 0 and "planner" in [agent.name for agent in groupchat.agents]:  # Default to 'planner' in standard case
+                #     print("\n in groupchat.py, i == 0")
+                #     if "memory_agent" in [agent.name for agent in groupchat.agents]:
+                #         speaker = groupchat.agent_by_name("memory_agent")
+                #     else:
+                #         speaker = groupchat.agent_by_name("planner")
 
                 else:
                     if groupchat.verbose:
@@ -1248,13 +1267,14 @@ class GroupChatManager(ConversableAgent):
                         print("--> in groupchat.py groupchat.agents names: ", [agent.name for agent in groupchat.agents])
                     
                     if speaker.name == "admin":
+                        # print("\n in groupchat.py speaker.name == admin")
                         # selected_agent, agents, messages = self._prepare_and_select_agents(last_speaker)
                         # print("--> in groupchat.py selected_agent: ", selected_agent)
                         # print("--> in groupchat.py agents: ", agents)
                         # print("--> in groupchat.py message by admin: ", message)
-                        print("--> in groupchat.py message by admin: ", message["content"])
+                        # print("--> in groupchat.py message by admin: ", message["content"])
                         if message["content"] == "proceed":
-                            print("\n in groupchat.py proceed")
+                            # print("\n in groupchat.py proceed")
                             # print("--> in groupchat.py previous message:",messages[-2])
                             # print("--> in groupchat.py previous message content:",messages[-2]["content"])
                             if "**Next Agent Suggestion:**" in messages[-2]["content"]:
@@ -1270,12 +1290,13 @@ class GroupChatManager(ConversableAgent):
                     
 
                     elif groupchat.rag_agents is not None:
+                        # print("\n in groupchat.py groupchat.rag_agents is not None")
                         if groupchat.verbose:
                             print("--> in groupchat.py groupchat.rag_agents names: ", [agent.name for agent in groupchat.rag_agents])
                         if speaker.name in [agent.name for agent in groupchat.rag_agents]:
                             if groupchat.verbose:
                                 print("switching to rag_software_formatter")
-                            print("switching to rag_software_formatter, message: ", messages)
+                            # print("switching to rag_software_formatter, message: ", messages)
                             speaker = groupchat.agent_by_name("rag_software_formatter")
 
                         elif speaker.name == "rag_software_formatter":
@@ -1293,10 +1314,15 @@ class GroupChatManager(ConversableAgent):
                 if not silent:
                     iostream = IOStream.get_default()
                     # iostream.print(colored(f"\nCalling {speaker.name}...\n", "green"), flush=True)
-                    # iostream.print(f"\nCalling {speaker.name}...\n", flush=True)
+                    # iostream.print(f"\n in groupchat.py Calling {speaker.name}...\n", flush=True)
                     iostream.send(GroupChatRunChatMessage(speaker=speaker, silent=silent))
                 # let the speaker speak
+                # print("\n in groupchat.py generate_reply....")
                 reply = speaker.generate_reply(sender=self)
+                # cmbagent debug
+                # print("\n in groupchat.py reply showing context variables: ")
+                # import json; print(json.dumps(speaker._context_variables, indent=4))
+                # import sys; sys.exit()
             except KeyboardInterrupt:
                 # let the admin agent speak if interrupted
                 if groupchat.admin_name in groupchat.agent_names:

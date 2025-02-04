@@ -904,21 +904,24 @@ class ConversableAgent(LLMAgent):
     def _print_received_message(self, message: Union[dict, str], sender: Agent, skip_head: bool = False):
         # print the message received
         ## cmbagent debug print: 
-        print('\n \n in conversable_agent.py _print_received_message: ', message)
+        # print('\n \n in conversable_agent.py _print_received_message: ', message)
         message = self._message_to_dict(message)
-        print("\n getting message model")
+        # print("\n getting message model")
         message_model = create_received_message_model(message=message, sender=sender, recipient=self)
-        print("\n message model: ", message_model)
+        # print("\n message model: ", message_model)
         iostream = IOStream.get_default()
         # message_model.print(iostream.print)
-        print("\n sending message model")
+        ## cmbagent debug print: 
+        # print("\n sending message model")
         # try:
         #     print(message_model.content.get("content"))
         # except:
         #     print(message_model.content)
         # display(Markdown(message_model.content))
         iostream.send(message_model)
-        print("\n message model sent")
+
+        ## cmbagent debug
+        # print("\n message model sent")
         # if not skip_head:
         #     if sender.name == 'classy_sz_agent':
         #         iostream.print(colored(f"Sending message from {sender.name} to rag_software_formatter...\n", "yellow"), flush=True)
@@ -1574,8 +1577,12 @@ class ConversableAgent(LLMAgent):
             return False, None
         if messages is None:
             messages = self._oai_messages[sender]
+        # cmbagent debug
+        # print('in conversable_agent.py generate_oai_reply( messages: ',  self._oai_system_message + messages)
+        # print('in conversable_agent.py generate_oai_reply( client_cache: ', self.client_cache)
         extracted_response = self._generate_oai_reply_from_client(
             client, self._oai_system_message + messages, self.client_cache)
+        # print('in conversable_agent.py generate_oai_reply extracted_response: ', extracted_response)
 
         return (False, None) if extracted_response is None else (True, extracted_response)
 
@@ -1607,12 +1614,15 @@ class ConversableAgent(LLMAgent):
 
         ## cmbagent modif print to help debug: 
         # print full raw response here
+        # cmbagent debug
         # print('\n\nin conversable_agent.py response: ',response)
-        ## print('\n\n')
+        # import sys; sys.exit()
+        # print('\n\n')
 
         # llm_client.print_usage_summary(mode="actual")  # print actual usage summary, i.e., excluding cached usage
         # Update dictionary containing all costs
         usage_summary = llm_client.return_usage_summary(mode="actual")
+        name = None # default name
         if usage_summary is not None:
             cost, prompt_tokens, completion_tokens, total_tokens = usage_summary
             if self.name in ['planner', 'engineer', 'summarizer']:
@@ -1646,7 +1656,7 @@ class ConversableAgent(LLMAgent):
 
         else:
             extracted_response = llm_client.extract_text_or_completion_object(response)[0]
-        print('\n\nin conversable_agent.py extracted_response: \n\n',extracted_response)
+        # print('\n\nin conversable_agent.py extracted_response: \n\n',extracted_response)
         # print('\n\n')
 
         if extracted_response is None:
@@ -1721,7 +1731,7 @@ class ConversableAgent(LLMAgent):
         # print('in conversable_agent.py self._code_execution_config: ', self._code_execution_config)
         last_n_messages = self._code_execution_config.get("last_n_messages", "auto")
 
-        ## cmbagent debug print: 
+        # ## cmbagent debug print: 
         # print('in conversable_agent.py _generate_code_execution_reply_using_executor last_n_messages: ', last_n_messages)
 
         if not (isinstance(last_n_messages, (int, float)) and last_n_messages >= 0) and last_n_messages != "auto":
@@ -1740,6 +1750,9 @@ class ConversableAgent(LLMAgent):
         num_messages_to_scan = min(len(messages), num_messages_to_scan)
         messages_to_scan = messages[-num_messages_to_scan:]
 
+        ## cmbagent debug print: 
+        # print('in conversable_agent.py messages_to_scan: ', messages_to_scan)
+
         # iterate through the last n messages in reverse
         # if code blocks are found, execute the code blocks and return the output
         # if no code blocks are found, continue
@@ -1748,29 +1761,28 @@ class ConversableAgent(LLMAgent):
                 continue
             ## cmbagent 
             ## scanning code blocks in the last n messages
-            # print('in conversable_agent.py message["content"]: ', message["content"])
+            # print('in conversable_agent.py message["content"]: \n\n', message["content"])
             code_blocks = self._code_executor.code_extractor.extract_code_blocks(message["content"])
-            # print('in conversable_agent.py code_blocks: ', code_blocks)
+            # print('in conversable_agent.py code_blocks\n\n: ', code_blocks)
             if len(code_blocks) == 0:
+                ## cmbagent debug print: 
+                # print('in conversable_agent.py no code blocks found, continue')
                 continue
 
             iostream.send(GenerateCodeExecutionReplyMessage(code_blocks=code_blocks, sender=sender, recipient=self))
 
             # found code blocks, execute code.
             code_result = self._code_executor.execute_code_blocks(code_blocks)
-            exitcode2str = "EXECUTION SUCCEEDED" if code_result.exit_code == 0 else "EXECUTION FAILED"
-            exitcode2str_to_print = colored(
-                    f"\n>>>>>>>> {exitcode2str}",
-                    "green" if code_result.exit_code == 0 else "red"
-                )
+            exitcode2str = "execution succeeded" if code_result.exit_code == 0 else "execution failed"
+            # return True, f"exitcode: {code_result.exit_code} ({exitcode2str})\nCode output: {code_result.output}"
 
             ## cmbagent tuned output: 
             if code_result.output is not None and len(code_result.output) > 0:
                 # print('in conversable agent.py len(code_result.output): ', len(code_result.output))
                 # print('in conversable_agent.py code_result.output: ', code_result.output)
-                return_message = f"{exitcode2str_to_print}\nCode output: {code_result.output}"
+                return_message = f"{exitcode2str}\nCode output: {code_result.output}"
             else:
-                return_message = f"{exitcode2str_to_print}"
+                return_message = f"{exitcode2str}"
             return True, return_message
 
         return False, None
@@ -2260,34 +2272,64 @@ class ConversableAgent(LLMAgent):
             messages = self._oai_messages[sender]
 
         # Call the hookable method that gives registered hooks a chance to update agent state, used for their context variables.
+        # print("\n in conversable_agent.py generate_reply messages: ", messages)
+        # print("\n update_agent_state_before_reply")
         self.update_agent_state_before_reply(messages)
 
         # Call the hookable method that gives registered hooks a chance to process the last message.
         # Message modifications do not affect the incoming messages or self._oai_messages.
+        # print("\n in conversable_agent.py generate_reply messages before process_last_received_message: ", messages)
         messages = self.process_last_received_message(messages)
+        # print("\n in conversable_agent.py generate_reply messages after process_last_received_message: ", messages)
 
         # Call the hookable method that gives registered hooks a chance to process all messages.
         # Message modifications do not affect the incoming messages or self._oai_messages.
+        # print("\n in conversable_agent.py generate_reply messages before process_all_messages_before_reply: ", messages)
         messages = self.process_all_messages_before_reply(messages)
+        # print("\n in conversable_agent.py generate_reply messages after process_all_messages_before_reply: ", messages)
 
+        # Iterate through all registered reply functions
+        # print("\n in conversable_agent.py generate_reply self._reply_func_list: ", self._reply_func_list)
         for reply_func_tuple in self._reply_func_list:
+            # print(f"\nChecking reply function: {reply_func_tuple['reply_func'].__name__}")
+            
             reply_func = reply_func_tuple["reply_func"]
+            
+            # Skip if this function is in the exclude list
             if "exclude" in kwargs and reply_func in kwargs["exclude"]:
+                # print(f"Skipping {reply_func.__name__} as it's in exclude list")
                 continue
+                
+            # Skip async functions since this is sync context
             if inspect.iscoroutinefunction(reply_func):
+                # print(f"Skipping async function {reply_func.__name__}")
                 continue
+            
+            # Check if this function should be triggered for this sender
             if self._match_trigger(reply_func_tuple["trigger"], sender):
+                # print(f"Trigger matched for {reply_func.__name__}, executing...")
+                
+                # Execute the reply function
+                # print("\n in conversable_agent.py generate_reply reply_func_tuple:")
+                # print(json.dumps(reply_func_tuple, indent=4, default=str))
                 final, reply = reply_func(self, messages=messages, sender=sender, config=reply_func_tuple["config"])
+                # print(f"s final={final}, reply={reply}")
+                
+                # Log the execution if logging is enabled
                 if logging_enabled():
+                    # print("Logging reply function execution")
                     log_event(
                         self,
-                        "reply_func_executed",
+                        "reply_func_executed", 
                         reply_func_module=reply_func.__module__,
                         reply_func_name=reply_func.__name__,
                         final=final,
                         reply=reply,
                     )
+                
+                # If final is True, return the reply and stop checking other functions
                 if final:
+                    # print(f"Final reply found from {reply_func.__name__}, returning: {reply}")
                     return reply
         return self._default_auto_reply
 
@@ -3025,7 +3067,10 @@ class ConversableAgent(LLMAgent):
         hook_list = self.hook_lists["update_agent_state"]
 
         # Call each hook (in order of registration) to process the messages.
+        # cmbagent debug
+        # print("\n in update_agent_state_before_reply hook_list: ", hook_list)
         for hook in hook_list:
+            # print("\n in conversable_agent.py update_agent_state_before_reply hook: ", hook)
             hook(self, messages)
 
     def process_all_messages_before_reply(self, messages: list[dict]) -> list[dict]:
