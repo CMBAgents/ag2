@@ -499,7 +499,7 @@ class ConversableAgent(LLMAgent):
 
     def _validate_llm_config(self, llm_config):
         assert llm_config in (None, False) or isinstance(llm_config, dict), (
-            "llm_config must be a dict or False or None."
+            "llm_config must be a dict or False or None. You passed: ", llm_config
         )
         if llm_config is None:
             llm_config = self.DEFAULT_CONFIG
