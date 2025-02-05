@@ -81,12 +81,17 @@ class MarkdownCodeExtractor(CodeExtractor):
                 python_code = data["python_code"]
                 # Optionally, you could further process python_code here if needed
                 return [CodeBlock(code=python_code, language="python")]
+            elif "structured_code" in data:  # Added support for structured_code.
+                structured_code = data["structured_code"]
+                return [CodeBlock(code=structured_code, language="python")]
         except json.JSONDecodeError:
             # The message is not valid JSON; fall back to Markdown extraction.
+            # print('in markdown_code_extractor.py message is not valid JSON, fall back to Markdown extraction')
             pass
 
         # Fall back to Markdown extraction using the regex pattern
         match = re.findall(CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
+        # print('in markdown_code_extractor.py match: ', match)
         if not match:
             return []
         code_blocks = []

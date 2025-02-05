@@ -1757,12 +1757,45 @@ class ConversableAgent(LLMAgent):
         # if code blocks are found, execute the code blocks and return the output
         # if no code blocks are found, continue
         for message in reversed(messages_to_scan):
-            if not message["content"]:
+            # print('in conversable_agent.py scanning message: ', message)
+            if not message["content"] and not message.get("tool_calls"):
+                # print('in conversable_agent.py no message content/tool_calls, continue')
                 continue
             ## cmbagent 
             ## scanning code blocks in the last n messages
             # print('in conversable_agent.py message["content"]: \n\n', message["content"])
+
             code_blocks = self._code_executor.code_extractor.extract_code_blocks(message["content"])
+            # If no code blocks are found in "content", look in "tool_calls".
+            if not code_blocks:
+                # print('in conversable_agent.py no code blocks found in content, looking in tool_calls')
+                tool_calls = message.get("tool_calls", [])
+                # print('in conversable_agent.py tool_calls: ', tool_calls)
+                code_str = ""
+                for call in tool_calls:
+                    # Check if the call contains a function with an "arguments" field.
+                    func = call.get("function", {})
+                    # print('in conversable_agent.py func: ', func)
+                    arguments = func.get("arguments", "")
+                    # print('in conversable_agent.py arguments: ', arguments)
+                    try:
+                        # Parse the arguments as JSON.
+                        args_json = json.loads(arguments)
+                        # Try to get the code from either "structured_code" or "python_code"
+                        code_str = args_json.get("structured_code") or args_json.get("python_code", "")
+                        # print('in conversable_agent.py code_str: ', code_str)
+                        code_str = f"```python\n{code_str}\n```" ## to match the code block pattern
+                    except json.JSONDecodeError:
+                        # If the arguments aren't valid JSON, fallback to using them directly.
+                        code_str = arguments
+
+                    # If we found some code, break out of the loop.
+                    if code_str:
+                        break
+
+                # Now pass the extracted code string to your code extractor.
+                code_blocks = self._code_executor.code_extractor.extract_code_blocks(code_str)
+
             # print('in conversable_agent.py code_blocks\n\n: ', code_blocks)
             if len(code_blocks) == 0:
                 ## cmbagent debug print: 
