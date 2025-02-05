@@ -26,6 +26,18 @@ To install `AG2`, simply run the following command:
 pip install ag2
 ```
 
+<Tip>
+If you have been using `autogen` or `pyautogen`, all you need to do is upgrade it using:
+```bash
+pip install -U autogen
+```
+or
+```bash
+pip install -U pyautogen
+```
+as `pyautogen`, `autogen`, and `ag2` are aliases for the same PyPI package.
+</Tip>
+
 ## Imports
 
 ```python
@@ -84,9 +96,9 @@ Configure the agents for the interaction.
 
 -   `config_list` defines the LLM configurations, including the model
     and API key.
--   [`UserProxyAgent`](/docs/reference/agentchat/user_proxy_agent) simulates user inputs without requiring actual
+-   [`UserProxyAgent`](/docs/api-reference/autogen/UserProxyAgent) simulates user inputs without requiring actual
     human interaction (set to `NEVER`).
--   [`AssistantAgent`](/docs/reference/agentchat/assistant_agent) represents the AI agent, configured with the LLM
+-   [`AssistantAgent`](/docs/api-reference/autogen/AssistantAgent) represents the AI agent, configured with the LLM
     settings.
 
 ```python

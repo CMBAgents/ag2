@@ -14,6 +14,20 @@
         "measurementId": "G-2GN2KN2CE4"
     }
   },
+  "redirects": [
+    {
+      "source": "/reference/:slug*",
+      "destination": "/docs/api-reference/:slug*"
+    },
+    {
+      "source": "/blog/:slug*",
+      "destination": "/docs/blog/:slug*"
+    },
+    {
+      "source": "/notebooks/:slug*",
+      "destination": "/docs/use-cases/notebooks/notebooks/:slug*"
+    }
+  ],
   "search": {
     "prompt": "Search or ask..."
   },
@@ -57,15 +71,15 @@
     },
     {
       "name": "Contribute",
-      "url": "contributor-guide"
+      "url": "docs/contributor-guide"
     },
     {
       "name": "FAQs",
-      "url": "faq"
+      "url": "docs/faq"
     },
     {
       "name": "Ecosystem",
-      "url": "ecosystem"
+      "url": "docs/ecosystem"
     },
     {
       "name": "Blog",
@@ -81,13 +95,13 @@
     {
       "group": "Home",
       "pages": [
-        "docs/home/Home"
+        "docs/home/home",
+        "docs/home/quick-start"
       ]
     },
     {
       "group": "User Guide",
       "pages": [
-        "docs/user-guide/quick-start",
         {
           "group": "Basic Concepts",
           "pages": [
@@ -108,6 +122,7 @@
           "pages": [
             "docs/user-guide/advanced-concepts/rag",
             "docs/user-guide/advanced-concepts/custom-group-chat",
+            "docs/user-guide/advanced-concepts/resuming-group-chat",
             "docs/user-guide/advanced-concepts/swarm-deep-dive",
             "docs/user-guide/advanced-concepts/enhanced-swarm",
             "docs/user-guide/advanced-concepts/code-execution",
@@ -168,40 +183,40 @@
     {
       "group": "Contributor Guide",
       "pages": [
-        "contributor-guide/contributing",
-        "contributor-guide/setup-development-environment",
-        "contributor-guide/documentation",
-        "contributor-guide/file-bug-report",
-        "contributor-guide/maintainer",
-        "contributor-guide/pre-commit",
-        "contributor-guide/tests",
-        "contributor-guide/Research"
+        "docs/contributor-guide/contributing",
+        "docs/contributor-guide/setup-development-environment",
+        "docs/contributor-guide/documentation",
+        "docs/contributor-guide/file-bug-report",
+        "docs/contributor-guide/maintainer",
+        "docs/contributor-guide/pre-commit",
+        "docs/contributor-guide/tests",
+        "docs/contributor-guide/Research"
       ]
     },
     {
       "group": "FAQs",
-      "pages": ["faq/FAQ"]
+      "pages": ["docs/faq/FAQ"]
     },
     {
       "group": "Ecosystem",
       "pages": [
-        "ecosystem/agentops",
-        "ecosystem/azure_cosmos_db",
-        "ecosystem/composio",
-        "ecosystem/databricks",
-        "ecosystem/llamaindex",
-        "ecosystem/mem0",
-        "ecosystem/memgpt",
-        "ecosystem/microsoft-fabric",
-        "ecosystem/ollama",
-        "ecosystem/pgvector",
-        "ecosystem/portkey",
-        "ecosystem/promptflow"
+        "docs/ecosystem/agentops",
+        "docs/ecosystem/azure_cosmos_db",
+        "docs/ecosystem/composio",
+        "docs/ecosystem/databricks",
+        "docs/ecosystem/llamaindex",
+        "docs/ecosystem/mem0",
+        "docs/ecosystem/memgpt",
+        "docs/ecosystem/microsoft-fabric",
+        "docs/ecosystem/ollama",
+        "docs/ecosystem/pgvector",
+        "docs/ecosystem/portkey",
+        "docs/ecosystem/promptflow"
       ]
     }
   ],
   "footerSocials": {
-    "x": "https://x.com/Chi_Wang_",
+    "x": "https://x.com/ag2oss",
     "github": "https://github.com/ag2ai/ag2",
     "linkedin": "https://www.linkedin.com/company/ag2ai",
     "discord": "https://discord.gg/pAbnFJrkgZ",

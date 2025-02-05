@@ -183,7 +183,7 @@ class AgentOptimizer:
         Args:
             max_actions_per_step (int): the maximum number of actions that the optimizer can take in one step.
             llm_config (dict): llm inference configuration.
-                Please refer to [OpenAIWrapper.create](/reference/autogen/OpenAIWrapper#create) for available options.
+                Please refer to [OpenAIWrapper.create](/docs/api-reference/autogen/OpenAIWrapper#create) for available options.
                 When using OpenAI or Azure OpenAI endpoints, please specify a non-empty 'model' either in `llm_config` or in each config of 'config_list' in `llm_config`.
             optimizer_model: the model used for the optimizer.
         """
@@ -330,7 +330,7 @@ class AgentOptimizer:
 
     def _update_function_call(self, incumbent_functions, actions):
         """Update function call."""
-        formated_actions = []
+        formatted_actions = []
         for action in actions:
             func = json.loads(action.function.arguments.strip('"'))
             func["action_name"] = action.function.name
@@ -349,8 +349,8 @@ class AgentOptimizer:
                     "packages": func.get("packages"),
                     "code": func.get("code"),
                 }
-            formated_actions.append(item)
-        actions = formated_actions
+            formatted_actions.append(item)
+        actions = formatted_actions
 
         for action in actions:
             name, description, arguments, packages, code, action_name = (

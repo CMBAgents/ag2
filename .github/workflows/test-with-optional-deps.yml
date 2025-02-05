@@ -22,7 +22,7 @@ jobs:
       hasChanges: ${{ steps.filter.outputs.autogen == 'true' || steps.filter.outputs.test == 'true' || steps.filter.outputs.workflows == 'true' || steps.filter.outputs.setup == 'true' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -65,6 +65,7 @@ jobs:
           # - "neo4j"  # Separate test exists at contrib-graph-rag-tests.yml
           - "twilio"
           - "interop"
+          - "browser_use"
           - "docs"
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Run tests only for py versions 3.9, 3.10, 3.13
@@ -80,6 +81,11 @@ jobs:
           # Issues with installing retrievechat-qdrant in python 3.13
           - python-version: "3.13"
             optional-dependencies: "retrievechat-qdrant"
+          # Browser use doesn't support below python 3.11
+          - python-version: "3.9"
+            optional-dependencies: "browser_use"
+          - python-version: "3.10"
+            optional-dependencies: "browser_use"
           # Skip if os is mac or windows, python version is 3.13 and optional-dependencies is starting with retrievechat
           # Because torch and sentence_transformers creates issues while trying to install
           - os: macos-latest
@@ -132,10 +138,13 @@ jobs:
           MARKER="${OPTIONAL_DEPENDENCIES//-/_}"
           bash scripts/test-skip-llm.sh -m "$MARKER"
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          file: ./coverage.xml
-          flags: unittests
+          files: ./coverage.xml
+          flags: ${{ matrix.optional-dependencies }}, ${{ matrix.os }}, ${{ matrix.python-version }}
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
   test-with_optional-dependencies-check:
     if: always()
     runs-on: ubuntu-latest
@@ -155,13 +164,13 @@ jobs:
       - name: Fail workflow if build failed
         id: check_build_failed
         if: contains(join(needs.*.result, ','), 'failure')
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: core.setFailed('Build Failed!')
 
       - name: Fail workflow if build cancelled
         id: check_build_cancelled
         if: contains(join(needs.*.result, ','), 'cancelled')
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: core.setFailed('Build Cancelled!')
