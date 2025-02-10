@@ -979,8 +979,15 @@ def _generate_swarm_tool_reply(
 
         # Put the tool responses and content strings back into the response message
         # Caters for multiple tool calls
-        tool_message["tool_responses"] = tool_responses_inner
-        tool_message["content"] = "\n".join(contents)
+        try:
+            tool_message["tool_responses"] = tool_responses_inner
+            tool_message["content"] = "\n".join(contents)
+        except Exception as e:
+            print('in swarm_agent.py error: ', e)
+            print('content: ', content)
+            print('tool_responses_inner: ', tool_responses_inner)
+            print('next_agent: ', next_agent)
+            import sys; sys.exit()
 
         return True, tool_message
     return False, None

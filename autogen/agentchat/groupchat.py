@@ -475,16 +475,27 @@ class GroupChat:
                     "Custom speaker selection function returned None. Terminating conversation."
                 )
             elif isinstance(selected_agent, Agent):
-                # cmbagent debug print: 
-                # print("\n in groupchat.py _prepare_and_select_agents selected_agent: ", selected_agent)
-                # cmbagent debug
-                # for agent in self.agents:
-                    # print("\n in groupchat.py _prepare_and_select_agents agent: ", agent.name)
-                if selected_agent in self.agents:
+                # Also print the id of the selected_agent
+                print(f"Selected agent: {selected_agent.name}, id(selected_agent): {id(selected_agent)}")
+                agent_found = False
+                for agent in self.agents:
+                    # Print the id of each agent in the loop
+                    print(f"Agent: {agent.name}, id(agent): {id(agent)}")
+                    if id(agent) == id(selected_agent):
+                        agent_found = True
+                        break
+                if agent_found:
+                # if selected_agent in self.agents:
                     return selected_agent, self.agents, None
                 else:
+                    # Build a detailed debug message with all agent names and the selected agent's name.
+                    debug_info = "\nDebug Information:\n"
+                    debug_info += "Agents in group chat:\n"
+                    for agent in self.agents:
+                        debug_info += f" - {agent.name}\n"
+                    debug_info += f"Selected agent: {selected_agent.name}\n"
                     raise ValueError(
-                        f"Custom speaker selection function returned an agent {selected_agent.name} not in the group chat."
+                        f"Custom speaker selection function returned an agent '{selected_agent.name}' not in the group chat.{debug_info}"
                     )
             elif isinstance(selected_agent, str):
                 # If returned a string, assume it is a speaker selection method
