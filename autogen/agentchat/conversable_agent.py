@@ -1257,7 +1257,7 @@ class ConversableAgent(LLMAgent):
         ## cmbagent debug print: 
         # print('\n \n in conversable_agent.py _print_received_message: ', message)
         message = self._message_to_dict(message)
-        # print("\n getting message model")
+        print("\n getting message model from sender: ", sender.name)
         message_model = create_received_message_model(message=message, sender=sender, recipient=self)
         # print("\n message model: ", message_model)
         iostream = IOStream.get_default()

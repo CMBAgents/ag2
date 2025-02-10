@@ -205,11 +205,14 @@ class TextMessage(BasePrintReceivedMessage):
 
         if self.content is not None:
             # original code
-            f(content_str(self.content), flush=True)  # type: ignore [arg-type] 
+            # f(content_str(self.content), flush=True)  # type: ignore [arg-type] 
             # print("\n content: ", self.content)
             # cmbagent debug
             # print("\n in agent_messages.py TextMessage print... cmbagent debug")
-            # display(Markdown(self.content)) # it doesnt work all the time
+            if self.sender_name in ["engineer_response_formatter", "camels_agent","admin","camels_response_formatter"]:
+                display(Markdown(self.content)) # it doesnt work all the time
+            else:
+                f(content_str(self.content), flush=True)  # type: ignore [arg-type]
 
         f("\n", "-" * 80, flush=True, sep="")
 
