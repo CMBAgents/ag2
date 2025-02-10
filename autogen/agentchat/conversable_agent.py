@@ -423,7 +423,7 @@ class ConversableAgent(LLMAgent):
         """
         if name:
             func._name = name
-        else:
+        elif not hasattr(func, "_name"):
             func._name = func.__name__
 
         if description:
@@ -1174,7 +1174,7 @@ class ConversableAgent(LLMAgent):
                 - role (str): the role of the message, any role that is not "function"
                     will be modified to "assistant".
                 - context (dict): the context of the message, which will be passed to
-                    [OpenAIWrapper.create](../oai/client#create).
+                    [OpenAIWrapper.create](/docs/api-reference/autogen/OpenAIWrapper#create).
                     For example, one agent can send a message A as:
         ```python
         {
@@ -1222,7 +1222,7 @@ class ConversableAgent(LLMAgent):
                 - role (str): the role of the message, any role that is not "function"
                     will be modified to "assistant".
                 - context (dict): the context of the message, which will be passed to
-                    [OpenAIWrapper.create](../oai/client#create).
+                    [OpenAIWrapper.create](/docs/api-reference/autogen/OpenAIWrapper#create).
                     For example, one agent can send a message A as:
         ```python
         {
@@ -1390,7 +1390,7 @@ class ConversableAgent(LLMAgent):
                     This field is only needed to distinguish between "function" or "assistant"/"user".
                 5. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
                 6. "context" (dict): the context of the message, which will be passed to
-                    [OpenAIWrapper.create](../oai/client#create).
+                    [OpenAIWrapper.create](/docs/api-reference/autogen/OpenAIWrapper#create).
             sender: sender of an Agent instance.
             request_reply (bool or None): whether a reply is requested from the sender.
                 If None, the value is determined by `self.reply_at_receive[sender]`.
@@ -1427,7 +1427,7 @@ class ConversableAgent(LLMAgent):
                     This field is only needed to distinguish between "function" or "assistant"/"user".
                 5. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
                 6. "context" (dict): the context of the message, which will be passed to
-                    [OpenAIWrapper.create](../oai/client#create).
+                    [OpenAIWrapper.create](/docs/api-reference/autogen/OpenAIWrapper#create).
             sender: sender of an Agent instance.
             request_reply (bool or None): whether a reply is requested from the sender.
                 If None, the value is determined by `self.reply_at_receive[sender]`.
@@ -1536,7 +1536,7 @@ class ConversableAgent(LLMAgent):
                             This field is only needed to distinguish between "function" or "assistant"/"user".
                         5. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
                         6. "context" (dict): the context of the message, which will be passed to
-                            [OpenAIWrapper.create](../oai/client#create).
+                            [OpenAIWrapper.create](/docs/api-reference/autogen/OpenAIWrapper#create).
 
                 - If a callable is provided, it will be called to get the initial message in the form of a string or a dict.
                     If the returned type is dict, it may contain the reserved fields mentioned above.
@@ -3546,6 +3546,8 @@ class ConversableAgent(LLMAgent):
     ) -> Generator["ConversableAgent", None, None]:
         """Creates a user proxy / tool executor agent.
 
+        Note: Code execution is not enabled by default. Pass the code execution config into executor_kwargs, if needed.
+
         Args:
             executor_kwargs: agent's arguments.
             tools: tools to register for execution with the agent.
@@ -3560,10 +3562,6 @@ class ConversableAgent(LLMAgent):
         executor = ConversableAgent(
             name=agent_name,
             human_input_mode=agent_human_input_mode,
-            code_execution_config={
-                "work_dir": "coding",
-                "use_docker": True,
-            },
             **executor_kwargs,
         )
 
@@ -3592,7 +3590,7 @@ class ConversableAgent(LLMAgent):
     ) -> ChatResult:
         """Run a chat with the agent using the given message.
 
-        A second agent will be created to represent the user, this agent will by known by the name 'user'.
+        A second agent will be created to represent the user, this agent will by known by the name 'user'. This agent does not have code execution enabled by default, if needed pass the code execution config in with the executor_kwargs parameter.
 
         The user can terminate the conversation when prompted or, if agent's reply contains 'TERMINATE', it will terminate.
 

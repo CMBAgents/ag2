@@ -4,16 +4,18 @@
 name: OpenAI
 
 on:
-  workflow_dispatch:
-  # pull_request:
-    # branches: ["main"]
-    # paths:
-    #   - "autogen/**"
-    #   - "test/**"
-    #   - "notebook/agentchat_auto_feedback_from_code_execution.ipynb"
-    #   - "notebook/agentchat_function_call.ipynb"
-    #   - "notebook/agentchat_groupchat_finite_state_machine.ipynb"
-    #   - ".github/workflows/openai.yml"
+  schedule:
+    - cron: "0 0 * * *" # daily at midnight UTC
+  workflow_dispatch: # allows manual triggering of the workflow
+  pull_request_target:
+    branches: ["main"]
+    paths:
+      - "autogen/**"
+      - "test/**"
+      - "notebook/agentchat_auto_feedback_from_code_execution.ipynb"
+      - "notebook/agentchat_function_call.ipynb"
+      - "notebook/agentchat_groupchat_finite_state_machine.ipynb"
+      - ".github/workflows/core-llm-test.yml"
 permissions:
   {}
   # actions: read
@@ -36,6 +38,21 @@ jobs:
           - 6379:6379
         options: --entrypoint redis-server
     steps:
+      - name: Get User Permission
+        id: checkAccess
+        uses: actions-cool/check-user-permission@v2
+        with:
+          require: write
+          username: ${{ github.triggering_actor }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check User Permission
+        if: steps.checkAccess.outputs.require-result == 'false'
+        run: |
+          echo "${{ github.triggering_actor }} does not have permissions on this repo."
+          echo "Current permission level is ${{ steps.checkAccess.outputs.user-permission }}"
+          echo "Job originally triggered by ${{ github.actor }}"
+          exit 1
       # checkout to pr branch
       - name: Checkout
         uses: actions/checkout@v4

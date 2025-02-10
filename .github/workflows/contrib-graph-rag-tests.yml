@@ -4,14 +4,16 @@
 name: ContribGraphRagTests
 
 on:
-  workflow_dispatch:
-  # pull_request:
-  #   branches: ["main"]
-  #   paths:
-  #     - "autogen/agentchat/contrib/graph_rag/**"
-  #     - "test/agentchat/contrib/graph_rag/**"
-  #     - ".github/workflows/contrib-tests.yml"
-  #     - "setup.py"
+  schedule:
+    - cron: "0 0 * * *" # daily at midnight UTC
+  workflow_dispatch: # allows manual triggering of the workflow
+  pull_request_target:
+    branches: ["main"]
+    paths:
+      - "autogen/agentchat/contrib/graph_rag/**"
+      - "test/agentchat/contrib/graph_rag/**"
+      - ".github/workflows/contrib-graph-rag-tests.yml"
+      - "pyproject.toml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
@@ -22,9 +24,11 @@ permissions:
   # checks: read
   # contents: read
   # deployments: read
+
 jobs:
   GraphRagIntegrationTest-FalkorDB-Ubuntu:
     runs-on: ubuntu-latest
+    environment: openai1
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +39,21 @@ jobs:
         ports:
           - 6379:6379
     steps:
+      - name: Get User Permission
+        id: checkAccess
+        uses: actions-cool/check-user-permission@v2
+        with:
+          require: write
+          username: ${{ github.triggering_actor }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check User Permission
+        if: steps.checkAccess.outputs.require-result == 'false'
+        run: |
+          echo "${{ github.triggering_actor }} does not have permissions on this repo."
+          echo "Current permission level is ${{ steps.checkAccess.outputs.user-permission }}"
+          echo "Job originally triggered by ${{ github.actor }}"
+          exit 1
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -58,8 +77,8 @@ jobs:
           AZURE_OPENAI_API_BASE: ${{ secrets.AZURE_OPENAI_API_BASE }}
           OAI_CONFIG_LIST: ${{ secrets.OAI_CONFIG_LIST }}
         run: |
-          pip install pytest-cov>=5
-          pytest test/agentchat/contrib/graph_rag/test_falkor_graph_rag.py --skip-openai
+          uv pip install --system pytest-cov>=5
+          bash scripts/test.sh test/agentchat/contrib/graph_rag/test_falkor_graph_rag.py
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
@@ -70,6 +89,7 @@ jobs:
 
   GraphRagIntegrationTest-Neo4j-Llmaindex-Ubuntu:
     runs-on: ubuntu-latest
+    environment: openai1
     strategy:
       fail-fast: false
       matrix:
@@ -82,6 +102,10 @@ jobs:
           - 7474:7474
         env:
           NEO4J_AUTH: neo4j/password
+          NEO4J_PLUGINS: '["apoc"]'
+          NEO4J_apoc_export_file_enabled: true
+          NEO4J_apoc_import_file_enabled: true
+          NEO4J_apoc_import_file_use__neo4j__config: true
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -106,8 +130,8 @@ jobs:
           AZURE_OPENAI_API_BASE: ${{ secrets.AZURE_OPENAI_API_BASE }}
           OAI_CONFIG_LIST: ${{ secrets.OAI_CONFIG_LIST }}
         run: |
-          pip install pytest-cov>=5
-          pytest test/agentchat/contrib/graph_rag/test_neo4j_graph_rag.py --skip-openai
+          uv pip install --system pytest-cov>=5
+          bash scripts/test.sh test/agentchat/contrib/graph_rag/test_neo4j_graph_rag.py
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
