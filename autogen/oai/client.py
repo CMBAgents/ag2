@@ -395,7 +395,7 @@ class OpenAIClient:
         #         print("setting response format to none")
         #         self.response_format = None
 
-        if self.response_format is not None:
+        if self.response_format is not None or "response_format" in params:
 
             ## cmbagent print to help debug
             # print('in oai/client.py self.response_format: ',self.response_format)
@@ -403,7 +403,9 @@ class OpenAIClient:
             def _create_or_parse(*args, **kwargs):
                 if "stream" in kwargs:
                     kwargs.pop("stream")
-                kwargs["response_format"] = type_to_response_format_param(self.response_format)
+                kwargs["response_format"] = type_to_response_format_param(
+                    self.response_format or params["response_format"]
+                )
                 return self._oai_client.chat.completions.create(*args, **kwargs)
 
             create_or_parse = _create_or_parse
@@ -715,9 +717,10 @@ class OpenAIWrapper:
             config_list = [config.copy() for config in config_list]  # make a copy before modifying
             for config in config_list:
                 self._register_default_client(config, openai_config)  # could modify the config
-                self._config_list.append(
-                    {**extra_kwargs, **{k: v for k, v in config.items() if k not in self.openai_kwargs}}
-                )
+                self._config_list.append({
+                    **extra_kwargs,
+                    **{k: v for k, v in config.items() if k not in self.openai_kwargs},
+                })
         else:
             self._register_default_client(extra_kwargs, openai_config)
             self._config_list = [extra_kwargs]

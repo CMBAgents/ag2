@@ -2470,21 +2470,17 @@ class ConversableAgent(LLMAgent):
             # User provided a custom response, return function and tool failures indicating user interruption
             tool_returns = []
             if message.get("function_call", False):
-                tool_returns.append(
-                    {
-                        "role": "function",
-                        "name": message["function_call"].get("name", ""),
-                        "content": "USER INTERRUPTED",
-                    }
-                )
+                tool_returns.append({
+                    "role": "function",
+                    "name": message["function_call"].get("name", ""),
+                    "content": "USER INTERRUPTED",
+                })
 
             if message.get("tool_calls", False):
-                tool_returns.extend(
-                    [
-                        {"role": "tool", "tool_call_id": tool_call.get("id", ""), "content": "USER INTERRUPTED"}
-                        for tool_call in message["tool_calls"]
-                    ]
-                )
+                tool_returns.extend([
+                    {"role": "tool", "tool_call_id": tool_call.get("id", ""), "content": "USER INTERRUPTED"}
+                    for tool_call in message["tool_calls"]
+                ])
 
             response = {"role": "user", "content": reply}
             if tool_returns:
@@ -2585,21 +2581,17 @@ class ConversableAgent(LLMAgent):
             self._consecutive_auto_reply_counter[sender] = 0
             tool_returns = []
             if message.get("function_call", False):
-                tool_returns.append(
-                    {
-                        "role": "function",
-                        "name": message["function_call"].get("name", ""),
-                        "content": "USER INTERRUPTED",
-                    }
-                )
+                tool_returns.append({
+                    "role": "function",
+                    "name": message["function_call"].get("name", ""),
+                    "content": "USER INTERRUPTED",
+                })
 
             if message.get("tool_calls", False):
-                tool_returns.extend(
-                    [
-                        {"role": "tool", "tool_call_id": tool_call.get("id", ""), "content": "USER INTERRUPTED"}
-                        for tool_call in message["tool_calls"]
-                    ]
-                )
+                tool_returns.extend([
+                    {"role": "tool", "tool_call_id": tool_call.get("id", ""), "content": "USER INTERRUPTED"}
+                    for tool_call in message["tool_calls"]
+                ])
 
             response = {"role": "user", "content": reply}
             if tool_returns:
@@ -3587,6 +3579,7 @@ class ConversableAgent(LLMAgent):
         msg_to: Literal["agent", "user"] = "agent",
         clear_history: bool = False,
         user_input: bool = True,
+        summary_method: Optional[Union[str, Callable]] = DEFAULT_SUMMARY_METHOD,
     ) -> ChatResult:
         """Run a chat with the agent using the given message.
 
@@ -3610,9 +3603,21 @@ class ConversableAgent(LLMAgent):
             agent_human_input_mode="ALWAYS" if user_input else "NEVER",
         ) as executor:
             if msg_to == "agent":
-                return executor.initiate_chat(self, message=message, clear_history=clear_history, max_turns=max_turns)
+                return executor.initiate_chat(
+                    self,
+                    message=message,
+                    clear_history=clear_history,
+                    max_turns=max_turns,
+                    summary_method=summary_method,
+                )
             else:
-                return self.initiate_chat(executor, message=message, clear_history=clear_history, max_turns=max_turns)
+                return self.initiate_chat(
+                    executor,
+                    message=message,
+                    clear_history=clear_history,
+                    max_turns=max_turns,
+                    summary_method=summary_method,
+                )
 
     async def a_run(
         self,
@@ -3624,6 +3629,7 @@ class ConversableAgent(LLMAgent):
         msg_to: Literal["agent", "user"] = "agent",
         clear_history: bool = False,
         user_input: bool = True,
+        summary_method: Optional[Union[str, Callable]] = DEFAULT_SUMMARY_METHOD,
     ) -> ChatResult:
         """Run a chat asynchronously with the agent using the given message.
 
@@ -3648,11 +3654,19 @@ class ConversableAgent(LLMAgent):
         ) as executor:
             if msg_to == "agent":
                 return await executor.a_initiate_chat(
-                    self, message=message, clear_history=clear_history, max_turns=max_turns
+                    self,
+                    message=message,
+                    clear_history=clear_history,
+                    max_turns=max_turns,
+                    summary_method=summary_method,
                 )
             else:
                 return await self.a_initiate_chat(
-                    executor, message=message, clear_history=clear_history, max_turns=max_turns
+                    executor,
+                    message=message,
+                    clear_history=clear_history,
+                    max_turns=max_turns,
+                    summary_method=summary_method,
                 )
 
 

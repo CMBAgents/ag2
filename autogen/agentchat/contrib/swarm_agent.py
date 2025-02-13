@@ -10,7 +10,7 @@ from inspect import signature
 from types import MethodType
 from typing import Any, Callable, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 from ...doc_utils import export_module
 from ...oai import OpenAIWrapper
@@ -791,7 +791,13 @@ class SwarmResult(BaseModel):
     values: str = ""
     agent: Optional[Union[ConversableAgent, str]] = None
     context_variables: dict[str, Any] = {}
-    
+
+    @field_serializer("agent", when_used="json")
+    def serialize_agent(self, agent: Union[ConversableAgent, str]) -> str:
+        if isinstance(agent, ConversableAgent):
+            return agent.name
+        return agent
+
     class Config:  # Add this inner class
         arbitrary_types_allowed = True
 
@@ -874,9 +880,11 @@ def register_hand_off(
             elif isinstance(transit.target, dict):
                 # Transition to a nested chat
                 # We will store them here and establish them in the initiate_swarm_chat
-                agent._swarm_nested_chat_handoffs.append(
-                    {"nested_chats": transit.target, "condition": transit.condition, "available": transit.available}
-                )
+                agent._swarm_nested_chat_handoffs.append({
+                    "nested_chats": transit.target,
+                    "condition": transit.condition,
+                    "available": transit.available,
+                })
 
         else:
             raise ValueError("Invalid hand off condition, must be either OnCondition or AfterWork")

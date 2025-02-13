@@ -4,7 +4,7 @@
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
-#!/usr/bin/env python
+# !/usr/bin/env python
 
 from __future__ import annotations
 
@@ -503,6 +503,37 @@ def ensure_edit_url(content: str, file_path: Path) -> str:
     return content + EDIT_URL_HTML.format(file_path=file_path)
 
 
+def extract_img_tag_from_figure_tag(content: str, img_rel_path: Path) -> str:
+    """Extracts the img tag from the figure tag and modifies local image path.
+
+    Quarto converts the markdown images syntax to <figure> tag while rendering and converting the notebook to mdx file.
+    Mintlify could not able to process the <figure> tags properly and does not shows these images in the documentation.
+    As a fix, the <img> tag present inside the <figure> is extracted and saved to the mdx file.
+
+    Args:
+        content (str): Content of the file
+
+    Returns:
+        str: Content of the file with <img> tag extracted from <figure> tag
+    """
+
+    def replace_local_path(match: re.Match) -> str:
+        img_tag = match.group(1)
+        # Find src attribute value
+        src_match = re.search(r'src="([^"]+)"', img_tag)
+        if src_match:
+            src = src_match.group(1)
+            # If src doesn't start with http/https, it's a local image
+            if not src.startswith(("http://", "https://")):
+                # Replace old src with new prefixed path
+                img_tag = img_tag.replace(f'src="{src}"', f'src="/{str(img_rel_path.as_posix())}/{src}"')
+        return img_tag
+
+    pattern = r"<figure>\s*(<img\s+.*?/>)\s*<figcaption[^>]*>.*?</figcaption>\s*</figure>"
+    content = re.sub(pattern, replace_local_path, content, flags=re.DOTALL)
+    return content
+
+
 # rendered_notebook is the final mdx file
 def post_process_mdx(
     rendered_mdx: Path,
@@ -582,6 +613,10 @@ def post_process_mdx(
 
     # ensure editUrl is present
     content = ensure_edit_url(content, repo_relative_notebook)
+
+    # convert figure tag to img tag
+    img_rel_path = rendered_mdx.parent.relative_to(website_build_directory)
+    content = extract_img_tag_from_figure_tag(content, img_rel_path)
 
     # Rewrite the content as
     # ---
@@ -725,8 +760,8 @@ def update_group_pages(
     return nav_copy
 
 
-def add_mdx_generated_from_notebooks_to_nav(website_build_directory: Path) -> None:
-    """Updates mint.json navigation to include mdx files generated from the notebook entries
+def add_notebooks_blogs_and_user_stories_to_nav(website_build_directory: Path) -> None:
+    """Updates mint.json navigation to include notebooks, blogs, and user stories.
 
     Args:
         website_build_directory (Path): Build directory of the website
@@ -757,6 +792,14 @@ def add_mdx_generated_from_notebooks_to_nav(website_build_directory: Path) -> No
     # future_talks_index = talks_section_pages.pop()
     # talks_section_pages.insert(0, future_talks_index)
     # mint_config["navigation"].append(talks_section)
+
+    # add user_stories to navigation
+    user_stories_dir = website_build_directory / "docs" / "user-stories"
+    user_stories_section = {
+        "group": "User Stories",
+        "pages": [generate_nav_group(user_stories_dir, "User Stories", "docs/user-stories")],
+    }
+    mint_config["navigation"].append(user_stories_section)
 
     # add blogs to navigation
     blogs_dir = website_build_directory / "_blogs"
@@ -880,50 +923,38 @@ def separate_front_matter_and_content(file_path: Path) -> Tuple[str, str]:
     return "", content
 
 
-def add_authors_and_social_img_to_blog_posts(website_build_directory: Path) -> None:
-    """Add authors info to blog posts.
-
-    Args:
-        website_build_directory (Path): Build directory of the website
-    """
-    blog_dir = website_build_directory / "_blogs"
-    authors_yml = blog_dir / "authors.yml"
-    generated_blog_dir = website_build_directory / "docs" / "blog"
-
-    # Remove existing generated directory if it exists
-    if generated_blog_dir.exists():
-        shutil.rmtree(generated_blog_dir)
-
-    # Copy entire blog directory structure to generated_blog
-    shutil.copytree(blog_dir, generated_blog_dir)
-
+def _get_authors_info(authors_yml: Path) -> Dict[str, Dict[str, str]]:
     try:
         all_authors_info = yaml.safe_load(authors_yml.read_text(encoding="utf-8"))
     except (yaml.YAMLError, OSError) as e:
         print(f"Error reading authors file: {e}")
         sys.exit(1)
 
-    for file_path in generated_blog_dir.glob("**/*.mdx"):
-        try:
-            front_matter_string, content = separate_front_matter_and_content(file_path)
+    return all_authors_info
 
-            # Skip if authors section already exists
-            # if '<div class="blog-authors">' in content:
-            #     continue
 
-            # Convert single author to list and handle authors
-            front_matter = yaml.safe_load(front_matter_string[4:-3])
-            authors = front_matter.get("authors", [])
-            authors_list = [authors] if isinstance(authors, str) else authors
+def _add_authors_and_social_preview(
+    website_build_dir: Path, target_dir: Path, all_authors_info: Dict[str, Dict[str, str]]
+) -> None:
+    """Add authors info and social share image to mdx files in the target directory."""
 
-            # Social share image
-            social_img_html = """\n<div>
+    # Social share image
+    social_img_html = """\n<div>
 <img noZoom className="social-share-img"
   src="https://media.githubusercontent.com/media/ag2ai/ag2/refs/heads/main/website/static/img/cover.png"
   alt="social preview"
   style={{ position: 'absolute', left: '-9999px' }}
 />
 </div>"""
+
+    for file_path in target_dir.glob("**/*.mdx"):
+        try:
+            front_matter_string, content = separate_front_matter_and_content(file_path)
+
+            # Convert single author to list and handle authors
+            front_matter = yaml.safe_load(front_matter_string[4:-3])
+            authors = front_matter.get("authors", [])
+            authors_list = [authors] if isinstance(authors, str) else authors
 
             # Generate authors HTML
             authors_html = (
@@ -936,17 +967,42 @@ def add_authors_and_social_img_to_blog_posts(website_build_directory: Path) -> N
             new_content = f"{front_matter_string}\n{social_img_html}\n{authors_html}\n{content}"
 
             # ensure editUrl is present
-            rel_file_path = str(file_path.relative_to(website_build_directory.parent)).replace(
-                "build/docs/blog/", "website/_blogs/"
+            rel_file_path = (
+                str(file_path.relative_to(website_build_dir.parent))
+                .replace("build/docs/", "website/docs/")
+                .replace("website/docs/blog/", "website/_blogs/")
             )
             content_with_edit_url = ensure_edit_url(new_content, Path(rel_file_path))
 
             file_path.write_text(f"{content_with_edit_url}\n", encoding="utf-8")
-            # print(f"Authors info and social share image checked in {file_path}")
 
         except Exception as e:
             print(f"Error processing {file_path}: {e}")
             continue
+
+
+def add_authors_and_social_img_to_blog_and_user_stories(website_build_directory: Path) -> None:
+    """Add authors info to blog posts and user stories.
+
+    Args:
+        website_build_directory (Path): Build directory of the website
+    """
+    blog_dir = website_build_directory / "_blogs"
+    generated_blog_dir = website_build_directory / "docs" / "blog"
+
+    authors_yml = website_build_directory / "blogs_and_user_stories_authors.yml"
+    all_authors_info = _get_authors_info(authors_yml)
+
+    # Remove existing generated directory if it exists
+    if generated_blog_dir.exists():
+        shutil.rmtree(generated_blog_dir)
+
+    # Copy entire blog directory structure to generated_blog
+    shutil.copytree(blog_dir, generated_blog_dir)
+    _add_authors_and_social_preview(website_build_directory, generated_blog_dir, all_authors_info)
+
+    user_stories_dir = website_build_directory / "docs" / "user-stories"
+    _add_authors_and_social_preview(website_build_directory, user_stories_dir, all_authors_info)
 
 
 def ensure_mint_json_exists(website_build_directory: Path) -> None:
@@ -1025,6 +1081,18 @@ def add_edit_urls_to_non_generated_mdx_files(website_build_directory: Path) -> N
         mdx_file_path.write_text(content_with_edit_url, encoding="utf-8")
 
 
+def copy_images_from_notebooks_dir_to_target_dir(notebook_directory: Path, target_notebooks_dir: Path) -> None:
+    """Copy images from notebooks directory to the target directory."""
+    # Define supported image extensions
+    supported_img_extensions = {".png", ".jpg"}
+
+    # Single loop through directory contents
+    for image_path in notebook_directory.iterdir():
+        if image_path.is_file() and image_path.suffix.lower() in supported_img_extensions:
+            target_image = target_notebooks_dir / image_path.name
+            shutil.copy(image_path, target_image)
+
+
 def main() -> None:
     root_dir = Path(__file__).resolve().parents[2]
     website_dir = root_dir / "website"
@@ -1067,10 +1135,9 @@ def main() -> None:
     ensure_mint_json_exists(args.website_build_directory)
     cleanup_tmp_dirs(args.website_build_directory, args.force)
 
-    if args.notebooks:
-        collected_notebooks = args.notebooks
-    else:
-        collected_notebooks = collect_notebooks(args.notebook_directory, args.website_build_directory)
+    collected_notebooks = (
+        args.notebooks if args.notebooks else collect_notebooks(args.notebook_directory, args.website_build_directory)
+    )
 
     filtered_notebooks = []
     for notebook in collected_notebooks:
@@ -1128,9 +1195,11 @@ def main() -> None:
 
         # Post-processing steps after all notebooks are handled
         if not args.dry_run:
-            add_mdx_generated_from_notebooks_to_nav(args.website_build_directory)
+            target_notebooks_dir = notebooks_target_dir(args.website_build_directory)
+            copy_images_from_notebooks_dir_to_target_dir(args.notebook_directory, target_notebooks_dir)
+            add_notebooks_blogs_and_user_stories_to_nav(args.website_build_directory)
             fix_internal_references_in_mdx_files(args.website_build_directory)
-            add_authors_and_social_img_to_blog_posts(args.website_build_directory)
+            add_authors_and_social_img_to_blog_and_user_stories(args.website_build_directory)
             add_edit_urls_to_non_generated_mdx_files(args.website_build_directory)
 
     else:

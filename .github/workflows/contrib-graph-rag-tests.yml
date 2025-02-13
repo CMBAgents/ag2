@@ -54,18 +54,21 @@ jobs:
           echo "Current permission level is ${{ steps.checkAccess.outputs.user-permission }}"
           echo "Job originally triggered by ${{ github.actor }}"
           exit 1
-      - uses: actions/checkout@v4
+      # checkout to pr branch
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install packages and dependencies for all tests
-        run: |
-          python -m pip install --upgrade pip wheel
-          pip install pytest
       - name: Install FalkorDB SDK when on linux
         run: |
-          pip install -e .[graph-rag-falkor-db]
+          uv pip install --system -e .[test,graph-rag-falkor-db]
       - name: Set AUTOGEN_USE_DOCKER based on OS
         shell: bash
         run: |
@@ -77,9 +80,11 @@ jobs:
           AZURE_OPENAI_API_BASE: ${{ secrets.AZURE_OPENAI_API_BASE }}
           OAI_CONFIG_LIST: ${{ secrets.OAI_CONFIG_LIST }}
         run: |
-          uv pip install --system pytest-cov>=5
           bash scripts/test.sh test/agentchat/contrib/graph_rag/test_falkor_graph_rag.py
+      - name: Show coverage report
+        run: bash scripts/show-coverage-report.sh
       - name: Upload coverage to Codecov
+        if: ${{ !contains(github.ref, 'gh-readonly-queue/') }}
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
@@ -107,18 +112,36 @@ jobs:
           NEO4J_apoc_import_file_enabled: true
           NEO4J_apoc_import_file_use__neo4j__config: true
     steps:
-      - uses: actions/checkout@v4
+      - name: Get User Permission
+        id: checkAccess
+        uses: actions-cool/check-user-permission@v2
+        with:
+          require: write
+          username: ${{ github.triggering_actor }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check User Permission
+        if: steps.checkAccess.outputs.require-result == 'false'
+        run: |
+          echo "${{ github.triggering_actor }} does not have permissions on this repo."
+          echo "Current permission level is ${{ steps.checkAccess.outputs.user-permission }}"
+          echo "Job originally triggered by ${{ github.actor }}"
+          exit 1
+      # checkout to pr branch
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install packages and dependencies for all tests
-        run: |
-          python -m pip install --upgrade pip wheel
-          pip install pytest
       - name: Install Neo4j and Llama-index when on linux
         run: |
-          pip install -e .[neo4j_graph_rag]
+          uv pip install --system -e .[test,neo4j]
       - name: Set AUTOGEN_USE_DOCKER based on OS
         shell: bash
         run: |
@@ -130,9 +153,11 @@ jobs:
           AZURE_OPENAI_API_BASE: ${{ secrets.AZURE_OPENAI_API_BASE }}
           OAI_CONFIG_LIST: ${{ secrets.OAI_CONFIG_LIST }}
         run: |
-          uv pip install --system pytest-cov>=5
           bash scripts/test.sh test/agentchat/contrib/graph_rag/test_neo4j_graph_rag.py
+      - name: Show coverage report
+        run: bash scripts/show-coverage-report.sh
       - name: Upload coverage to Codecov
+        if: ${{ !contains(github.ref, 'gh-readonly-queue/') }}
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
@@ -179,6 +204,7 @@ jobs:
   #       run: |
   #         bash scripts/test.sh -m "neo4j"
   #     - name: Upload coverage to Codecov
+  #       if: ${{ !contains(github.ref, 'gh-readonly-queue/') }}
   #       uses: codecov/codecov-action@v5
   #       with:
   #         files: ./coverage.xml

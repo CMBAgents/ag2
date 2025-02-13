@@ -412,15 +412,18 @@ class GPTAssistantAgent(ConversableAgent):
                                 # Remove numerical references from the content
                                 cleaned_content = self.remove_numerical_references(self._format_assistant_message(content.text))
                                 new_messages.append(
-                                    {"role": msg.role, "content": cleaned_content}
+                                    {"role": msg.role, 
+                                     "content": cleaned_content}
                                 )
+                                # new_messages.append({
+                                #     "role": msg.role,
+                                #     "content": self._format_assistant_message(content.text),
+                                # })
                             elif content.type == "image_file":
-                                new_messages.append(
-                                    {
-                                        "role": msg.role,
-                                        "content": f"Received file id={content.image_file.file_id}",
-                                    }
-                                )
+                                new_messages.append({
+                                    "role": msg.role,
+                                    "content": f"Received file id={content.image_file.file_id}",
+                                })
                 return new_messages
             elif run.status == "requires_action":
                 actions = []
