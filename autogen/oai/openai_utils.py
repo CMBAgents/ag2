@@ -37,6 +37,8 @@ DEFAULT_AZURE_API_VERSION = "2024-02-01"
 # Please convert it to 1K tokens and update in the below dictionary in the format: (input_token_price, output_token_price).
 OAI_PRICE1K = {
     # https://openai.com/api/pricing/
+    # o3
+    "o3-mini-2025-01-31":(0.0011, 0.0044),
     # o1
     "o1-preview-2024-09-12": (0.0015, 0.0060),
     "o1-preview": (0.0015, 0.0060),
