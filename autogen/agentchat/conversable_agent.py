@@ -486,8 +486,10 @@ class ConversableAgent(LLMAgent):
                             )
                         else:
                             sys_message = update_func.content_updater(agent, messages)
-
+                        ## cmbagent debug print: 
+                        # print('\n\n\n\nin conversable_agent.py sys_message before hook: ', sys_message)
                         agent.update_system_message(sys_message)
+                        # print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message)
                         return messages
 
                     return update_system_message_wrapper
@@ -1872,14 +1874,22 @@ class ConversableAgent(LLMAgent):
         ## cmbagent debug print to see what's in all_messages: 
         # print('in conversable_agent.py all_messages: ',all_messages)
         # print('in conversable_agent.py response_format: ',response_format)
-        # print('in conversable_agent.py agent: ',self.name)
-        response = llm_client.create(
-            context=messages[-1].pop("context", None),
-            messages=all_messages,
-            cache=cache,
-            agent=self
-        )
-
+        # print('in conversable_agent.py agent llm_config: ',self.llm_config)
+        try:
+            response = llm_client.create(
+                context=messages[-1].pop("context", None),
+                messages=all_messages,
+                cache=cache,
+                agent=self,
+                parallel_tool_calls=False
+            )
+        except:
+            response = llm_client.create(
+                context=messages[-1].pop("context", None),
+                messages=all_messages,
+                cache=cache,
+                agent=self
+            )
         ## cmbagent modif print to help debug: 
         # print full raw response here
         # cmbagent debug
