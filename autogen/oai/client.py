@@ -384,7 +384,7 @@ class OpenAIClient:
             The completion.
         """
         iostream = IOStream.get_default()
-
+        ## cmbagent debug print: 
         # print("in client.py create... params:",params)
         # import json
         # print(json.dumps(params, indent=4, default=str))

@@ -1257,7 +1257,7 @@ class ConversableAgent(LLMAgent):
         ## cmbagent debug print: 
         # print('\n \n in conversable_agent.py _print_received_message: ', message)
         message = self._message_to_dict(message)
-        print("\n getting message model from sender: ", sender.name)
+        # print("\n in conversable_agent.py _print_received_message getting message model from sender: ", sender.name)
         message_model = create_received_message_model(message=message, sender=sender, recipient=self)
         # print("\n message model: ", message_model)
         iostream = IOStream.get_default()
@@ -1271,89 +1271,6 @@ class ConversableAgent(LLMAgent):
         # display(Markdown(message_model.content))
         iostream.send(message_model)
 
-        ## cmbagent debug
-        # print("\n message model sent")
-        # if not skip_head:
-        #     if sender.name == 'classy_sz_agent':
-        #         iostream.print(colored(f"Sending message from {sender.name} to rag_software_formatter...\n", "yellow"), flush=True)
-        #     else:
-        #         iostream.print(colored(f"Message from {sender.name}:\n", "yellow"), flush=True)
-
-        # if message.get("tool_responses"):  # Handle tool multi-call responses
-        #     for tool_response in message["tool_responses"]:
-        #         self._print_received_message(tool_response, sender, skip_head=True)
-        #     if message.get("role") == "tool":
-        #         return  # If role is tool, then content is just a concatenation of all tool_responses
-
-        # if message.get("role") in ["function", "tool"]:
-        #     ## cmbagent debug print: 
-        #     # print('in conversable_agent.py message role: ', message["role"])
-        #     if message["role"] == "function":
-        #         id_key = "name"
-        #     else:
-        #         id_key = "tool_call_id"
-        #     id = message.get(id_key, "No id found")
-        #     func_print = f"***** Response from calling {message['role']} ({id}) *****"
-        #     iostream.print(colored(func_print, "green"), flush=True)
-        #     iostream.print(message["content"], flush=True)
-        #     iostream.print(colored("*" * len(func_print), "green"), flush=True)
-        # else:
-        #     content = message.get("content")
-        #     if content is not None:
-        #         if "context" in message:
-        #             ## cmbagent debug print: 
-        #             # print('in conversable_agent.py message context: ', message["context"])
-        #             content = OpenAIWrapper.instantiate(
-        #                 content,
-        #                 message["context"],
-        #                 self.llm_config and self.llm_config.get("allow_format_str_template", False),
-        #             )
-        #         ## cmbagent modification
-        #         if sender.name not in ['classy_sz_agent']:
-        #             if sender.name in ["planner", "rag_software_formatter", "engineer"]:
-        #                 display(Markdown(content))
-        #             else:
-        #                 iostream.print(content_str(content), flush=True)
-        #     if "function_call" in message and message["function_call"]:
-        #         function_call = dict(message["function_call"])
-        #         func_print = (
-        #             f"***** Suggested function call: {function_call.get('name', '(No function name found)')} *****"
-        #         )
-        #         iostream.print(colored(func_print, "green"), flush=True)
-        #         iostream.print(
-        #             "Arguments: \n",
-        #             function_call.get("arguments", "(No arguments found)"),
-        #             flush=True,
-        #             sep="",
-        #         )
-        #         iostream.print(colored("*" * len(func_print), "green"), flush=True)
-        #     if "tool_calls" in message and message["tool_calls"]:
-        #         for tool_call in message["tool_calls"]:
-        #             id = tool_call.get("id", "No tool call id found")
-        #             function_call = dict(tool_call.get("function", {}))
-        #             func_print = f"***** Suggested tool call ({id}): {function_call.get('name', '(No function name found)')} *****"
-        #             iostream.print(colored(func_print, "green"), flush=True)
-        #             iostream.print(
-        #                 "Arguments: \n",
-        #                 function_call.get("arguments", "(No arguments found)"),
-        #                 flush=True,
-        #                 sep="",
-        #             )
-        #             iostream.print(colored("*" * len(func_print), "green"), flush=True)
- 
-        ## cmbagent removing line break after each message: 
-        # iostream.print("\n", "-" * 80, flush=True, sep="")
-        ## cmbagent debug print: 
-        # print('in conversable_agent.py _print_received_message: ', message)
-
-    ####### new ag2 function: 
-#    def _print_received_message(self, message: Union[dict, str], sender: Agent, skip_head: bool = False):
-#         message = self._message_to_dict(message)
-#         message_model = create_received_message_model(message=message, sender=sender, recipient=self)
-#         iostream = IOStream.get_default()
-#         # message_model.print(iostream.print)
-#         iostream.send(message_model)
-        
 
     def _process_received_message(self, message: Union[dict, str], sender: Agent, silent: bool):
         # When the agent receives a message, the role of the message is "user". (If 'role' exists and is 'function', it will remain unchanged.)
@@ -2657,7 +2574,7 @@ class ConversableAgent(LLMAgent):
         # print("\n in conversable_agent.py generate_reply messages before process_last_received_message: ", messages)
         messages = self.process_last_received_message(messages)
         # print("\n in conversable_agent.py generate_reply messages after process_last_received_message: ", messages)
-
+        # print("\n\n\n")
         # Call the hookable method that gives registered hooks a chance to process all messages.
         # Message modifications do not affect the incoming messages or self._oai_messages.
         # print("\n in conversable_agent.py generate_reply messages before process_all_messages_before_reply: ", messages)
@@ -3445,9 +3362,16 @@ class ConversableAgent(LLMAgent):
         # Call each hook (in order of registration) to process the messages.
         # cmbagent debug
         # print("\n in update_agent_state_before_reply hook_list: ", hook_list)
+        # print("\n\n\n-----------------------------------\n")
+        # print("\n in conversable_agent.py updating_agent_state_before_reply messages: ", messages)
+        # print("\n\n\n-----------------------------------\n")
         for hook in hook_list:
+            # cmbagent debug
             # print("\n in conversable_agent.py update_agent_state_before_reply hook: ", hook)
             hook(self, messages)
+            # print("\n\n\n-----------------------------------\n")
+            # print("\n in conversable_agent.py update_agent_state_before_reply messages after hook: ", messages)
+            # print("\n\n\n-----------------------------------\n")
 
     def process_all_messages_before_reply(self, messages: list[dict]) -> list[dict]:
         """Calls any registered capability hooks to process all messages, potentially modifying the messages."""

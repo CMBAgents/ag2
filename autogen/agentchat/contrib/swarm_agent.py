@@ -670,7 +670,7 @@ def initiate_swarm_chat(
         messages=[],
         max_round=max_rounds,
         speaker_selection_method=swarm_transition,
-        # send_introductions=True, ## cmbagent debug, was not set in the original code
+        send_introductions=True, ## cmbagent debug, was not set in the original code
         admin_name="admin", ## cmbagent debug
     )
 

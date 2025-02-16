@@ -476,11 +476,11 @@ class GroupChat:
                 )
             elif isinstance(selected_agent, Agent):
                 # Also print the id of the selected_agent
-                print(f"Selected agent: {selected_agent.name}, id(selected_agent): {id(selected_agent)}")
+                # print(f"Selected agent: {selected_agent.name}, id(selected_agent): {id(selected_agent)}")
                 agent_found = False
                 for agent in self.agents:
                     # Print the id of each agent in the loop
-                    print(f"Agent: {agent.name}, id(agent): {id(agent)}")
+                    # print(f"Agent: {agent.name}, id(agent): {id(agent)}")
                     if id(agent) == id(selected_agent):
                         agent_found = True
                         break
@@ -1235,8 +1235,11 @@ class GroupChatManager(ConversableAgent):
                 a.previous_cache = a.client_cache
                 a.client_cache = self.client_cache
         for i in range(groupchat.max_round):
-            # cmbagent debug
+            # cmbagent debug -- print all messages
             # print("\n in groupchat.py i: ", i)
+            # print("\n\n\n-----------------------------------\n")
+            # print("\n in groupchat.py messages: ", messages)
+            # print("\n\n\n-----------------------------------\n")
             self._last_speaker = speaker
             groupchat.append(message, speaker)
             # broadcast the message to all agents except the speaker

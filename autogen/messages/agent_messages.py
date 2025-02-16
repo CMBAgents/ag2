@@ -207,10 +207,38 @@ class TextMessage(BasePrintReceivedMessage):
             # original code
             # f(content_str(self.content), flush=True)  # type: ignore [arg-type] 
             # print("\n content: ", self.content)
+            # print("\n sender_name: ", self.sender_name)
             # cmbagent debug
             # print("\n in agent_messages.py TextMessage print... cmbagent debug")
-            if self.sender_name in ["engineer_response_formatter", "camels_agent","admin","camels_response_formatter"]:
+            if self.sender_name in [#"plan_reviewer",
+                                    "reviewer_response_formatter",
+                                    "planner_response_formatter",
+                                    "engineer_response_formatter", 
+                                    "plan_implementer",
+                                    "camels_agent",
+                                    "admin",
+                                    "camels_response_formatter",
+                                    "classy_sz_response_formatter",
+                                    "joke_critique_response_formatter",
+                                    "joker_response_formatter",
+                                    "lecturer_response_formatter",
+                                    "course_director_response_formatter",
+                                    "course_material_provider"
+                                    ]:
                 display(Markdown(self.content)) # it doesnt work all the time
+            elif self.sender_name in ["classy_sz_agent",
+                                      "camels_agent",
+                                      "engineer",
+                                      "planner",
+                                      "plan_reviewer",
+                                      "joker",
+                                      "joke_critique",
+                                      "lecturer",
+                                      "course_director"]:
+                print("\nForwarding content for formatting...\n")
+
+            elif self.sender_name in ["structured_code_agent"]:
+                print("\nForwarding to executor...\n")
             else:
                 f(content_str(self.content), flush=True)  # type: ignore [arg-type]
 

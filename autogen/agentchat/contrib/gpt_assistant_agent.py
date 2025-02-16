@@ -180,6 +180,7 @@ class GPTAssistantAgent(ConversableAgent):
                 ## cmbagent debug print: 
                 # print('in gpt_assistant_agent.py specified_tools: ', specified_tools)
                 # this seems to not be called as of 18 dec 2024
+                # print("in gpt_assistant_agent.py specified_tools: ", specified_tools)
                 self._openai_assistant = update_gpt_assistant(
                     self._openai_client,
                     assistant_id=openai_assistant_id,
@@ -190,13 +191,15 @@ class GPTAssistantAgent(ConversableAgent):
                         "top_p": openai_assistant_cfg.get("top_p",None),
                     },
                 )
+                ## cmbagent debug print: 
+                # print('in gpt_assistant_agent.py assistant_config: ', openai_assistant_cfg)
             else:
                 # Tools are specified but overwrite_tools is False; do not update the assistant's tools
                 logger.warning("overwrite_tools is False. Using existing tools from assistant API.")
 
         # relay error message if assistant not set-up properly
         if 'error' in self._openai_assistant:
-            print('assistant not set-up properly, relaying error message')
+            print('assistant not set-up properly, relaying error message: ', self._openai_assistant)
             self._assistant_error = self._openai_assistant
 
         else:
@@ -270,6 +273,7 @@ class GPTAssistantAgent(ConversableAgent):
 
         ## cmbagent debug print: 
         # print('in gpt_assistant_agent.py run_response_messages: ', run_response_messages)
+        # print('in gpt_assistant_agent.py system_message: ', self.system_message)
 
         assert len(run_response_messages) > 0, "No response from the assistant."
 
@@ -383,6 +387,8 @@ class GPTAssistantAgent(ConversableAgent):
         Returns:
             Updated run object, status of the run, and response messages.
         """
+        ## cmbagent debug print: 
+        # print('in gpt_assistant_agent.py _get_run_response')
         while True:
             run = self._wait_for_run(run.id, thread.id)
             if run.status == "completed":
@@ -402,6 +408,52 @@ class GPTAssistantAgent(ConversableAgent):
                     "cost": cost
                 }
                 self.print_usage_summary(tokens_dict)
+
+                ## cmbagent debug print check rag steps: 
+                # print("run.id: ", run.id)
+                # run_steps = self._openai_client.beta.threads.runs.steps.list(
+                #     thread_id=thread.id,
+                #     run_id=run.id
+                # )
+                # # print("run_steps list: ", run_steps)
+                # # from pprint import pprint
+                # # pprint(run_steps, depth=3, width=120)
+
+                # # print("run_steps.data: ", run_steps.data)
+                # i = 0
+                # for step in run_steps.data:
+                #     print("i: ", i)
+                #     # print("step: ", step)
+                #     # print("step.step_details: ", step.step_details)
+                #     # print("step.thread_id: ", step.thread_id)
+
+                #     try:
+                #         # print("step.step_details.tool_calls: ", step.step_details.tool_calls)
+
+                #         retrieved_step = self._openai_client.beta.threads.runs.steps.retrieve(
+                #             thread_id=step.thread_id,
+                #             run_id=run.id,
+                #             step_id=step.id,
+                #             include=["step_details.tool_calls[*].file_search.results[*].content"]
+                #         )
+                #         # print("\n\nretrieved_step: ", retrieved_step)
+                        
+                #         # print("\n\nstep.step_details.tool_calls[0].file_search.results: ",retrieved_step.step_details.tool_calls[0].file_search.results)
+                #         r = 0
+                #         for result in retrieved_step.step_details.tool_calls[0].file_search.results:
+                #             print("\n\nr: ", r)
+                #             print("\n\nresult: ", result)
+                #             # print("result.content: ", result.content)
+                #             r += 1
+
+                #     except:
+                #         print("step.step_details.tool_calls: None")
+                #     # print("step.step_details.tool_calls[0].file_search.results: ", step.step_details.tool_calls[0].file_search.results)
+                #     print("\n\nstep done\n\n")
+                #     i += 1
+
+
+
 
 
                 new_messages = []
@@ -426,6 +478,7 @@ class GPTAssistantAgent(ConversableAgent):
                                 })
                 return new_messages
             elif run.status == "requires_action":
+                print('in gpt_assistant_agent.py run.status == "requires_action"')
                 actions = []
                 for tool_call in run.required_action.submit_tool_outputs.tool_calls:
                     function = tool_call.function
@@ -653,4 +706,7 @@ class GPTAssistantAgent(ConversableAgent):
                 openai_assistant_cfg[item] = openai_client_cfg[item]
             openai_client_cfg.pop(item, None)
 
+        ## cmbagent debug print check: 
+        # print('in gpt_assistant_agent.py openai_client_cfg: ', openai_client_cfg)
+        # print('in gpt_assistant_agent.py openai_assistant_cfg: ', openai_assistant_cfg)
         return openai_client_cfg, openai_assistant_cfg
