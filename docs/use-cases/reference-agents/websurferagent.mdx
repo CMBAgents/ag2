@@ -51,9 +51,14 @@ Now, you can create an agent, nominating the web tool:
 
 We had great experience with `OpenAI`, `Anthropic`, and `Gemini`. However, `DeepSeek` and `Ollama` haven't performed as well.
 </Tip>
+<Tip>
+[`Crawl4AI`](https://github.com/unclecode/crawl4ai) is built on top of [LiteLLM](https://github.com/BerriAI/litellm) and supports the same models as LiteLLM.
+
+We had great experience with `OpenAI`, `Anthropic`, `Gemini` and `Ollama`. However, as of this writing, `DeepSeek` is encountering some issues.
+</Tip>
 
 ```python
-from autogen.agents import WebSurferAgent
+from autogen.agents.experimental import WebSurferAgent
 
 llm_config = {"model": "gpt-4o-mini"}
 
@@ -92,3 +97,7 @@ Let's break it down:
 4. Run the agent, ensuring we pass the agent's tools through to the `run` method so it can add them to the internal executor agent to execute.
 
 ![WebSurferAgent in action](./assets/websurferagent_animated.gif)
+
+<div className="edit-url-container">
+    <a className="edit-url" href="https://github.com/ag2ai/ag2/edit/main/website/docs/use-cases/reference-agents/websurferagent.mdx" target='_blank'><Icon icon="pen" iconType="solid" size="13px"/> Edit this page</a>
+</div>
