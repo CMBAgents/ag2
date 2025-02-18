@@ -251,6 +251,8 @@ $functions"""
         """
         if not self._setup_functions_complete:
             self._setup_functions()
+        
+        # print('in local_commandline_code_executor.py: code_blocks: ', code_blocks)
         return self._execute_code_dont_check_setup(code_blocks)
 
     def _execute_code_dont_check_setup(self, code_blocks: list[CodeBlock]) -> CommandLineCodeResult:

@@ -56,7 +56,9 @@ class BasePrintReceivedMessage(BaseMessage, ABC):
     def print(self, f: Optional[Callable[..., Any]] = None) -> None:
         f = f or print
         # f(f"{colored(self.sender_name, 'yellow')} (to {self.recipient_name}):\n", flush=True)
-        f(f"{colored(f'Message from {self.sender_name}:\n', 'yellow')}", flush=True)
+        # f(f"{colored(f'Message from {self.sender_name}:\n', 'yellow')}", flush=True)
+        message = f"Message from {self.sender_name}:\n"  # Store in a variable
+        f(colored(message, 'yellow'), flush=True)  # Apply `colored` separately
 
 
 @wrap_message
@@ -239,6 +241,7 @@ class TextMessage(BasePrintReceivedMessage):
 
             elif self.sender_name in ["structured_code_agent"]:
                 print("\nForwarding to executor...\n")
+                f(content_str(self.content), flush=True)
             else:
                 f(content_str(self.content), flush=True)  # type: ignore [arg-type]
 
