@@ -20,6 +20,7 @@ from openai.types.beta.assistant import Assistant
 from packaging.version import parse
 
 from ..doc_utils import export_module
+from ..cmbagent_utils import cmbagent_debug
 
 NON_CACHE_KEY = [
     "api_key",
@@ -46,6 +47,8 @@ OAI_PRICE1K = {
     "o1-mini": (0.0003, 0.0012),
     "o1": (0.0015, 0.0060),
     "o1-2024-12-17": (0.0015, 0.0060),
+    # 4.5 mini
+    "gpt-4.5-preview-2025-02-27": (0.075, 0.15),
     # gpt-4o
     "gpt-4o": (0.005, 0.015),
     "gpt-4o-2024-05-13": (0.005, 0.015),
@@ -785,7 +788,13 @@ def create_gpt_assistant(
                 "`file_search` tool are not supported in the openai assistant V1 API, please use `retrieval`."
             )
         assistant_create_kwargs["tools"] = tools
+        
         assistant_create_kwargs["file_ids"] = assistant_config.get("file_ids", [])
+
+    if cmbagent_debug:
+        print('in openai_utils.py create_gpt_assistant assistant_create_kwargs: ', assistant_create_kwargs)
+        print('in openai_utils.py create_gpt_assistant assistant_config: ', assistant_config)
+    assistant_create_kwargs["tool_choice"] =  {"type": "function", "function": {"name": "file_search"}} ## cmbagent added this
 
     logging.info(f"Creating assistant with config: {assistant_create_kwargs}")
     return client.beta.assistants.create(name=name, instructions=instructions, model=model, **assistant_create_kwargs)
@@ -811,9 +820,16 @@ def update_gpt_assistant(client: OpenAI, assistant_id: str, assistant_config: di
     if assistant_config.get("tool_resources") is not None:   
         assistant_update_kwargs["tool_resources"] = assistant_config["tool_resources"]
 
+    if assistant_config.get("tool_choice") is not None:
+        assistant_update_kwargs["tool_choice"] = assistant_config["tool_choice"]
+
+    if cmbagent_debug:
+        print('in openai_utils.py update_gpt_assistant assistant_update_kwargs: ', assistant_update_kwargs)
+
     try:
         return client.beta.assistants.update(assistant_id=assistant_id, **assistant_update_kwargs)
     except Exception as e:
+        print('in openai_utils.py update_gpt_assistant except: ', e)
         # Capture the error message and print it
         # Access the first argument of the exception, which should contain the error details
         error_details = e.args[0]

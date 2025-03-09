@@ -29,8 +29,8 @@ from ..runtime_logging import log_chat_completion, log_new_client, log_new_wrapp
 from ..token_count_utils import count_token
 from .client_utils import FormatterProtocol, logging_formatter
 from .openai_utils import OAI_PRICE1K, get_key, is_valid_api_key
-
-
+# from ..code_utils import cmbagent_debug
+from ..cmbagent_utils import cmbagent_debug
 TOOL_ENABLED = False
 with optional_import_block() as openai_result:
     import openai
@@ -384,8 +384,11 @@ class OpenAIClient:
             The completion.
         """
         iostream = IOStream.get_default()
-        ## cmbagent debug print: 
-        # print("in client.py create... params:",params)
+        ## cmbagent debug print to show all messages
+        if cmbagent_debug:
+            print("\n\n\n-----------------------------------\n")
+            print("in client.py create... params:",params)
+            print("\n\n\n-----------------------------------\n")
         # import json
         # print(json.dumps(params, indent=4, default=str))
         # if "tools" in params and len(params['tools']):
@@ -571,6 +574,11 @@ class OpenAIClient:
                     if msg["role"] == "user" and msg["content"].startswith("System message: "):
                         msg["role"] = "system"
                         msg["content"] = msg["content"][len("System message: ") :]
+        ## cmbagent debug print to show all messages
+        if cmbagent_debug:
+            print("\n\n\n-----------------------------------\n")
+            print("in client.py create... response:",response)
+            print("\n\n\n-----------------------------------\n")
 
         return response
 
@@ -971,7 +979,8 @@ class OpenAIWrapper:
             - APIError: If any model client create call raises an APIError
         """
         # cmbagent debug
-        # print('\n\n in oai/client.py create config: ', config)
+        if cmbagent_debug:
+            print('\n\n in oai/client.py create config len(messages): ', len(config['messages']))
         if ERROR:
             raise ERROR
         invocation_id = str(uuid.uuid4())
@@ -988,7 +997,10 @@ class OpenAIWrapper:
             # merge the input config with the i-th config in the config list
             full_config = {**config, **self._config_list[i]}
             # cmbagent debug
-            # print('\n\n in oai/client.py create full_config: ', full_config)
+            if cmbagent_debug:
+                print('\n\n in oai/client.py create full_config: ')
+                print(json.dumps(full_config, indent=4, default=str))
+                print('-----------------------------------\n\n')
             # separate the config into create_config and extra_kwargs
             create_config, extra_kwargs = self._separate_create_config(full_config)
             api_type = extra_kwargs.get("api_type")
@@ -1020,6 +1032,9 @@ class OpenAIWrapper:
                 cache_client = cache
             elif cache_seed is not None:
                 # Legacy cache behavior, if cache_seed is given, use DiskCache.
+                if cmbagent_debug:
+                    print('\n\n in oai/client.py cache_seed: ', cache_seed)
+                    print('\n\n in oai/client.py LEGACY_CACHE_DIR: ', LEGACY_CACHE_DIR)
                 cache_client = Cache.disk(cache_seed, LEGACY_CACHE_DIR)
 
             if cache_client is not None:
@@ -1071,20 +1086,47 @@ class OpenAIWrapper:
                             self._update_usage(actual_usage=actual_usage, total_usage=total_usage)
                             return response
                         continue  # filter is not passed; try the next config
+            
             try:
-                # print('\n\n in oai/client.py create params:')
-                # import json 
-                # print(json.dumps(params, indent=4, default=str))
-                # cmbagent debug
-                # if "tools" in params:
-                    # print("\n tools in params: ", params["tools"])
+                ## cmbagent add on. 
+                def get_function_name_if_description_true(params):
+                    if "tools" in params:
+                        for tool in params["tools"]:
+                            func = tool.get("function", {})
+                            if func.get("description") == "TRUE":
+                                return func.get("name")
+                    return None
+                required_function_name = get_function_name_if_description_true(params)
+
+                if required_function_name:
+                    params["tool_choice"] = {"type": "function", "function": {"name": required_function_name}}
+
+                if cmbagent_debug:
+                    print('\n\n in oai/client.py create params:')
+                    # import json 
+                    print(json.dumps(params, indent=4, default=str))
                     # cmbagent debug
-                    # if "response_format" in params:
-                    #     print("\n response_format: ", params['response_format'])
+                    if "tools" in params:
+                        # print("\n tools in params: ", params["tools"])
+                        json_tools = json.dumps(params["tools"], indent=4, default=str)
+                        print('\n\n json_tools: ')
+                        print(json_tools)
+                        print('\n\n')
+
+                    print("\n required_function_name: ", required_function_name)
+
+                    # import sys
+                    # sys.exit()
+   
                     
                 request_ts = get_current_ts()
                 response = client.create(params)
                 # cmbagent debug
+                if cmbagent_debug:
+                    print('\n\n in oai/client.py response: ', response)
+                    # if required_function_name:
+                    #     import sys
+                    #     sys.exit()
                 # print("\n response created: ", response)
             except APITimeoutError as err:
                 logger.debug(f"config {i} timed out", exc_info=True)

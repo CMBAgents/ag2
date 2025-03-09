@@ -34,6 +34,7 @@ from ..runtime_logging import log_new_agent, logging_enabled
 from .agent import Agent
 from .contrib.capabilities import transform_messages
 from .conversable_agent import ConversableAgent
+from ..cmbagent_utils import cmbagent_debug
 
 ## cmbagent addition:
 def extract_next_agent_suggestion(message):
@@ -186,6 +187,7 @@ class GroupChat:
     select_speaker_auto_model_client_cls: Optional[Union[ModelClient, list[ModelClient]]] = None
     select_speaker_auto_llm_config: Optional[Union[dict, Literal[False]]] = None
     role_for_select_speaker_messages: Optional[str] = "system"
+    verbose: Optional[bool] = False
 
     _VALID_SPEAKER_SELECTION_METHODS = ["auto", "manual", "random", "round_robin"]
     _VALID_SPEAKER_TRANSITIONS_TYPE = ["allowed", "disallowed", None]
@@ -1200,12 +1202,17 @@ class GroupChatManager(ConversableAgent):
     ) -> tuple[bool, Optional[str]]:
         """Run a group chat."""
         if messages is None:
+            
             messages = self._oai_messages[sender]
         # cmbagent debug
         # print("\n in groupchat.py messages: ", messages)
         message = messages[-1]
         speaker = sender
         groupchat = config
+        # print("\n in groupchat.py groupchat config: ", groupchat)
+        if cmbagent_debug:
+            print("\n in groupchat.py groupchat config.verbose: ", groupchat.verbose)
+        # import sys; sys.exit()
         try:
             groupchat.verbose
         except:
@@ -1302,7 +1309,9 @@ class GroupChatManager(ConversableAgent):
                     
 
                     elif groupchat.rag_agents is not None:
-                        # print("\n in groupchat.py groupchat.rag_agents is not None")
+                        print("\n\n\n-----------------------------------\n")
+                        print("\n in groupchat.py groupchat.rag_agents is not None")
+                        print("\n\n\n-----------------------------------\n")
                         if groupchat.verbose:
                             print("--> in groupchat.py groupchat.rag_agents names: ", [agent.name for agent in groupchat.rag_agents])
                         if speaker.name in [agent.name for agent in groupchat.rag_agents]:
@@ -1329,8 +1338,14 @@ class GroupChatManager(ConversableAgent):
                     # iostream.print(f"\n in groupchat.py Calling {speaker.name}...\n", flush=True)
                     iostream.send(GroupChatRunChatMessage(speaker=speaker, silent=silent))
                 # let the speaker speak
-                # print("\n in groupchat.py generate_reply....")
+                if groupchat.verbose:
+                    print("\n\n\n-----------------------------------\n")
+                    print("\n in groupchat.py generate_reply....")
+                    print("\n\n\n-----------------------------------\n")
                 reply = speaker.generate_reply(sender=self)
+                # print("\n\n\n-----------------------------------\n")
+                # print("\n in groupchat.py reply: ", reply)
+                # print("\n\n\n-----------------------------------\n")
                 # cmbagent debug
                 # print("\n in groupchat.py reply showing context variables: ")
                 # import json; print(json.dumps(speaker._context_variables, indent=4))

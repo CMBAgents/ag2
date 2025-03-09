@@ -31,9 +31,11 @@ from .agentchat import (
     initiate_swarm_chat,
     register_function,
     register_hand_off,
-    visualize_tree,
+    visualize_tree
 )
 from .code_utils import DEFAULT_MODEL, FAST_MODEL
+# from .code_utils import cmbagent_debug
+from .cmbagent_utils import cmbagent_debug, file_search_max_num_results
 from .exception_utils import (
     AgentNameConflictError,
     InvalidCarryOverTypeError,
@@ -61,6 +63,7 @@ from .version import __version__
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+# cmbagent_debug = False
 
 __all__ = [
     "AFTER_WORK",

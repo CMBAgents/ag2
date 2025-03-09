@@ -26,6 +26,7 @@ from .types import UserMessageImageContentPart, UserMessageTextContentPart
 SENTINEL = object()
 DEFAULT_MODEL = "gpt-4"
 FAST_MODEL = "gpt-3.5-turbo"
+# cmbagent_debug = False
 # Regular expression for finding a code block
 # ```[ \t]*(\w+)?[ \t]*\r?\n(.*?)[ \t]*\r?\n``` Matches multi-line code blocks.
 #   The [ \t]* matches the potential spaces before language name.
@@ -39,6 +40,9 @@ FAST_MODEL = "gpt-3.5-turbo"
 # was: CODE_BLOCK_PATTERN = r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
 # now: CODE_BLOCK_PATTERN = r"```[ \t]*(python)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
 CODE_BLOCK_PATTERN = r"```[ \t]*(python)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
+#MD_CODE_BLOCK_PATTERN = r"```[ \t]*(markdown)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
+MD_CODE_BLOCK_PATTERN = r"```[ \t]*(?:markdown)[ \t]*\r?\n(.*)\r?\n[ \t]*```"
+
 WORKING_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "extensions")
 UNKNOWN = "unknown"
 TIMEOUT_MSG = "Timeout"

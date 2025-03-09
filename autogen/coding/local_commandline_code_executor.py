@@ -29,6 +29,7 @@ from .func_with_reqs import (
 )
 from .markdown_code_extractor import MarkdownCodeExtractor
 from .utils import _get_file_name_from_content, silence_pip
+from ..cmbagent_utils import cmbagent_debug
 
 __all__ = ("LocalCommandLineCodeExecutor",)
 
@@ -48,6 +49,7 @@ class LocalCommandLineCodeExecutor(CodeExecutor):
         "javascript",
         "html",
         "css",
+        "markdown",
     ]
     DEFAULT_EXECUTION_POLICY: ClassVar[dict[str, bool]] = {
         "bash": True,
@@ -60,6 +62,7 @@ class LocalCommandLineCodeExecutor(CodeExecutor):
         "javascript": False,
         "html": False,
         "css": False,
+        "markdown": False,
     }
 
     FUNCTION_PROMPT_TEMPLATE: ClassVar[
@@ -279,14 +282,21 @@ $functions"""
 
             execute_code = self.execution_policies.get(lang, False)
             try:
-                # Check if there is a filename comment
+                if cmbagent_debug:
+                    print('\n\n in local_commandline_code_executor.py execute_code: ', execute_code)
+                    # Check if there is a filename comment
+                    print('\n\n in local_commandline_code_executor.py getting filename from: code: ', code)
                 filename = _get_file_name_from_content(code, self._work_dir)
+                if cmbagent_debug:
+                    print('\n\n in local_commandline_code_executor.py: filename: ', filename)
             except ValueError:
                 return CommandLineCodeResult(exit_code=1, output="Filename is not in the workspace")
 
             if filename is None:
                 # create a file with an automatically generated name
                 code_hash = md5(code.encode()).hexdigest()
+                if cmbagent_debug:
+                    print('\n\n in local_commandline_code_executor.py: code_hash: ', code_hash)
                 filename = f"tmp_code_{code_hash}.{'py' if lang.startswith('python') else lang}"
             written_file = (self._work_dir / filename).resolve()
             with written_file.open("w", encoding="utf-8") as f:
@@ -295,7 +305,7 @@ $functions"""
 
             if not execute_code:
                 # Just return a message that the file is saved.
-                logs_all += f"Code saved to {written_file!s}\n"
+                logs_all += f"Content saved to {written_file!s}\n"
                 exitcode = 0
                 continue
 

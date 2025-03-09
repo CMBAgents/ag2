@@ -7,11 +7,11 @@
 import re
 from typing import Union
 
-from ..code_utils import CODE_BLOCK_PATTERN, UNKNOWN, content_str, infer_lang
+from ..code_utils import CODE_BLOCK_PATTERN, MD_CODE_BLOCK_PATTERN, UNKNOWN, content_str, infer_lang
 from ..doc_utils import export_module
 from ..types import UserMessageImageContentPart, UserMessageTextContentPart
 from .base import CodeBlock, CodeExtractor
-
+from ..cmbagent_utils import cmbagent_debug
 import json
 
 __all__ = ("MarkdownCodeExtractor",)
@@ -58,7 +58,7 @@ class MarkdownCodeExtractor(CodeExtractor):
     """
 
     def extract_code_blocks(
-        self, message: Union[str, list[Union[UserMessageTextContentPart, UserMessageImageContentPart]], None]
+        self, message: Union[str, list[Union[UserMessageTextContentPart, UserMessageImageContentPart]], None], name: str = ""
     ) -> list[CodeBlock]:
         """Extract code blocks from a message. First, if the message is valid JSON and contains
         a "python_code" field, extract that code. Otherwise, fall back to the Markdown regex extraction.
@@ -69,10 +69,25 @@ class MarkdownCodeExtractor(CodeExtractor):
         Returns:
             List[CodeBlock]: The extracted code blocks or an empty list.
         """
-        # Debug print
+        # cmbagent debug print: 
         # print('in markdown_code_extractor.py extract_code_blocks message: ', message)
         text = content_str(message)
-        # print('in markdown_code_extractor.py extract_code_blocks text: ', text)
+        if cmbagent_debug:
+            print('in markdown_code_extractor.py extract_code_blocks text: ', text)
+
+        if name == "researcher_response_formatter":
+            if cmbagent_debug:
+                print('in markdown_code_extractor.py name: ', name)
+                print('in markdown_code_extractor.py text: ', text)
+            match = re.findall(MD_CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
+            if cmbagent_debug:
+                print('in markdown_code_extractor.py match: ', match)
+            if not match:
+                return []
+            code_blocks = []
+            for code in match:
+                code_blocks.append(CodeBlock(code=code, language="markdown"))
+            return code_blocks
 
         # Attempt to parse the message as JSON and extract "python_code"
         try:
@@ -86,12 +101,14 @@ class MarkdownCodeExtractor(CodeExtractor):
                 return [CodeBlock(code=structured_code, language="python")]
         except json.JSONDecodeError:
             # The message is not valid JSON; fall back to Markdown extraction.
+            ## cmbagent debug print: 
             # print('in markdown_code_extractor.py message is not valid JSON, fall back to Markdown extraction')
             pass
 
         # Fall back to Markdown extraction using the regex pattern
         match = re.findall(CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
-        # print('in markdown_code_extractor.py match: ', match)
+        if cmbagent_debug:
+            print('in markdown_code_extractor.py match: ', match)
         if not match:
             return []
         code_blocks = []

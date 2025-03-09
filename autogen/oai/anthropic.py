@@ -97,6 +97,7 @@ with optional_import_block():
 
 
 ANTHROPIC_PRICING_1k = {
+    "claude-3-7-sonnet-20250219": (0.003, 0.015),
     "claude-3-5-sonnet-20241022": (0.003, 0.015),
     "claude-3-5-haiku-20241022": (0.0008, 0.004),
     "claude-3-5-sonnet-20240620": (0.003, 0.015),

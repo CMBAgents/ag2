@@ -44,7 +44,9 @@ from ..code_utils import (
     execute_code,
     extract_code,
     infer_lang,
+    # cmbagent_debug
 )
+from ..cmbagent_utils import cmbagent_debug
 from ..coding.base import CodeExecutor
 from ..coding.factory import CodeExecutorFactory
 from ..doc_utils import export_module
@@ -70,6 +72,12 @@ from .agent import Agent, LLMAgent
 from .chat import ChatResult, _post_process_carryover_item, a_initiate_chats, initiate_chats
 from .utils import consolidate_chat_info, gather_usage_summary
 
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message="Update function string contains no variables. This is probably unintended."
+)
 __all__ = ("ConversableAgent",)
 
 logger = logging.getLogger(__name__)
@@ -489,7 +497,8 @@ class ConversableAgent(LLMAgent):
                         ## cmbagent debug print: 
                         # print('\n\n\n\nin conversable_agent.py sys_message before hook: ', sys_message)
                         agent.update_system_message(sys_message)
-                        # print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message)
+                        if cmbagent_debug:
+                            print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message)
                         return messages
 
                     return update_system_message_wrapper
@@ -997,6 +1006,8 @@ class ConversableAgent(LLMAgent):
         Args:
             system_message (str): system message for the ChatCompletion inference.
         """
+        if cmbagent_debug:
+            print('in conversable_agent.py update_system_message: ', system_message)
         self._oai_system_message[0]["content"] = system_message
 
     def update_max_consecutive_auto_reply(self, value: int, sender: Optional[Agent] = None):
@@ -1875,13 +1886,38 @@ class ConversableAgent(LLMAgent):
         # print('in conversable_agent.py all_messages: ',all_messages)
         # print('in conversable_agent.py response_format: ',response_format)
         # print('in conversable_agent.py agent llm_config: ',self.llm_config)
+        if cmbagent_debug:
+            print('in conversable_agent.py self.name check here if you want to print all_messages: ', self.name)
         try:
+            if cmbagent_debug:
+                print('\n\n\n\nin conversable_agent.py try:')
+                print('\n\n\n\nin conversable_agent.py self.name: ', self.name)
+            if self.name == 'plan_recorder':
+                if cmbagent_debug:
+                    print('\n\n\n\nin conversable_agent.py self.name == plan_recorder')
+                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
+                tool_choice = {"type": "function", "function": {"name": "record_plan"}}
+            elif self.name == 'review_recorder':
+                if cmbagent_debug:
+                    print('\n\n\n\nin conversable_agent.py self.name == review_recorder')
+                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
+                tool_choice = {"type": "function", "function": {"name": "record_review"}}
+
+            elif self.name == 'classy_sz_agent': # this is not used for the gptassistant agent
+                if cmbagent_debug:
+                    print('\n\n\n\nin conversable_agent.py self.name == classy_sz_agent')
+                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
+                tool_choice = {"type": "function", "function": {"name": "file_search"}}
+            else:
+                tool_choice = "auto"
+
             response = llm_client.create(
                 context=messages[-1].pop("context", None),
                 messages=all_messages,
                 cache=cache,
                 agent=self,
-                parallel_tool_calls=False
+                parallel_tool_calls=False,
+                tool_choice=tool_choice
             )
         except:
             response = llm_client.create(
@@ -1997,6 +2033,7 @@ class ConversableAgent(LLMAgent):
         if config is not None:
             raise ValueError("config is not supported for _generate_code_execution_reply_using_executor.")
         if self._code_execution_config is False:
+            # print('in conversable_agent.py _generate_code_execution_reply_using_executor self._code_execution_config is False, return False, None')
             return False, None
         if messages is None:
             messages = self._oai_messages[sender]
@@ -2010,7 +2047,8 @@ class ConversableAgent(LLMAgent):
         last_n_messages = self._code_execution_config.get("last_n_messages", "auto")
 
         # ## cmbagent debug print: 
-        # print('in conversable_agent.py _generate_code_execution_reply_using_executor last_n_messages: ', last_n_messages)
+        if cmbagent_debug:
+            print('in conversable_agent.py _generate_code_execution_reply_using_executor last_n_messages: ', last_n_messages)
 
         if not (isinstance(last_n_messages, (int, float)) and last_n_messages >= 0) and last_n_messages != "auto":
             raise ValueError("last_n_messages must be either a non-negative integer, or the string 'auto'.")
@@ -2041,11 +2079,18 @@ class ConversableAgent(LLMAgent):
                 continue
             ## cmbagent 
             ## scanning code blocks in the last n messages
-            # print('in conversable_agent.py message["content"]: \n\n', message["content"])
+            if cmbagent_debug:
+                print('in conversable_agent.py message["content"]: \n\n', message["content"])
+                print('in conversable_agent.py message["name"]: \n\n', message["name"])
+                if message["name"] == "researcher_response_formatter":
+                    print('extracting markdown code blocks from message["content"]')
+                # import sys; sys.exit()
 
-            code_blocks = self._code_executor.code_extractor.extract_code_blocks(message["content"])
+            code_blocks = self._code_executor.code_extractor.extract_code_blocks(message["content"],name=message["name"])
+            if cmbagent_debug:
+                print('\n\nin conversable_agent.py code_blocks: ', code_blocks)
             # If no code blocks are found in "content", look in "tool_calls".
-            if not code_blocks:
+            if not code_blocks and message.get("tool_calls"):
                 # print('in conversable_agent.py no code blocks found in content, looking in tool_calls')
                 tool_calls = message.get("tool_calls", [])
                 # print('in conversable_agent.py tool_calls: ', tool_calls)
@@ -2061,8 +2106,11 @@ class ConversableAgent(LLMAgent):
                         args_json = json.loads(arguments)
                         # Try to get the code from either "structured_code" or "python_code"
                         code_str = args_json.get("structured_code") or args_json.get("python_code", "")
-                        # print('in conversable_agent.py code_str: ', code_str)
-                        code_str = f"```python\n{code_str}\n```" ## to match the code block pattern
+                        # print('\n\nin conversable_agent.py code_str: ', code_str)
+                        if code_str:
+                            code_str = f"```python\n{code_str}\n```" ## to match the code block pattern
+                        else:
+                            continue
                     except json.JSONDecodeError:
                         # If the arguments aren't valid JSON, fallback to using them directly.
                         code_str = arguments
@@ -2077,7 +2125,8 @@ class ConversableAgent(LLMAgent):
             # print('in conversable_agent.py code_blocks\n\n: ', code_blocks)
             if len(code_blocks) == 0:
                 ## cmbagent debug print: 
-                # print('in conversable_agent.py no code blocks found, continue')
+                if cmbagent_debug:
+                    print('in conversable_agent.py no code blocks found, continue')
                 continue
 
             iostream.send(GenerateCodeExecutionReplyMessage(code_blocks=code_blocks, sender=sender, recipient=self))
@@ -2091,7 +2140,10 @@ class ConversableAgent(LLMAgent):
             if code_result.output is not None and len(code_result.output) > 0:
                 # print('in conversable agent.py len(code_result.output): ', len(code_result.output))
                 # print('in conversable_agent.py code_result.output: ', code_result.output)
-                return_message = f"{exitcode2str}\nCode output: {code_result.output}"
+                if exitcode2str == "execution succeeded":
+                    return_message = f"{exitcode2str}\nCode output: {code_result.output}"
+                else:
+                    return_message = f"{exitcode2str}\nError: {code_result.output}"
             else:
                 return_message = f"{exitcode2str}"
             return True, return_message

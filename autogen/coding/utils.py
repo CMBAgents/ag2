@@ -8,6 +8,7 @@
 import re
 from pathlib import Path
 from typing import Optional
+from ..cmbagent_utils import cmbagent_debug
 
 filename_patterns = [
     re.compile(r"^<!-- (filename:)?(.+?) -->", re.DOTALL),
@@ -20,6 +21,8 @@ filename_patterns = [
 # Raises ValueError if the file is not in the workspace
 def _get_file_name_from_content(code: str, workspace_path: Path) -> Optional[str]:
     first_line = code.split("\n")[0].strip()
+    if cmbagent_debug:
+        print('in coding/utils.py _get_file_name_from_content first_line: ', first_line)
     # TODO - support other languages
     for pattern in filename_patterns:
         matches = pattern.match(first_line)
@@ -33,6 +36,8 @@ def _get_file_name_from_content(code: str, workspace_path: Path) -> Optional[str
             path = path.resolve()
             # Throws an error if the file is not in the workspace
             relative = path.relative_to(workspace_path.resolve())
+            if cmbagent_debug:
+                print('in coding/utils.py _get_file_name_from_content relative: ', relative)
             return str(relative)
     return None
 

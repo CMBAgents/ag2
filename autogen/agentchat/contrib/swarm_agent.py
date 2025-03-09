@@ -13,6 +13,9 @@ from typing import Any, Callable, Optional, Union
 from pydantic import BaseModel, field_serializer
 
 from ...doc_utils import export_module
+from IPython.display import Markdown, display
+# from ...code_utils import cmbagent_debug
+from ...cmbagent_utils import cmbagent_debug
 from ...oai import OpenAIWrapper
 from ..agent import Agent
 from ..chat import ChatResult
@@ -175,7 +178,11 @@ def _establish_swarm_agent(agent: ConversableAgent):
 
     def _swarm_agent_str(self: ConversableAgent) -> str:
         """Customise the __str__ method to show the agent name for transition messages."""
-        return f"Swarm agent --> {self.name}"
+        if cmbagent_debug:
+            print('in swarm_agent.py _swarm_agent_str: ', self.name)
+            return f"Swarm agent --> {self.name}"
+        else:
+            return f"Transitioning to {self.name}!"
 
     agent._swarm_after_work = None
     agent._swarm_after_work_selection_msg = None
@@ -670,8 +677,9 @@ def initiate_swarm_chat(
         messages=[],
         max_round=max_rounds,
         speaker_selection_method=swarm_transition,
-        send_introductions=True, ## cmbagent debug, was not set in the original code
+        send_introductions=False, ## cmbagent debug, was not set in the original code
         admin_name="admin", ## cmbagent debug
+        verbose=cmbagent_debug, ## for cmbagent debug
     )
 
     manager = _create_swarm_manager(groupchat, swarm_manager_args, agents)
@@ -754,6 +762,7 @@ async def a_initiate_swarm_chat(
         messages=[],
         max_round=max_rounds,
         speaker_selection_method=swarm_transition,
+        # verbose=True, ## cmbagent added but doesnt work 
     )
 
     manager = _create_swarm_manager(groupchat, swarm_manager_args, agents)
@@ -982,6 +991,8 @@ def _generate_swarm_tool_reply(
 
                 tool_responses_inner.append(tool_response)
                 contents.append(str(tool_response["content"]))
+        if cmbagent_debug:
+            print('in swarm_agent.py contents: ', contents)
 
         agent._swarm_next_agent = next_agent
 

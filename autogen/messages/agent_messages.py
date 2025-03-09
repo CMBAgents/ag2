@@ -16,6 +16,7 @@ from IPython.display import Markdown
 from ..code_utils import content_str
 from ..oai.client import OpenAIWrapper
 from .base_message import BaseMessage, wrap_message
+from ..cmbagent_utils import cmbagent_debug
 
 if TYPE_CHECKING:
     from ..agentchat.agent import Agent
@@ -57,8 +58,13 @@ class BasePrintReceivedMessage(BaseMessage, ABC):
         f = f or print
         # f(f"{colored(self.sender_name, 'yellow')} (to {self.recipient_name}):\n", flush=True)
         # f(f"{colored(f'Message from {self.sender_name}:\n', 'yellow')}", flush=True)
-        message = f"Message from {self.sender_name}:\n"  # Store in a variable
-        f(colored(message, 'yellow'), flush=True)  # Apply `colored` separately
+        if cmbagent_debug:
+            message = f"Message from {self.sender_name}:\n"  # Store in a variable
+            f(colored(message, 'yellow'), flush=True)  # Apply `colored` separately
+        else:
+            if self.sender_name != "_Swarm_Tool_Executor":
+                message = f"Message from {self.sender_name}:\n"  # Store in a variable
+                f(colored(message, 'yellow'), flush=True)  # Apply `colored` separately
 
 
 @wrap_message
@@ -72,12 +78,18 @@ class FunctionResponseMessage(BasePrintReceivedMessage):
         super().print(f)
 
         id = self.name or "No id found"
-        func_print = f"***** Response from calling {self.role} ({id}) *****"
-        f(colored(func_print, "green"), flush=True)
-        f(self.content, flush=True)
-        f(colored("*" * len(func_print), "green"), flush=True)
+        if cmbagent_debug:
+            func_print = f"***** Response from calling {self.role} ({id}) *****"
+            f(colored(func_print, "blue"), flush=True)
+            # f(self.content, flush=True)
+            display(Markdown(self.content))
+            f(colored("*" * len(func_print), "blue"), flush=True)
+        else:
+            # f(self.content, flush=True)
+            display(Markdown(self.content))
 
-        f("\n", "-" * 80, flush=True, sep="")
+        if cmbagent_debug:
+            f("\n", "-" * 80, flush=True, sep="")
 
 
 class ToolResponse(BaseModel):
@@ -88,10 +100,15 @@ class ToolResponse(BaseModel):
     def print(self, f: Optional[Callable[..., Any]] = None) -> None:
         f = f or print
         id = self.tool_call_id or "No id found"
-        tool_print = f"***** Response from calling {self.role} ({id}) *****"
-        f(colored(tool_print, "green"), flush=True)
-        f(self.content, flush=True)
-        f(colored("*" * len(tool_print), "green"), flush=True)
+        if cmbagent_debug:
+            tool_print = f"***** Response from calling {self.role} ({id}) *****"
+            f(colored(tool_print, "green"), flush=True)
+            # f(self.content, flush=True)
+            display(Markdown(self.content))
+            f(colored("*" * len(tool_print), "green"), flush=True)
+        else:
+            # f(self.content, flush=True)
+            display(Markdown(self.content))
 
 
 @wrap_message
@@ -106,7 +123,8 @@ class ToolResponseMessage(BasePrintReceivedMessage):
 
         for tool_response in self.tool_responses:
             tool_response.print(f)
-            f("\n", "-" * 80, flush=True, sep="")
+            if cmbagent_debug:
+                f("\n", "-" * 80, flush=True, sep="")
 
 
 class FunctionCall(BaseModel):
@@ -144,7 +162,8 @@ class FunctionCallMessage(BasePrintReceivedMessage):
 
         self.function_call.print(f)
 
-        f("\n", "-" * 80, flush=True, sep="")
+        if cmbagent_debug:
+            f("\n", "-" * 80, flush=True, sep="")
 
 
 class ToolCall(BaseModel):
@@ -160,15 +179,16 @@ class ToolCall(BaseModel):
         name = self.function.name or "(No function name found)"
         arguments = self.function.arguments or "(No arguments found)"
 
-        func_print = f"***** Suggested tool call ({id}): {name} *****"
-        f(colored(func_print, "green"), flush=True)
-        f(
-            "Arguments: \n",
-            arguments,
-            flush=True,
-            sep="",
-        )
-        f(colored("*" * len(func_print), "green"), flush=True)
+        if cmbagent_debug:
+            func_print = f"***** Suggested tool call ({id}): {name} *****"
+            f(colored(func_print, "green"), flush=True)
+            f(
+                "Arguments: \n",
+                arguments,
+                flush=True,
+                sep="",
+            )
+            f(colored("*" * len(func_print), "green"), flush=True)
 
 
 @wrap_message
@@ -185,33 +205,6 @@ class ToolCallMessage(BasePrintReceivedMessage):
         super().print(f)
 
         if self.content is not None:
-            # original ag2 code
-            f(self.content, flush=True)
-            # cmbagent debug
-            # print("\n in agent_messages.py ToolCallMessage print... cmbagent debug")
-            # display(Markdown(self.content)) # it doesnt work all the time
-
-        for tool_call in self.tool_calls:
-            tool_call.print(f)
-
-        f("\n", "-" * 80, flush=True, sep="")
-
-
-@wrap_message
-class TextMessage(BasePrintReceivedMessage):
-    content: Optional[Union[str, int, float, bool, list[dict[str, Union[str, dict[str, Any]]]]]] = None  # type: ignore [assignment]
-
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
-        super().print(f)
-
-        if self.content is not None:
-            # original code
-            # f(content_str(self.content), flush=True)  # type: ignore [arg-type] 
-            # print("\n content: ", self.content)
-            # print("\n sender_name: ", self.sender_name)
-            # cmbagent debug
-            # print("\n in agent_messages.py TextMessage print... cmbagent debug")
             if self.sender_name in [#"plan_reviewer",
                                     "reviewer_response_formatter",
                                     "planner_response_formatter",
@@ -228,24 +221,80 @@ class TextMessage(BasePrintReceivedMessage):
                                     "course_material_provider"
                                     ]:
                 display(Markdown(self.content)) # it doesnt work all the time
+            else:
+                f(self.content, flush=True)
+            # cmbagent debug
+            # print("\n in agent_messages.py ToolCallMessage print... cmbagent debug")
+            # display(Markdown(self.content)) # it doesnt work all the time
+
+        for tool_call in self.tool_calls:
+            # print('\n\n in agent_messages.py ToolCallMessage print... tool_call: ', tool_call)
+            tool_call.print(f)
+
+        if cmbagent_debug:
+            f("\n", "-" * 80, flush=True, sep="")
+
+
+@wrap_message
+class TextMessage(BasePrintReceivedMessage):
+    content: Optional[Union[str, int, float, bool, list[dict[str, Union[str, dict[str, Any]]]]]] = None  # type: ignore [assignment]
+
+    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
+        f = f or print
+        super().print(f)
+
+        if self.content is not None:
+            # original code
+            # f(content_str(self.content), flush=True)  # type: ignore [arg-type] 
+            # print("\n content: ", self.content)
+            # print("\n in agent_messages.py TextMessage print... sender_name: ", self.sender_name)
+            # cmbagent debug
+            # print("\n in agent_messages.py TextMessage print... cmbagent debug")
+            if self.sender_name in [#"plan_reviewer",
+                                    "reviewer_response_formatter",
+                                    "planner_response_formatter",
+                                    "engineer_response_formatter", 
+                                    "plan_implementer",
+                                    "camels_agent",
+                                    "admin",
+                                    "camels_response_formatter",
+                                    # "researcher_response_formatter",
+                                    "classy_sz_response_formatter",
+                                    "joke_critique_response_formatter",
+                                    "joker_response_formatter",
+                                    "lecturer_response_formatter",
+                                    "course_director_response_formatter",
+                                    "course_material_provider",
+                                    "review_recorder",
+                                    # "planner",
+                                    # "plan_reviewer",
+                                    ]:
+                display(Markdown(self.content)) # it doesnt work all the time
             elif self.sender_name in ["classy_sz_agent",
                                       "camels_agent",
                                       "engineer",
+                                      "researcher",
                                       "planner",
                                       "plan_reviewer",
                                       "joker",
                                       "joke_critique",
                                       "lecturer",
                                       "course_director"]:
-                print("\nForwarding content for formatting...\n")
+                display(Markdown("\nForwarding content for formatting...\n"))
+                if cmbagent_debug:
+                    # if self.sender_name == "engineer":
+                    print('in agent_messages.py TextMessage print... self.sender_name: ', self.sender_name)
+                    print('in agent_messages.py TextMessage print... self.content: ', self.content)
+                    # import sys; sys.exit()
 
             elif self.sender_name in ["structured_code_agent"]:
-                print("\nForwarding to executor...\n")
+                display(Markdown("\nForwarding to executor...\n"))
                 f(content_str(self.content), flush=True)
             else:
                 f(content_str(self.content), flush=True)  # type: ignore [arg-type]
 
-        f("\n", "-" * 80, flush=True, sep="")
+        if cmbagent_debug:
+            f("\n", "-" * 80, flush=True, sep="")
 
 
 def create_received_message_model(
@@ -559,7 +608,11 @@ class GroupChatRunChatMessage(BaseMessage):
     def print(self, f: Optional[Callable[..., Any]] = None) -> None:
         f = f or print
 
-        f(colored(f"\nCalling: {self.speaker_name}...\n", "green"), flush=True)
+        if cmbagent_debug:
+            f(colored(f"\nCalling: {self.speaker_name}...\n", "green"), flush=True)
+        else:
+            if self.speaker_name not in ["_Swarm_Tool_Executor"]:
+                f(colored(f"\nCalling {self.speaker_name}...\n", "green"), flush=True)
 
 
 @wrap_message
@@ -612,8 +665,8 @@ class UsingAutoReplyMessage(BaseMessage):
 
     def print(self, f: Optional[Callable[..., Any]] = None) -> None:
         f = f or print
-
-        f(colored("\n>>>>>>>> USING AUTO REPLY...", "red"), flush=True)
+        if cmbagent_debug:
+            f(colored("\n>>>>>>>> USING AUTO REPLY...", "red"), flush=True)
 
 
 @wrap_message
@@ -632,14 +685,14 @@ class ExecuteCodeBlockMessage(BaseMessage):
 
     def print(self, f: Optional[Callable[..., Any]] = None) -> None:
         f = f or print
-
-        f(
-            colored(
-                f"\n>>>>>>>> EXECUTING CODE BLOCK {self.code_block_count} (inferred language is {self.language})...",
-                "red",
-            ),
-            flush=True,
-        )
+        if cmbagent_debug:
+            f(
+                colored(
+                    f"\n>>>>>>>> EXECUTING CODE BLOCK {self.code_block_count} (inferred language is {self.language})...",
+                    "red",
+                ),
+                flush=True,
+            )
 
 
 @wrap_message
@@ -665,13 +718,15 @@ class ExecuteFunctionMessage(BaseMessage):
     def print(self, f: Optional[Callable[..., Any]] = None) -> None:
         f = f or print
 
-        f(
-            colored(
-                f"\n>>>>>>>> EXECUTING FUNCTION {self.func_name}...\nCall ID: {self.call_id}\nInput arguments: {self.arguments}",
-                "magenta",
-            ),
-            flush=True,
-        )
+        if cmbagent_debug:
+            f(
+                colored(
+                    f"\n>>>>>>>> EXECUTING FUNCTION {self.func_name}...\nCall ID: {self.call_id}\nInput arguments: {self.arguments}",
+                    "magenta",
+                ),
+                flush=True,
+            )
+ 
 
 
 @wrap_message
@@ -832,22 +887,23 @@ class GenerateCodeExecutionReplyMessage(BaseMessage):
         f = f or print
 
         num_code_blocks = len(self.code_block_languages)
-        if num_code_blocks == 1:
-            f(
-                colored(
-                    f"\n>>>>>>>> EXECUTING CODE BLOCK (inferred language is {self.code_block_languages[0]})...",
-                    "red",
-                ),
-                flush=True,
-            )
-        else:
-            f(
-                colored(
-                    f"\n>>>>>>>> EXECUTING {num_code_blocks} CODE BLOCKS (inferred languages are [{', '.join([x for x in self.code_block_languages])}])...",
-                    "red",
-                ),
-                flush=True,
-            )
+        if cmbagent_debug:
+            if num_code_blocks == 1:
+                f(
+                    colored(
+                        f"\n>>>>>>>> EXECUTING CODE BLOCK (inferred language is {self.code_block_languages[0]})...",
+                        "red",
+                    ),
+                    flush=True,
+                )
+            else:
+                f(
+                    colored(
+                        f"\n>>>>>>>> EXECUTING {num_code_blocks} CODE BLOCKS (inferred languages are [{', '.join([x for x in self.code_block_languages])}])...",
+                        "red",
+                    ),
+                    flush=True,
+                )
 
 
 @wrap_message

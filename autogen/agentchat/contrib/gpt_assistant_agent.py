@@ -16,6 +16,8 @@ from ...oai.openai_utils import create_gpt_assistant, retrieve_assistants_by_nam
 from ...runtime_logging import log_new_agent, logging_enabled
 from ..agent import Agent
 from ..assistant_agent import AssistantAgent, ConversableAgent
+from ...cmbagent_utils import cmbagent_debug, file_search_max_num_results
+from ...agentchat.conversable_agent import UpdateSystemMessage
 
 import re
 import sys
@@ -30,7 +32,7 @@ class GPTAssistantAgent(ConversableAgent):
     This agent is unique in its reliance on the OpenAI Assistant for state management, differing from other agents like ConversableAgent.
     """
 
-    DEFAULT_MODEL_NAME = "gpt-4-0125-preview"
+    DEFAULT_MODEL_NAME = "gpt-4o-mini"
 
     def __init__(
         self,
@@ -73,7 +75,12 @@ class GPTAssistantAgent(ConversableAgent):
         # print('in gpt_assistant_agent.py openai_assistant_cfg: ', openai_assistant_cfg)
 
         super().__init__(
-            name=name, system_message=instructions, human_input_mode="NEVER", llm_config=openai_client_cfg, **kwargs
+            name=name, 
+            # system_message=instructions, 
+            update_agent_state_before_reply=[UpdateSystemMessage(instructions),], ## added for cmbagent
+            human_input_mode="NEVER", 
+            llm_config=openai_client_cfg, 
+            **kwargs
         )
         if logging_enabled():
             log_new_agent(self, locals())
@@ -178,7 +185,9 @@ class GPTAssistantAgent(ConversableAgent):
                     "overwrite_tools is True. Provided tools will be used and will modify the assistant in the API"
                 )
                 ## cmbagent debug print: 
-                # print('in gpt_assistant_agent.py specified_tools: ', specified_tools)
+                if cmbagent_debug:
+                    print('in gpt_assistant_agent.py specified_tools: ', specified_tools)
+                    print('in gpt_assistant_agent.py openai_assistant_cfg: ', openai_assistant_cfg)
                 # this seems to not be called as of 18 dec 2024
                 # print("in gpt_assistant_agent.py specified_tools: ", specified_tools)
                 self._openai_assistant = update_gpt_assistant(
@@ -186,6 +195,7 @@ class GPTAssistantAgent(ConversableAgent):
                     assistant_id=openai_assistant_id,
                     assistant_config={
                         "tools": specified_tools,
+                        # "tool_choice": {"type": "function", "function": {"name": "file_search"}}, ## force required tool call for file_search doesnt work here
                         "tool_resources": openai_assistant_cfg.get("tool_resources", None),
                         "temperature": openai_assistant_cfg.get("temperature",None),
                         "top_p": openai_assistant_cfg.get("top_p",None),
@@ -250,7 +260,8 @@ class GPTAssistantAgent(ConversableAgent):
             # Convert message roles to 'user' or 'assistant', by calling _map_role_for_api, to comply with OpenAI API spec
             api_role = self._map_role_for_api(message["role"])
             ## cmbagent debug print: 
-            # print('in gpt_assistant_agent.py api_role: ', api_role)
+            if cmbagent_debug:
+                print('in gpt_assistant_agent.py api_role: ', api_role)
             self._openai_client.beta.threads.messages.create(
                 thread_id=assistant_thread.id,
                 content=message["content"],
@@ -258,22 +269,35 @@ class GPTAssistantAgent(ConversableAgent):
             )
 
         ## cmbagent debug print: 
-        # print('in gpt_assistant_agent.py running with system message: ', self.system_message)
+        if cmbagent_debug:
+            print('in gpt_assistant_agent.py running with system message: ', self.system_message)
+            print('in gpt_assistant_agent.py tool_resources: ', self._openai_assistant.tool_resources)
         # Create a new run to get responses from the assistant
         run = self._openai_client.beta.threads.runs.create(
             thread_id=assistant_thread.id,
             assistant_id=self._openai_assistant.id,
             # pass the latest system message as instructions
             instructions=self.system_message,
+            # tool_resources=self._openai_assistant.tool_resources, ## doesnt work
+            tools=[{ ## cmbagent added this
+                'type': 'file_search', ## cmbagent added this
+                'file_search': {'max_num_results': file_search_max_num_results} ## cmbagent added this
+            }], ## cmbagent added this
+            tool_choice={"type": "file_search", "function": {"name": "file_search"}} ## cmbagent added this
         )
+
+
         ## cmbagent debug print: 
         # print('in gpt_assistant_agent.py run done. calling _get_run_response')
 
         run_response_messages = self._get_run_response(assistant_thread, run)
 
         ## cmbagent debug print: 
-        # print('in gpt_assistant_agent.py run_response_messages: ', run_response_messages)
-        # print('in gpt_assistant_agent.py system_message: ', self.system_message)
+        if cmbagent_debug:
+            print('in gpt_assistant_agent.py run: ', run)
+            print('in gpt_assistant_agent.py run_response_messages: ', run_response_messages)
+            print('debug here if you want to print the chunks etc')
+            # print('in gpt_assistant_agent.py system_message: ', self.system_message)
 
         assert len(run_response_messages) > 0, "No response from the assistant."
 
