@@ -2141,9 +2141,9 @@ class ConversableAgent(LLMAgent):
                 # print('in conversable agent.py len(code_result.output): ', len(code_result.output))
                 # print('in conversable_agent.py code_result.output: ', code_result.output)
                 if exitcode2str == "execution succeeded":
-                    return_message = f"{exitcode2str}\nCode output: {code_result.output}"
+                    return_message = f"{exitcode2str}\nExecution output: {code_result.output}"
                 else:
-                    return_message = f"{exitcode2str}\nError: {code_result.output}"
+                    return_message = f"{exitcode2str}\nExecution error: {code_result.output}"
             else:
                 return_message = f"{exitcode2str}"
             return True, return_message

@@ -16,7 +16,7 @@ from IPython.display import Markdown
 from ..code_utils import content_str
 from ..oai.client import OpenAIWrapper
 from .base_message import BaseMessage, wrap_message
-from ..cmbagent_utils import cmbagent_debug
+from ..cmbagent_utils import cmbagent_debug, cmbagent_color_dict, cmbagent_default_color
 
 if TYPE_CHECKING:
     from ..agentchat.agent import Agent
@@ -58,13 +58,14 @@ class BasePrintReceivedMessage(BaseMessage, ABC):
         f = f or print
         # f(f"{colored(self.sender_name, 'yellow')} (to {self.recipient_name}):\n", flush=True)
         # f(f"{colored(f'Message from {self.sender_name}:\n', 'yellow')}", flush=True)
+        color = cmbagent_color_dict.get(self.sender_name, cmbagent_default_color)
         if cmbagent_debug:
             message = f"Message from {self.sender_name}:\n"  # Store in a variable
-            f(colored(message, 'yellow'), flush=True)  # Apply `colored` separately
+            f(colored(message, color), flush=True)  # Apply `colored` separately
         else:
             if self.sender_name != "_Swarm_Tool_Executor":
                 message = f"Message from {self.sender_name}:\n"  # Store in a variable
-                f(colored(message, 'yellow'), flush=True)  # Apply `colored` separately
+                f(colored(message, color), flush=True)  # Apply `colored` separately
 
 
 @wrap_message
@@ -209,7 +210,7 @@ class ToolCallMessage(BasePrintReceivedMessage):
                                     "reviewer_response_formatter",
                                     "planner_response_formatter",
                                     "engineer_response_formatter", 
-                                    "plan_implementer",
+                                    "control",
                                     "camels_agent",
                                     "admin",
                                     "camels_response_formatter",
@@ -254,7 +255,7 @@ class TextMessage(BasePrintReceivedMessage):
                                     "reviewer_response_formatter",
                                     "planner_response_formatter",
                                     "engineer_response_formatter", 
-                                    "plan_implementer",
+                                    "control",
                                     "camels_agent",
                                     "admin",
                                     "camels_response_formatter",
@@ -612,7 +613,8 @@ class GroupChatRunChatMessage(BaseMessage):
             f(colored(f"\nCalling: {self.speaker_name}...\n", "green"), flush=True)
         else:
             if self.speaker_name not in ["_Swarm_Tool_Executor"]:
-                f(colored(f"\nCalling {self.speaker_name}...\n", "green"), flush=True)
+                color = cmbagent_color_dict.get(self.speaker_name, cmbagent_default_color)
+                f(colored(f"\nCalling {self.speaker_name}...\n", color), flush=True)
 
 
 @wrap_message

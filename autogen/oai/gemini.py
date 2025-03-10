@@ -60,6 +60,7 @@ from pydantic import BaseModel
 
 from ..import_utils import optional_import_block, require_optional_import
 from .client_utils import FormatterProtocol
+from ..cmbagent_utils import cmbagent_debug
 
 with optional_import_block():
     import google.genai as genai
@@ -790,10 +791,11 @@ def calculate_gemini_cost(use_vertexai: bool, input_tokens: int, output_tokens: 
             return total_cost_k(0.000125, 0.00001875)
 
         else:
-            warnings.warn(
-                f"Cost calculation is not implemented for model {model_name}. Cost will be calculated zero.",
-                UserWarning,
-            )
+            if cmbagent_debug:
+                warnings.warn(
+                    f"Cost calculation is not implemented for model {model_name}. Cost will be calculated zero.",
+                    UserWarning,
+                )
             return 0
 
     else:
@@ -824,9 +826,14 @@ def calculate_gemini_cost(use_vertexai: bool, input_tokens: int, output_tokens: 
             # https://ai.google.dev/pricing#1_5pro
             return total_cost_mil(0.50, 1.5)
 
+        elif "gemini-2.0-pro" in model_name:
+            # https://ai.google.dev/pricing
+            return total_cost_mil(0.10, 0.40)
+
         else:
-            warnings.warn(
-                f"Cost calculation is not implemented for model {model_name}. Cost will be calculated zero.",
-                UserWarning,
-            )
+            if cmbagent_debug:
+                warnings.warn(
+                    f"Cost calculation is not implemented for model {model_name}. Cost will be calculated zero.",
+                    UserWarning,
+                )
             return 0

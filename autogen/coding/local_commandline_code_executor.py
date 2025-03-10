@@ -129,8 +129,11 @@ $functions"""
 
         work_dir.mkdir(exist_ok=True)
 
+        
+
         self._timeout = timeout
         self._work_dir: Path = work_dir
+
         self._virtual_env_context: Optional[SimpleNamespace] = virtual_env_context
 
         self._functions = functions
@@ -312,6 +315,8 @@ $functions"""
             program = _cmd(lang)
             cmd = [program, str(written_file.absolute())]
             env = os.environ.copy()
+
+            env["PYTHONPATH"] = str(self._work_dir) + os.pathsep + env.get("PYTHONPATH", "")
 
             if self._virtual_env_context:
                 virtual_env_abs_path = os.path.abspath(self._virtual_env_context.bin_path)
