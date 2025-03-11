@@ -28,7 +28,7 @@ LOGO = r"""
    towards self-driving cosmological laboratories
 
 Version: Beta2
-Last updated: 11/03/2025
+Last updated: 11/03/5202
 Contributors: B. Bolliet, M. Cranmer, S. Krippendorf, 
 A. Laverick, J. Lesgourgues, A. Lewis, B. D. Sherwin, 
 K. M. Surrao, F. Villaescusa-Navarro, L. Xu, I. Zubeldia
