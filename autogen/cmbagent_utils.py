@@ -25,7 +25,7 @@ LOGO = r"""
 | |    | |\/| || ___ \  _  | | __ |  __|| . ` | | |  
 | \__/\| |  | || |_/ / | | | |_\ \| |___| |\  | | |  
  \____/\_|  |_/\____/\_| |_/\____/\____/\_| \_/ \_/  
-   towards self-driving cosmological laboratories
+    multi-agent systems for autonomous discovery    
 
 Version: Beta2
 Last updated: 11/03/5202
