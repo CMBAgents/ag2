@@ -829,9 +829,10 @@ def update_gpt_assistant(client: OpenAI, assistant_id: str, assistant_config: di
     try:
         return client.beta.assistants.update(assistant_id=assistant_id, **assistant_update_kwargs)
     except Exception as e:
-        print('in openai_utils.py update_gpt_assistant except: ', e)
-        # Capture the error message and print it
-        # Access the first argument of the exception, which should contain the error details
+        if cmbagent_debug:
+                print('in openai_utils.py update_gpt_assistant except: ', e)
+            # Capture the error message and print it
+            # Access the first argument of the exception, which should contain the error details
         error_details = e.args[0]
         return error_details 
 

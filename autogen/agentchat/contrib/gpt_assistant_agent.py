@@ -209,7 +209,9 @@ class GPTAssistantAgent(ConversableAgent):
 
         # relay error message if assistant not set-up properly
         if 'error' in self._openai_assistant:
-            print('assistant not set-up properly, relaying error message: ', self._openai_assistant)
+            ## cmbagent debug print: 
+            if cmbagent_debug:
+                print('assistant not set-up properly, relaying error message: ', self._openai_assistant)
             self._assistant_error = self._openai_assistant
 
         else:
