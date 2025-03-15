@@ -10,8 +10,8 @@ title: autogen.agentchat.realtime.experimental.clients.OpenAIRealtimeClient
 ```python
 OpenAIRealtimeClient(
     *,
-    llm_config: dict[str, typing.Any],
-    logger: logging.Logger | None = None
+    llm_config: dict[str, Any],
+    logger: Logger | None = None
 )
 ```
 
@@ -20,8 +20,8 @@ OpenAIRealtimeClient(
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `llm_config` | **Type:** `dict[str, typing.Any]` |
-| `logger` | **Type:** `logging.Logger \| None`<br/><br/>**Default:** None |
+| `llm_config` | **Type:** dict[str, typing.Any] |
+| `logger` | **Type:** logging.Logger \| None<br/><br/>**Default:** None |
 
 ### Static Methods
 
@@ -30,8 +30,8 @@ OpenAIRealtimeClient(
 
 ```python
 get_factory(
-    llm_config: dict[str, typing.Any],
-    logger: logging.Logger,
+    llm_config: dict[str, Any],
+    logger: Logger,
     **kwargs: Any
 ) -> 
 ```
@@ -41,9 +41,9 @@ get_factory(
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `llm_config` | **Type:** `dict[str, typing.Any]` |
-| `logger` | **Type:** `logging.Logger` |
-| `**kwargs` | **Type:** `Any` |
+| `llm_config` | The config for the client.<br/><br/>**Type:** dict[str, typing.Any] |
+| `logger` | The logger to use for logging events.<br/><br/>**Type:** logging.Logger |
+| `**kwargs` | **Type:** Any |
 
 <br />
 
@@ -64,6 +64,22 @@ get_factory(
 ### Instance Methods
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### add_event
+
+```python
+add_event(self, event: RealtimeEvent | None) -> 
+```
+
+    
+
+<b>Parameters:</b>
+| Name | Description |
+|--|--|
+| `event` | **Type:** [RealtimeEvent](/docs/api-reference/autogen/agentchat/realtime/experimental/realtime_events/RealtimeEvent) \| None |
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
 #### connect
 
 ```python
@@ -75,10 +91,37 @@ connect(self) -> AsyncGenerator[None, None]
 <br />
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### get_event
+
+```python
+get_event(self) -> RealtimeEvent | None
+```
+
+    
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### queue_input_audio_buffer_delta
+
+```python
+queue_input_audio_buffer_delta(self, audio: str) -> None
+```
+
+    queue InputAudioBufferDelta.<br/>
+
+<b>Parameters:</b>
+| Name | Description |
+|--|--|
+| `audio` | The audio.<br/><br/>**Type:** str |
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
 #### read_events
 
 ```python
-read_events(self) -> AsyncGenerator[autogen.agentchat.realtime.experimental.realtime_events.RealtimeEvent, None]
+read_events(self) -> AsyncGenerator[RealtimeEvent, None]
 ```
 
     Read messages from the OpenAI Realtime API.
@@ -97,7 +140,7 @@ send_audio(self, audio: str) -> None
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `audio` | The audio to send.<br/><br/>**Type:** `str` |
+| `audio` | The audio to send.<br/><br/>**Type:** str |
 
 <br />
 
@@ -117,8 +160,8 @@ send_function_result(
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `call_id` | The ID of the function call.<br/><br/>**Type:** `str` |
-| `result` | The result of the function call.<br/><br/>**Type:** `str` |
+| `call_id` | The ID of the function call.<br/><br/>**Type:** str |
+| `result` | The result of the function call.<br/><br/>**Type:** str |
 
 <br />
 
@@ -139,8 +182,8 @@ send_text(
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `role` | The role of the message.<br/><br/>**Type:** `Literal['user', 'assistant', 'system']` |
-| `text` | The text of the message.<br/><br/>**Type:** `str` |
+| `role` | The role of the message.<br/><br/>**Type:** Literal['user', 'assistant', 'system'] |
+| `text` | The text of the message.<br/><br/>**Type:** str |
 
 <br />
 
@@ -148,7 +191,7 @@ send_text(
 #### session_update
 
 ```python
-session_update(self, session_options: dict[str, typing.Any]) -> None
+session_update(self, session_options: dict[str, Any]) -> None
 ```
 
     Send a session update to the OpenAI Realtime API.<br/>
@@ -156,7 +199,7 @@ session_update(self, session_options: dict[str, typing.Any]) -> None
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `session_options` | The session options to update.<br/><br/>**Type:** `dict[str, typing.Any]` |
+| `session_options` | The session options to update.<br/><br/>**Type:** dict[str, typing.Any] |
 
 <br />
 
@@ -177,8 +220,8 @@ truncate_audio(
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `audio_end_ms` | The end of the audio to truncate.<br/><br/>**Type:** `int` |
-| `content_index` | The index of the content to truncate.<br/><br/>**Type:** `int` |
-| `item_id` | The ID of the item to truncate.<br/><br/>**Type:** `str` |
+| `audio_end_ms` | The end of the audio to truncate.<br/><br/>**Type:** int |
+| `content_index` | The index of the content to truncate.<br/><br/>**Type:** int |
+| `item_id` | The ID of the item to truncate.<br/><br/>**Type:** str |
 
 <br />

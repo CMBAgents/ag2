@@ -16,15 +16,7 @@ JupyterClient(connection_info: JupyterConnectionInfo)
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `connection_info` | **Type:** `JupyterConnectionInfo` |
-
-### Class Attributes
-
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
-#### get_kernel_client
-<br />
-
-    <br />
+| `connection_info` | **Type:** [JupyterConnectionInfo](/docs/api-reference/autogen/coding/jupyter/JupyterConnectionInfo) |
 
 ### Instance Methods
 
@@ -40,7 +32,23 @@ delete_kernel(self, kernel_id: str) -> None
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `kernel_id` | **Type:** `str` |
+| `kernel_id` | **Type:** str |
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### get_kernel_client
+
+```python
+get_kernel_client(self, kernel_id: str) -> JupyterKernelClient
+```
+
+    
+
+<b>Parameters:</b>
+| Name | Description |
+|--|--|
+| `kernel_id` | **Type:** str |
 
 <br />
 
@@ -78,7 +86,7 @@ restart_kernel(self, kernel_id: str) -> None
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `kernel_id` | **Type:** `str` |
+| `kernel_id` | **Type:** str |
 
 <br />
 
@@ -94,11 +102,11 @@ start_kernel(self, kernel_spec_name: str) -> str
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `kernel_spec_name` | Name of the kernel spec to start<br/><br/>**Type:** `str` |
+| `kernel_spec_name` | Name of the kernel spec to start<br/><br/>**Type:** str |
 
 <b>Returns:</b>
 | Type | Description |
 |--|--|
-| `str` | str: ID of the started kernel |
+| str | str: ID of the started kernel |
 
 <br />

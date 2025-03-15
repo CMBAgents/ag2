@@ -18,14 +18,6 @@ GroqClient(**kwargs)
 |--|--|
 | `**kwargs` |  |
 
-### Class Attributes
-
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
-#### create
-<br />
-
-    <br />
-
 ### Static Methods
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
@@ -63,6 +55,22 @@ cost(self, response) -> float
 <br />
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### create
+
+```python
+create(self, params: dict) -> ChatCompletionExtended
+```
+
+    
+
+<b>Parameters:</b>
+| Name | Description |
+|--|--|
+| `params` | **Type:** dict |
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
 #### message_retrieval
 
 ```python
@@ -83,7 +91,7 @@ message_retrieval(self, response) -> list
 #### parse_params
 
 ```python
-parse_params(self, params: dict[str, Any]) -> dict[str, typing.Any]
+parse_params(self, params: dict[str, Any]) -> dict[str, Any]
 ```
 
     Loads the parameters for Groq API from the passed in parameters and returns a validated set. Checks types, ranges, and sets defaults
@@ -91,6 +99,6 @@ parse_params(self, params: dict[str, Any]) -> dict[str, typing.Any]
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `params` | **Type:** `dict[str, Any]` |
+| `params` | **Type:** dict[str, Any] |
 
 <br />

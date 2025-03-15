@@ -34,7 +34,7 @@ ModelClient(*args, **kwargs)
 <br />
 
     Base class for protocol classes.<br/>Protocol classes are defined as:: <br/>    class Proto(Protocol): <br/>        def meth(self) -> int: <br/>            ...<br/>Such classes are primarily used with static type checkers that recognize
-    structural subtyping (static duck-typing), for example:: <br/>    class C: <br/>        def meth(self) -> int: <br/>            return 0
+    structural subtyping (static duck-typing).<br/>For example:: <br/>    class C: <br/>        def meth(self) -> int: <br/>            return 0
     
         def func(x: Proto) -> int: <br/>        return x.meth()
     
@@ -42,7 +42,7 @@ ModelClient(*args, **kwargs)
     
     See PEP 544 for details. Protocol classes decorated with
     @typing.runtime_checkable act as simple-minded runtime protocols that check
-    only the presence of given attributes, ignoring their type signatures.<br/>Protocol classes can be generic, they are defined as:: <br/>    class GenProto(Protocol[T]): <br/>        def meth(self) -> T: <br/>            ...
+    only the presence of given attributes, ignoring their type signatures.<br/>Protocol classes can be generic, they are defined as:: <br/>    class GenProto[T](Protocol): <br/>        def meth(self) -> T: <br/>            ...
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
 #### RESPONSE_USAGE_KEYS
@@ -64,7 +64,7 @@ get_usage(response: ModelClientResponseProtocol) -> dict
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `response` | **Type:** `ModelClientResponseProtocol` |
+| `response` | **Type:** ModelClientResponseProtocol |
 
 <br />
 
@@ -82,7 +82,7 @@ cost(self, response: ModelClientResponseProtocol) -> float
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `response` | **Type:** `ModelClientResponseProtocol` |
+| `response` | **Type:** ModelClientResponseProtocol |
 
 <br />
 
@@ -98,7 +98,7 @@ create(self, params: dict[str, Any]) -> ModelClientResponseProtocol
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `params` | **Type:** `dict[str, Any]` |
+| `params` | **Type:** dict[str, Any] |
 
 <br />
 
@@ -106,7 +106,7 @@ create(self, params: dict[str, Any]) -> ModelClientResponseProtocol
 #### message_retrieval
 
 ```python
-message_retrieval(self, response: ModelClientResponseProtocol) -> Union[list[str], list[ModelClient.ModelClientResponseProtocol.Choice.Message]]
+message_retrieval(self, response: ModelClientResponseProtocol) -> Union[list[str], list[Message]]
 ```
 
     Retrieve and return a list of strings or a list of Choice.Message from the response.<br/>NOTE: if a list of Choice.Message is returned, it currently needs to contain the fields of OpenAI's ChatCompletion Message object,
@@ -115,6 +115,6 @@ message_retrieval(self, response: ModelClientResponseProtocol) -> Union[list[st
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `response` | **Type:** `ModelClientResponseProtocol` |
+| `response` | **Type:** ModelClientResponseProtocol |
 
 <br />

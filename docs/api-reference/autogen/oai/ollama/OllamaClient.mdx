@@ -8,14 +8,15 @@ title: autogen.oai.ollama.OllamaClient
 </h2>
 
 ```python
-OllamaClient(**kwargs)
+OllamaClient(response_format: Optional[Union[BaseModel, dict[str, Any]]] = None, **kwargs)
 ```
 
-    Client for Ollama's API.<br/>Note that no api_key or environment variable is required for Ollama.<br/>
+    Client for Ollama's API.<br/>Note that no api_key or environment variable is required for Ollama.
 
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
+| `response_format` | **Type:** Optional[Union[BaseModel, dict[str, Any]]]<br/><br/>**Default:** None |
 | `**kwargs` |  |
 
 ### Class Attributes
@@ -34,12 +35,6 @@ OllamaClient(**kwargs)
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
 #### TOOL_CALL_MANUAL_STEP2
-<br />
-
-    <br />
-
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
-#### create
 <br />
 
     <br />
@@ -81,6 +76,22 @@ cost(self, response) -> float
 <br />
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### create
+
+```python
+create(self, params: dict) -> ChatCompletionExtended
+```
+
+    
+
+<b>Parameters:</b>
+| Name | Description |
+|--|--|
+| `params` | **Type:** dict |
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
 #### message_retrieval
 
 ```python
@@ -105,7 +116,7 @@ oai_messages_to_ollama_messages(
     self,
     messages: list[dict[str, Any]],
     tools: list
-) -> list[dict[str, typing.Any]]
+) -> list[dict[str, Any]]
 ```
 
     Convert messages from OAI format to Ollama's format.<br/>We correct for any specific role orders and types, and convert tools to messages (as Ollama can't use tool messages)
@@ -113,8 +124,8 @@ oai_messages_to_ollama_messages(
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `messages` | **Type:** `list[dict[str, Any]]` |
-| `tools` | **Type:** `list` |
+| `messages` | **Type:** list[dict[str, Any]] |
+| `tools` | **Type:** list |
 
 <br />
 
@@ -122,7 +133,7 @@ oai_messages_to_ollama_messages(
 #### parse_params
 
 ```python
-parse_params(self, params: dict[str, Any]) -> dict[str, typing.Any]
+parse_params(self, params: dict[str, Any]) -> dict[str, Any]
 ```
 
     Loads the parameters for Ollama API from the passed in parameters and returns a validated set. Checks types, ranges, and sets defaults
@@ -130,6 +141,6 @@ parse_params(self, params: dict[str, Any]) -> dict[str, typing.Any]
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `params` | **Type:** `dict[str, Any]` |
+| `params` | **Type:** dict[str, Any] |
 
 <br />
