@@ -6,7 +6,6 @@ from typing import Any, Optional, Union
 
 from .... import ConversableAgent
 from ....doc_utils import export_module
-from ....tools import Tool
 from ....tools.experimental import DeepResearchTool
 
 __all__ = ["DeepResearchAgent"]
@@ -24,15 +23,16 @@ class DeepResearchAgent(ConversableAgent):
         llm_config: dict[str, Any],
         system_message: Optional[Union[str, list[str]]] = DEFAULT_PROMPT,
         max_web_steps: int = 30,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize the DeepResearchAgent.
 
         Args:
-            name (str): The name of the agent.
-            llm_config (dict[str, Any]): The LLM configuration.
-            system_message (Optional[Union[str, list[str]], optional): The system message. Defaults to DEFAULT_PROMPT.
-            max_web_steps (int, optional): The maximum number of web steps. Defaults to 30.
+            name: The name of the agent.
+            llm_config: The LLM configuration.
+            system_message: The system message. Defaults to DEFAULT_PROMPT.
+            max_web_steps: The maximum number of web steps. Defaults to 30.
+            **kwargs: Additional keyword arguments to pass to the ConversableAgent.
         """
         super().__init__(
             name=name,
@@ -47,7 +47,3 @@ class DeepResearchAgent(ConversableAgent):
         )
 
         self.register_for_llm()(self.tool)
-
-    @property
-    def tools(self) -> list[Tool]:
-        return [self.tool]

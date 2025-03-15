@@ -7,8 +7,6 @@
 import re
 from typing import Any, Literal, Optional, Protocol, Union
 
-from openai import OpenAI
-
 from .... import Agent, ConversableAgent, code_utils
 from ....cache import AbstractCache
 from ....import_utils import optional_import_block, require_optional_import
@@ -18,6 +16,7 @@ from ..text_analyzer_agent import TextAnalyzerAgent
 
 with optional_import_block():
     from PIL.Image import Image
+    from openai import OpenAI
 
 SYSTEM_MESSAGE = "You've been given the special ability to generate images."
 DESCRIPTION_MESSAGE = "This agent has the ability to generate images."
@@ -66,6 +65,7 @@ class ImageGenerator(Protocol):
 
 
 @require_optional_import("PIL", "unknown")
+@require_optional_import("openai>=1.66.2", "openai")
 class DalleImageGenerator:
     """Generates images using OpenAI's DALL-E models.
 
@@ -77,7 +77,7 @@ class DalleImageGenerator:
 
     def __init__(
         self,
-        llm_config: dict,
+        llm_config: dict[str, Any],
         resolution: Literal["256x256", "512x512", "1024x1024", "1792x1024", "1024x1792"] = "1024x1024",
         quality: Literal["standard", "hd"] = "standard",
         num_images: int = 1,
@@ -153,7 +153,7 @@ class ImageGeneration(AgentCapability):
         self,
         image_generator: ImageGenerator,
         cache: Optional[AbstractCache] = None,
-        text_analyzer_llm_config: Optional[dict] = None,
+        text_analyzer_llm_config: Optional[dict[str, Any]] = None,
         text_analyzer_instructions: str = PROMPT_INSTRUCTIONS,
         verbosity: int = 0,
         register_reply_position: int = 2,
@@ -215,10 +215,10 @@ class ImageGeneration(AgentCapability):
     def _image_gen_reply(
         self,
         recipient: ConversableAgent,
-        messages: Optional[list[dict]],
+        messages: Optional[list[dict[str, Any]]],
         sender: Optional[Agent] = None,
         config: Optional[Any] = None,
-    ) -> tuple[bool, Union[str, dict, None]]:
+    ) -> tuple[bool, Optional[Union[str, dict[str, Any]]]]:
         if messages is None:
             return False, None
 
@@ -271,7 +271,7 @@ class ImageGeneration(AgentCapability):
             key = self._image_generator.cache_key(prompt)
             self._cache.set(key, img_utils.pil_to_data_uri(image))
 
-    def _extract_analysis(self, analysis: Union[str, dict, None]) -> str:
+    def _extract_analysis(self, analysis: Optional[Union[str, dict[str, Any]]]) -> str:
         if isinstance(analysis, dict):
             return code_utils.content_str(analysis["content"])
         else:

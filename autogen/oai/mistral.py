@@ -29,14 +29,14 @@ import json
 import os
 import time
 import warnings
-from typing import Any, Union
+from typing import Any, Literal, Optional, Union
 
-from openai.types.chat import ChatCompletion, ChatCompletionMessageToolCall
-from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
-from openai.types.completion_usage import CompletionUsage
+from pydantic import Field
 
 from ..import_utils import optional_import_block, require_optional_import
+from ..llm_config import LLMConfigEntry, register_llm_config
 from .client_utils import should_hide_tools, validate_parameter
+from .oai_models import ChatCompletion, ChatCompletionMessage, ChatCompletionMessageToolCall, Choice, CompletionUsage
 
 with optional_import_block():
     # Mistral libraries
@@ -53,6 +53,20 @@ with optional_import_block():
     )
 
 
+@register_llm_config
+class MistralLLMConfigEntry(LLMConfigEntry):
+    api_type: Literal["mistral"] = "mistral"
+    temperature: float = Field(default=0.7)
+    top_p: Optional[float] = None
+    max_tokens: Optional[int] = Field(default=None, ge=0)
+    safe_prompt: bool = False
+    random_seed: Optional[int] = None
+    stream: bool = False
+
+    def create_client(self):
+        raise NotImplementedError("MistralLLMConfigEntry.create_client is not implemented.")
+
+
 @require_optional_import("mistralai", "mistral")
 class MistralAIClient:
     """Client for Mistral.AI's API."""
@@ -61,7 +75,7 @@ class MistralAIClient:
         """Requires api_key or environment variable to be set
 
         Args:
-            api_key (str): The API key for using Mistral.AI (or environment variable MISTRAL_API_KEY needs to be set)
+            **kwargs: Additional keyword arguments to pass to the Mistral client.
         """
         # Ensure we have the api_key upon instantiation
         self.api_key = kwargs.get("api_key")
@@ -240,7 +254,7 @@ class MistralAIClient:
 
 @require_optional_import("mistralai", "mistral")
 def tool_def_to_mistral(tool_definitions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Converts AutoGen tool definition to a mistral tool format"""
+    """Converts AG2 tool definition to a mistral tool format"""
     mistral_tools = []
 
     for autogen_tool in tool_definitions:

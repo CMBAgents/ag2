@@ -4,6 +4,8 @@
 #
 # Portions derived from  https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
+
+import importlib
 import importlib.metadata
 import json
 import logging
@@ -11,13 +13,16 @@ import os
 import re
 import tempfile
 import time
+from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from dotenv import find_dotenv, load_dotenv
-from openai import OpenAI
-from openai.types.beta.assistant import Assistant
 from packaging.version import parse
+
+if TYPE_CHECKING:
+    from openai import OpenAI
+    from openai.types.beta.assistant import Assistant
 
 from ..doc_utils import export_module
 from ..cmbagent_utils import cmbagent_debug
@@ -191,6 +196,30 @@ def get_config_list(
             config["api_version"] = api_version
         config_list.append(config)
     return config_list
+
+
+@export_module("autogen")
+def get_first_llm_config(llm_config: dict[str, Any]) -> dict[str, Any]:
+    """Get the first LLM config from the given LLM config.
+
+    Args:
+        llm_config (dict): The LLM config.
+
+    Returns:
+        dict: The first LLM config.
+
+    Raises:
+        ValueError: If the LLM config is invalid.
+    """
+    llm_config = deepcopy(llm_config)
+    if "config_list" not in llm_config:
+        if "model" in llm_config:
+            return llm_config
+        raise ValueError("llm_config must be a valid config dictionary.")
+
+    if len(llm_config["config_list"]) == 0:
+        raise ValueError("Config list must contain at least one config.")
+    return llm_config["config_list"][0]  # type: ignore [no-any-return]
 
 
 @export_module("autogen")
@@ -560,6 +589,9 @@ def config_list_from_json(
 
         with open(config_list_path) as json_file:
             config_list = json.load(json_file)
+
+    config_list = filter_config(config_list, filter_dict)
+
     return filter_config(config_list, filter_dict)
 
 
@@ -704,7 +736,7 @@ def config_list_from_dotenv(
     return config_list
 
 
-def retrieve_assistants_by_name(client: OpenAI, name: str) -> list[Assistant]:
+def retrieve_assistants_by_name(client: "OpenAI", name: str) -> list["Assistant"]:
     """Return the assistants with the given name from OAI assistant API"""
     assistants = client.beta.assistants.list()
     candidate_assistants = []
@@ -717,26 +749,23 @@ def retrieve_assistants_by_name(client: OpenAI, name: str) -> list[Assistant]:
 def detect_gpt_assistant_api_version() -> str:
     """Detect the openai assistant API version"""
     oai_version = importlib.metadata.version("openai")
-    if parse(oai_version) < parse("1.21"):
-        return "v1"
-    else:
-        return "v2"
+    return "v1" if parse(oai_version) < parse("1.21") else "v2"
 
 
-def create_gpt_vector_store(client: OpenAI, name: str, fild_ids: list[str]) -> Any:
+def create_gpt_vector_store(client: "OpenAI", name: str, fild_ids: list[str]) -> Any:
     """Create a openai vector store for gpt assistant"""
     try:
-        vector_store = client.beta.vector_stores.create(name=name)
+        vector_store = client.vector_stores.create(name=name)
     except Exception as e:
         raise AttributeError(f"Failed to create vector store, please install the latest OpenAI python package: {e}")
 
     # poll the status of the file batch for completion.
-    batch = client.beta.vector_stores.file_batches.create_and_poll(vector_store_id=vector_store.id, file_ids=fild_ids)
+    batch = client.vector_stores.file_batches.create_and_poll(vector_store_id=vector_store.id, file_ids=fild_ids)
 
     if batch.status == "in_progress":
         time.sleep(1)
         logging.debug(f"file batch status: {batch.file_counts}")
-        batch = client.beta.vector_stores.file_batches.poll(vector_store_id=vector_store.id, batch_id=batch.id)
+        batch = client.vector_stores.file_batches.poll(vector_store_id=vector_store.id, batch_id=batch.id)
 
     if batch.status == "completed":
         return vector_store
@@ -745,8 +774,8 @@ def create_gpt_vector_store(client: OpenAI, name: str, fild_ids: list[str]) -> A
 
 
 def create_gpt_assistant(
-    client: OpenAI, name: str, instructions: str, model: str, assistant_config: dict[str, Any]
-) -> Assistant:
+    client: "OpenAI", name: str, instructions: str, model: str, assistant_config: dict[str, Any]
+) -> "Assistant":
     """Create a openai gpt assistant"""
     assistant_create_kwargs = {}
     gpt_assistant_api_version = detect_gpt_assistant_api_version()
@@ -800,7 +829,7 @@ def create_gpt_assistant(
     return client.beta.assistants.create(name=name, instructions=instructions, model=model, **assistant_create_kwargs)
 
 
-def update_gpt_assistant(client: OpenAI, assistant_id: str, assistant_config: dict[str, Any]) -> Assistant:
+def update_gpt_assistant(client: "OpenAI", assistant_id: str, assistant_config: dict[str, Any]) -> "Assistant":
     """Update openai gpt assistant"""
     gpt_assistant_api_version = detect_gpt_assistant_api_version()
     assistant_update_kwargs = {}
