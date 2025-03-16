@@ -51,7 +51,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "openai>=1.58",
+    "openai>=1.66.3",
     "diskcache",
     "termcolor",
     "python-dotenv",

@@ -27,6 +27,7 @@ LOGO = r"""
  \____/\_|  |_/\____/\_| |_/\____/\____/\_| \_/ \_/  
     multi-agent systems for autonomous discovery    
 
+Built with AG2
 Version: Beta2
 Last updated: 11/03/5202
 Contributors: B. Bolliet, M. Cranmer, S. Krippendorf, 
