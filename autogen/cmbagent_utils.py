@@ -5,7 +5,7 @@ cmbagent_debug = False
 # default_file_search_max_num_results = 20
 # The default is 20 for `gpt-4*` models and 5 for `gpt-3.5-turbo`. This number
 # should be between 1 and 50 inclusive.
-file_search_max_num_results = 10
+file_search_max_num_results = 20
 
 
 # Define the color mapping
