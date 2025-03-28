@@ -17,6 +17,8 @@ import pandas as pd
 from IPython.display import display
 from IPython.display import Markdown
 
+
+
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -46,7 +48,8 @@ from ..code_utils import (
     infer_lang,
     # cmbagent_debug
 )
-from ..cmbagent_utils import cmbagent_debug
+from ..cmbagent_utils import cmbagent_debug, cmbagent_disable_display
+
 from ..coding.base import CodeExecutor
 from ..coding.factory import CodeExecutorFactory
 from ..doc_utils import export_module
@@ -175,6 +178,7 @@ class ConversableAgent(LLMAgent):
         update_agent_state_before_reply: Optional[
             Union[list[Union[Callable, UpdateSystemMessage]], Callable, UpdateSystemMessage]
         ] = None,
+        cmbagent_debug = cmbagent_debug,
     ):
         """
         Args:
@@ -1953,7 +1957,8 @@ class ConversableAgent(LLMAgent):
                 "Completion Tokens": completion_tokens,
                 "Total Tokens": total_tokens,
             }])
-            display(df.style.hide(axis="index"))
+            if not cmbagent_disable_display:
+                display(df.style.hide(axis="index"))
             
             self.cost_dict['Agent'].append(name)
             self.cost_dict['Cost'].append(cost) 
@@ -2133,17 +2138,17 @@ class ConversableAgent(LLMAgent):
 
             # found code blocks, execute code.
             code_result = self._code_executor.execute_code_blocks(code_blocks)
-            exitcode2str = "execution succeeded" if code_result.exit_code == 0 else "execution failed"
+            exitcode2str = "execution results:" if code_result.exit_code == 0 else "execution results:"
             # return True, f"exitcode: {code_result.exit_code} ({exitcode2str})\nCode output: {code_result.output}"
 
             ## cmbagent tuned output: 
             if code_result.output is not None and len(code_result.output) > 0:
                 # print('in conversable agent.py len(code_result.output): ', len(code_result.output))
                 # print('in conversable_agent.py code_result.output: ', code_result.output)
-                if exitcode2str == "execution succeeded":
+                if exitcode2str == "execution results:":
                     return_message = f"{exitcode2str}\nExecution output: {code_result.output}"
                 else:
-                    return_message = f"{exitcode2str}\nExecution error: {code_result.output}"
+                    return_message = f"{exitcode2str}\nExecution output: {code_result.output}"
             else:
                 return_message = f"{exitcode2str}"
             return True, return_message

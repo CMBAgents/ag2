@@ -16,7 +16,7 @@ from ...oai.openai_utils import create_gpt_assistant, retrieve_assistants_by_nam
 from ...runtime_logging import log_new_agent, logging_enabled
 from ..agent import Agent
 from ..assistant_agent import AssistantAgent, ConversableAgent
-from ...cmbagent_utils import cmbagent_debug, file_search_max_num_results
+from ...cmbagent_utils import cmbagent_debug, file_search_max_num_results, cmbagent_disable_display
 from ...agentchat.conversable_agent import UpdateSystemMessage
 
 import re
@@ -295,11 +295,45 @@ class GPTAssistantAgent(ConversableAgent):
         run_response_messages = self._get_run_response(assistant_thread, run)
 
         ## cmbagent debug print: 
+        # if cmbagent_debug == False:
         if cmbagent_debug:
             print('in gpt_assistant_agent.py run: ', run)
-            print('in gpt_assistant_agent.py run_response_messages: ', run_response_messages)
+            # print('in gpt_assistant_agent.py run_response_messages: ', run_response_messages)
+            print('in gpt_assistant_agent.py run_response_messages json depth 3: ', json.dumps(run_response_messages, indent=3))
             print('debug here if you want to print the chunks etc')
             # print('in gpt_assistant_agent.py system_message: ', self.system_message)
+            run_steps = self._openai_client.beta.threads.runs.steps.list(
+                thread_id=assistant_thread.id,
+                run_id=run.id
+            )
+            # print('in gpt_assistant_agent.py run_steps: ', run_steps)
+            try:
+                print('in gpt_assistant_agent.py run_steps json depth 3: ', json.dumps(run_steps, indent=3))
+            except:
+                print('in gpt_assistant_agent.py run_steps: ', run_steps)
+
+            i = 0
+            for step in run_steps.data:
+                print("i: ", i)
+                try:
+
+                    retrieved_step = self._openai_client.beta.threads.runs.steps.retrieve(
+                        thread_id=step.thread_id,
+                        run_id=run.id,
+                        step_id=step.id,
+                        include=["step_details.tool_calls[*].file_search.results[*].content"]
+                    )
+                    r = 0
+                    for result in retrieved_step.step_details.tool_calls[0].file_search.results:
+                        print("\n\nr: ", r)
+                        print("\n\nresult: ", result)
+                        r += 1
+
+                except:
+                    print("step.step_details.tool_calls: None")
+                print("\n\nstep done\n\n")
+                i += 1
+            # sys.exit()
 
         assert len(run_response_messages) > 0, "No response from the assistant."
 
@@ -394,7 +428,8 @@ class GPTAssistantAgent(ConversableAgent):
             "Completion Tokens": completion_tokens,
             "Total Tokens": total_tokens,
         }])
-        display(df.style.hide(axis="index"))
+        if not cmbagent_disable_display:
+            display(df.style.hide(axis="index"))
 
         # Update dictionary containing all costs
         self.cost_dict['Agent'].append(self.name.replace('_agent', ''))

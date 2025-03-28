@@ -16,7 +16,7 @@ from IPython.display import Markdown
 from ..code_utils import content_str
 from ..oai.client import OpenAIWrapper
 from .base_message import BaseMessage, wrap_message
-from ..cmbagent_utils import cmbagent_debug, cmbagent_color_dict, cmbagent_default_color
+from ..cmbagent_utils import cmbagent_debug, cmbagent_color_dict, cmbagent_default_color, cmbagent_disable_display
 
 if TYPE_CHECKING:
     from ..agentchat.agent import Agent
@@ -61,11 +61,17 @@ class BasePrintReceivedMessage(BaseMessage, ABC):
         color = cmbagent_color_dict.get(self.sender_name, cmbagent_default_color)
         if cmbagent_debug:
             message = f"Message from {self.sender_name}:\n"  # Store in a variable
-            f(colored(message, color), flush=True)  # Apply `colored` separately
+            if not cmbagent_disable_display:
+                f(colored(message, color), flush=True)  # Apply `colored` separately
+            else:
+                f(message, flush=True)
         else:
             if self.sender_name != "_Swarm_Tool_Executor":
                 message = f"Message from {self.sender_name}:\n"  # Store in a variable
-                f(colored(message, color), flush=True)  # Apply `colored` separately
+                if not cmbagent_disable_display:
+                    f(colored(message, color), flush=True)  # Apply `colored` separately
+                else:
+                    f(message, flush=True)
 
 
 @wrap_message
@@ -83,11 +89,18 @@ class FunctionResponseMessage(BasePrintReceivedMessage):
             func_print = f"***** Response from calling {self.role} ({id}) *****"
             f(colored(func_print, "blue"), flush=True)
             # f(self.content, flush=True)
-            display(Markdown(self.content))
-            f(colored("*" * len(func_print), "blue"), flush=True)
+            if not cmbagent_disable_display:    
+                display(Markdown(self.content))
+                f(colored("*" * len(func_print), "blue"), flush=True)
+            else:
+                f(self.content, flush=True)
+            
         else:
             # f(self.content, flush=True)
-            display(Markdown(self.content))
+            if not cmbagent_disable_display:    
+                display(Markdown(self.content))
+            else:
+                f(self.content, flush=True)
 
         if cmbagent_debug:
             f("\n", "-" * 80, flush=True, sep="")
@@ -103,13 +116,22 @@ class ToolResponse(BaseModel):
         id = self.tool_call_id or "No id found"
         if cmbagent_debug:
             tool_print = f"***** Response from calling {self.role} ({id}) *****"
-            f(colored(tool_print, "green"), flush=True)
+            
             # f(self.content, flush=True)
-            display(Markdown(self.content))
-            f(colored("*" * len(tool_print), "green"), flush=True)
+            if not cmbagent_disable_display:
+                f(colored(tool_print, "green"), flush=True)
+                display(Markdown(self.content))
+                f(colored("*" * len(tool_print), "green"), flush=True)
+            else:
+                f(tool_print, flush=True)
+                f(self.content, flush=True)
+                f("*" * len(tool_print), flush=True)
         else:
             # f(self.content, flush=True)
-            display(Markdown(self.content))
+            if not cmbagent_disable_display:
+                display(Markdown(self.content))
+            else:
+                f(self.content, flush=True)
 
 
 @wrap_message
@@ -139,14 +161,19 @@ class FunctionCall(BaseModel):
         arguments = self.arguments or "(No arguments found)"
 
         func_print = f"***** Suggested function call: {name} *****"
-        f(colored(func_print, "green"), flush=True)
-        f(
-            "Arguments: \n",
-            arguments,
-            flush=True,
-            sep="",
-        )
-        f(colored("*" * len(func_print), "green"), flush=True)
+        if not cmbagent_disable_display:
+            f(colored(func_print, "green"), flush=True)
+            f(
+                "Arguments: \n",
+                arguments,
+                flush=True,
+                sep="",
+            )
+            f(colored("*" * len(func_print), "green"), flush=True)
+        else:
+            f(func_print, flush=True)
+            f(arguments, flush=True)
+            f("*" * len(func_print), flush=True)
 
 
 @wrap_message
@@ -182,14 +209,19 @@ class ToolCall(BaseModel):
 
         if cmbagent_debug:
             func_print = f"***** Suggested tool call ({id}): {name} *****"
-            f(colored(func_print, "green"), flush=True)
-            f(
-                "Arguments: \n",
-                arguments,
-                flush=True,
-                sep="",
-            )
-            f(colored("*" * len(func_print), "green"), flush=True)
+            if not cmbagent_disable_display:
+                f(colored(func_print, "green"), flush=True)
+                f(
+                    "Arguments: \n",
+                    arguments,
+                    flush=True,
+                    sep="",
+                )
+                f(colored("*" * len(func_print), "green"), flush=True)
+            else:
+                f(func_print, flush=True)
+                f(arguments, flush=True)
+                f("*" * len(func_print), flush=True)
 
 
 @wrap_message
@@ -221,7 +253,10 @@ class ToolCallMessage(BasePrintReceivedMessage):
                                     "course_director_response_formatter",
                                     "course_material_provider"
                                     ]:
-                display(Markdown(self.content)) # it doesnt work all the time
+                if not cmbagent_disable_display:
+                    display(Markdown(self.content)) # it doesnt work all the time
+                else:
+                    f(self.content, flush=True)
             else:
                 f(self.content, flush=True)
             # cmbagent debug
@@ -261,6 +296,8 @@ class TextMessage(BasePrintReceivedMessage):
                                     "camels_response_formatter",
                                     # "researcher_response_formatter",
                                     "classy_sz_response_formatter",
+                                    "camb_response_formatter",
+                                    "cobaya_response_formatter",
                                     "joke_critique_response_formatter",
                                     "joker_response_formatter",
                                     "lecturer_response_formatter",
@@ -270,18 +307,28 @@ class TextMessage(BasePrintReceivedMessage):
                                     # "planner",
                                     # "plan_reviewer",
                                     ]:
-                display(Markdown(self.content)) # it doesnt work all the time
+                if not cmbagent_disable_display:
+                    display(Markdown(self.content)) # it doesnt work all the time
+                else:
+                    f(self.content, flush=True)
             elif self.sender_name in ["classy_sz_agent",
+                                      "camb_agent",
+                                      "cobaya_agent",
                                       "camels_agent",
                                       "engineer",
                                       "researcher",
+                                      "task_improver",
                                       "planner",
                                       "plan_reviewer",
                                       "joker",
                                       "joke_critique",
                                       "lecturer",
                                       "course_director"]:
-                display(Markdown("\nForwarding content for formatting...\n"))
+                if not cmbagent_disable_display:
+                    display(Markdown("\nForwarding content...\n"))
+                else:
+                    f(self.content, flush=True)
+
                 if cmbagent_debug:
                     # if self.sender_name == "engineer":
                     print('in agent_messages.py TextMessage print... self.sender_name: ', self.sender_name)
@@ -289,10 +336,12 @@ class TextMessage(BasePrintReceivedMessage):
                     # import sys; sys.exit()
 
             elif self.sender_name in ["structured_code_agent"]:
-                display(Markdown("\nForwarding to executor...\n"))
-                f(content_str(self.content), flush=True)
+                if not cmbagent_disable_display:
+                    display(Markdown("\nForwarding to executor...\n"))
+                else:
+                    f(self.content, flush=True)
             else:
-                f(content_str(self.content), flush=True)  # type: ignore [arg-type]
+                f(self.content, flush=True)  # type: ignore [arg-type]
 
         if cmbagent_debug:
             f("\n", "-" * 80, flush=True, sep="")
@@ -610,11 +659,17 @@ class GroupChatRunChatMessage(BaseMessage):
         f = f or print
 
         if cmbagent_debug:
-            f(colored(f"\nCalling: {self.speaker_name}...\n", "green"), flush=True)
+            if not cmbagent_disable_display:
+                f(colored(f"\nCalling: {self.speaker_name}...\n", "green"), flush=True)
+            else:
+                f(f"\nCalling: {self.speaker_name}...\n", flush=True)
         else:
             if self.speaker_name not in ["_Swarm_Tool_Executor"]:
                 color = cmbagent_color_dict.get(self.speaker_name, cmbagent_default_color)
-                f(colored(f"\nCalling {self.speaker_name}...\n", color), flush=True)
+                if not cmbagent_disable_display:
+                    f(colored(f"\nCalling {self.speaker_name}...\n", color), flush=True)
+                else:
+                    f(f"\nCalling {self.speaker_name}...\n", flush=True)
 
 
 @wrap_message
@@ -641,7 +696,10 @@ class TerminationAndHumanReplyMessage(BaseMessage):
     def print(self, f: Optional[Callable[..., Any]] = None) -> None:
         f = f or print
 
-        f(colored(f"\n>>>>>>>> {self.no_human_input_msg}", "red"), flush=True)
+        if not cmbagent_disable_display:
+            f(colored(f"\n>>>>>>>> {self.no_human_input_msg}", "red"), flush=True)
+        else:
+            f(f"\n>>>>>>>> {self.no_human_input_msg}", flush=True)
 
 
 @wrap_message
@@ -668,7 +726,10 @@ class UsingAutoReplyMessage(BaseMessage):
     def print(self, f: Optional[Callable[..., Any]] = None) -> None:
         f = f or print
         if cmbagent_debug:
-            f(colored("\n>>>>>>>> USING AUTO REPLY...", "red"), flush=True)
+            if not cmbagent_disable_display:
+                f(colored("\n>>>>>>>> USING AUTO REPLY...", "red"), flush=True)
+            else:
+                f("\n>>>>>>>> USING AUTO REPLY...", flush=True)
 
 
 @wrap_message

@@ -1,4 +1,9 @@
-cmbagent_debug = False
+
+
+import os
+
+cmbagent_debug = os.getenv("CMBAGENT_DEBUG", "False").lower() == "true"
+cmbagent_disable_display = os.getenv("CMBAGENT_DISABLE_DISPLAY", "True").lower() == "true"
 
 
 # see https://github.com/openai/openai-python/blob/da48e4cac78d1d4ac749e2aa5cfd619fde1e6c68/src/openai/types/beta/file_search_tool.py#L20
