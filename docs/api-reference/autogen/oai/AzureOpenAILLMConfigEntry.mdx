@@ -1,29 +1,36 @@
 ---
-sidebarTitle: LLMConfigFilter
-title: autogen.LLMConfigFilter
+sidebarTitle: AzureOpenAILLMConfigEntry
+title: autogen.oai.AzureOpenAILLMConfigEntry
 ---
-<h2 id="autogen.LLMConfigFilter" class="doc doc-heading">
+<h2 id="autogen.oai.AzureOpenAILLMConfigEntry" class="doc doc-heading">
     <code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>
-    <span class="doc doc-object-name doc-class-name">LLMConfigFilter</span>
+    <span class="doc doc-object-name doc-class-name">AzureOpenAILLMConfigEntry</span>
 </h2>
 
 ```python
-LLMConfigFilter(**kwargs: Any)
+AzureOpenAILLMConfigEntry(**data: Any)
 ```
 
-    Usage docs: https://docs.pydantic.dev/2.10/concepts/models/
+    !!! abstract "Usage Documentation"
+        [Models](/docs/api-reference/autogen/concepts/models)
     
     A base class for creating Pydantic models.<br/>
 
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `**kwargs` | **Type:** Any |
+| `**data` | **Type:** Any |
 
 ### Class Attributes
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
-#### filter_dict
+#### api_type
+<br />
+
+    <br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
+#### azure_ad_token_provider
 <br />
 
     <br />
@@ -34,45 +41,25 @@ LLMConfigFilter(**kwargs: Any)
 
     <br />
 
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
+#### tool_choice
+<br />
+
+    <br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
+#### top_p
+<br />
+
+    <br />
+
 ### Instance Methods
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
-#### get
+#### create_client
 
 ```python
-get(
-    self,
-    key: str,
-    default: Any | None = None
-) -> Any
-```
-
-    
-
-<b>Parameters:</b>
-| Name | Description |
-|--|--|
-| `key` | **Type:** str |
-| `default` | **Type:** Any \| None<br/><br/>**Default:** None |
-
-<br />
-
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
-#### items
-
-```python
-items(self) -> Iterable[tuple[str, Any]]
-```
-
-    
-
-<br />
-
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
-#### keys
-
-```python
-keys(self) -> Iterable[str]
+create_client(self) -> ModelClient
 ```
 
     
@@ -91,7 +78,8 @@ model_dump(
 ) -> dict[str, Any]
 ```
 
-    Usage docs: https://docs.pydantic.dev/2.10/concepts/serialization/#modelmodel_dump
+    !!! abstract "Usage Documentation"
+        [`model_dump`](/docs/api-reference/autogen/concepts/serialization#modelmodel_dump)
     
     Generate a dictionary representation of the model, optionally specifying which fields to include or exclude.<br/>
 
@@ -121,7 +109,8 @@ model_dump_json(
 ) -> str
 ```
 
-    Usage docs: https://docs.pydantic.dev/2.10/concepts/serialization/#modelmodel_dump_json
+    !!! abstract "Usage Documentation"
+        [`model_dump_json`](/docs/api-reference/autogen/concepts/serialization#modelmodel_dump_json)
     
     Generates a JSON representation of the model using Pydantic's `to_json` method.<br/>
 
@@ -136,16 +125,5 @@ model_dump_json(
 | Type | Description |
 |--|--|
 | str | A JSON string representation of the model. |
-
-<br />
-
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
-#### values
-
-```python
-values(self) -> Iterable[Any]
-```
-
-    
 
 <br />

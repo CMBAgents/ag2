@@ -109,14 +109,15 @@ from autogen import (
     AfterWorkOption,
     initiate_swarm_chat,
     ContextExpression,
-    SwarmResult
+    SwarmResult,
+    LLMConfig,
 )
 
 # Feedback Loop pattern for iterative document refinement
 # Each agent refines the document, which is then sent back for further iterations based on feedback
 
 # Setup LLM configuration
-llm_config = {"api_type": "openai", "model": "gpt-4o-mini", "parallel_tool_calls": False} #, "cache_seed": None}
+llm_config = LLMConfig(api_type="openai", model="gpt-4o-mini", parallel_tool_calls=False) #, cache_seed=None)
 
 # Document types for the document editing feedback loop: essay, article, email, report, other
 # Feedback severity: minor, moderate, major, critical
@@ -355,124 +356,119 @@ def finalize_document(
         context_variables=context_variables,
     )
 
-# Agents for the feedback loop
-entry_agent = ConversableAgent(
-    name="entry_agent",
-    system_message="""You are the entry point for the document creation feedback loop.
-    Your task is to receive document creation requests and start the feedback loop.
+with llm_config:
+    # Agents for the feedback loop
+    entry_agent = ConversableAgent(
+        name="entry_agent",
+        system_message="""You are the entry point for the document creation feedback loop.
+        Your task is to receive document creation requests and start the feedback loop.
 
-    When you receive a request, extract:
-    1. The document prompt with details about what needs to be created
-    2. The type of document being created (essay, article, email, report, or other)
+        When you receive a request, extract:
+        1. The document prompt with details about what needs to be created
+        2. The type of document being created (essay, article, email, report, or other)
 
-    Use the start_document_creation tool to begin the process.""",
-    llm_config=llm_config,
-    functions=[start_document_creation]
-)
+        Use the start_document_creation tool to begin the process.""",
+        functions=[start_document_creation]
+    )
 
-planning_agent = ConversableAgent(
-    name="planning_agent",
-    system_message="""You are the document planning agent responsible for creating the initial structure.
+    planning_agent = ConversableAgent(
+        name="planning_agent",
+        system_message="""You are the document planning agent responsible for creating the initial structure.
 
-    Your task is to analyze the document prompt and create a detailed plan including:
-    - An outline with sections
-    - Main arguments or points
-    - Target audience analysis
-    - Appropriate tone for the document
+        Your task is to analyze the document prompt and create a detailed plan including:
+        - An outline with sections
+        - Main arguments or points
+        - Target audience analysis
+        - Appropriate tone for the document
 
-    Review the document prompt carefully and create a thoughtful plan that provides a strong foundation.
+        Review the document prompt carefully and create a thoughtful plan that provides a strong foundation.
 
-    When your plan is ready, use the submit_document_plan tool to move the document to the drafting stage.""",
-    llm_config=llm_config,
-    functions=[submit_document_plan]
-)
+        When your plan is ready, use the submit_document_plan tool to move the document to the drafting stage.""",
+        functions=[submit_document_plan]
+    )
 
-drafting_agent = ConversableAgent(
-    name="drafting_agent",
-    system_message="""You are the document drafting agent responsible for creating the initial draft.
+    drafting_agent = ConversableAgent(
+        name="drafting_agent",
+        system_message="""You are the document drafting agent responsible for creating the initial draft.
 
-    Your task is to transform the document plan into a complete first draft:
-    - Follow the outline and structure from the planning stage
-    - Incorporate all main arguments and points
-    - Maintain the appropriate tone for the target audience
-    - Create a compelling title
-    - Write complete, well-structured content
+        Your task is to transform the document plan into a complete first draft:
+        - Follow the outline and structure from the planning stage
+        - Incorporate all main arguments and points
+        - Maintain the appropriate tone for the target audience
+        - Create a compelling title
+        - Write complete, well-structured content
 
-    Focus on creating a comprehensive draft that addresses all aspects of the document plan.
-    Don't worry about perfection - this is a first draft that will go through review and revision.
+        Focus on creating a comprehensive draft that addresses all aspects of the document plan.
+        Don't worry about perfection - this is a first draft that will go through review and revision.
 
-    You must call the submit_document_draft tool with your draft and that will move on to the review stage.""",
-    llm_config=llm_config,
-    functions=[submit_document_draft]
-)
+        You must call the submit_document_draft tool with your draft and that will move on to the review stage.""",
+        functions=[submit_document_draft]
+    )
 
-review_agent = ConversableAgent(
-    name="review_agent",
-    system_message="""You are the document review agent responsible for critical evaluation.
+    review_agent = ConversableAgent(
+        name="review_agent",
+        system_message="""You are the document review agent responsible for critical evaluation.
 
-    Your task is to carefully review the current draft and provide constructive feedback:
-    - Evaluate the content against the original document plan
-    - Identify strengths and weaknesses
-    - Note any issues with clarity, structure, logic, or flow
-    - Assess whether the tone matches the target audience
-    - Check for completeness and thoroughness
+        Your task is to carefully review the current draft and provide constructive feedback:
+        - Evaluate the content against the original document plan
+        - Identify strengths and weaknesses
+        - Note any issues with clarity, structure, logic, or flow
+        - Assess whether the tone matches the target audience
+        - Check for completeness and thoroughness
 
-    For the feedback you MUST provide the following:
-    1. items: list of feedback items (seen next section for the collection of feedback items)
-    2. overall_assessment: Overall assessment of the document"
-    3. priority_issues: List of priority issues to address
-    4. iteration_needed: Whether another iteration is needed (True or False)
+        For the feedback you MUST provide the following:
+        1. items: list of feedback items (seen next section for the collection of feedback items)
+        2. overall_assessment: Overall assessment of the document"
+        3. priority_issues: List of priority issues to address
+        4. iteration_needed: Whether another iteration is needed (True or False)
 
-    For each item within feedback, you MUST provide the following:
-    1. section: The specific section the feedback applies to
-    2. feedback: Detailed feedback explaining the issue
-    3. severity: Rate as 'minor', 'moderate', 'major', or 'critical'
-    4. recommendation: A clear, specific action to address the feedback
+        For each item within feedback, you MUST provide the following:
+        1. section: The specific section the feedback applies to
+        2. feedback: Detailed feedback explaining the issue
+        3. severity: Rate as 'minor', 'moderate', 'major', or 'critical'
+        4. recommendation: A clear, specific action to address the feedback
 
-    Provide specific feedback with examples and clear recommendations for improvement.
-    For each feedback item, specify which section it applies to and rate its severity.
+        Provide specific feedback with examples and clear recommendations for improvement.
+        For each feedback item, specify which section it applies to and rate its severity.
 
-    If this is a subsequent review iteration, also evaluate how well previous feedback was addressed.
+        If this is a subsequent review iteration, also evaluate how well previous feedback was addressed.
 
-    Use the submit_feedback tool when your review is complete, indicating whether another iteration is needed.""",
-    llm_config=llm_config,
-    functions=[submit_feedback]
-)
+        Use the submit_feedback tool when your review is complete, indicating whether another iteration is needed.""",
+        functions=[submit_feedback]
+    )
 
-revision_agent = ConversableAgent(
-    name="revision_agent",
-    system_message="""You are the document revision agent responsible for implementing feedback.
+    revision_agent = ConversableAgent(
+        name="revision_agent",
+        system_message="""You are the document revision agent responsible for implementing feedback.
 
-    Your task is to revise the document based on the feedback provided:
-    - Address each feedback item in priority order
-    - Make specific improvements to the content, structure, and clarity
-    - Ensure the revised document still aligns with the original plan
-    - Track and document the changes you make
+        Your task is to revise the document based on the feedback provided:
+        - Address each feedback item in priority order
+        - Make specific improvements to the content, structure, and clarity
+        - Ensure the revised document still aligns with the original plan
+        - Track and document the changes you make
 
-    Focus on substantive improvements that address the feedback while preserving the document's strengths.
+        Focus on substantive improvements that address the feedback while preserving the document's strengths.
 
-    Use the submit_revised_document tool when your revisions are complete. The document may go through
-    multiple revision cycles depending on the feedback.""",
-    llm_config=llm_config,
-    functions=[submit_revised_document]
-)
+        Use the submit_revised_document tool when your revisions are complete. The document may go through
+        multiple revision cycles depending on the feedback.""",
+        functions=[submit_revised_document]
+    )
 
-finalization_agent = ConversableAgent(
-    name="finalization_agent",
-    system_message="""You are the document finalization agent responsible for completing the process.
+    finalization_agent = ConversableAgent(
+        name="finalization_agent",
+        system_message="""You are the document finalization agent responsible for completing the process.
 
-    Your task is to put the finishing touches on the document:
-    - Review the document's revision history
-    - Make any final minor adjustments for clarity and polish
-    - Ensure the document fully satisfies the original prompt
-    - Prepare the document for delivery with proper formatting
+        Your task is to put the finishing touches on the document:
+        - Review the document's revision history
+        - Make any final minor adjustments for clarity and polish
+        - Ensure the document fully satisfies the original prompt
+        - Prepare the document for delivery with proper formatting
 
-    Create a summary of the document's revision journey highlighting how it evolved through the process.
+        Create a summary of the document's revision journey highlighting how it evolved through the process.
 
-    Use the finalize_document tool when the document is complete and ready for delivery.""",
-    llm_config=llm_config,
-    functions=[finalize_document]
-)
+        Use the finalize_document tool when the document is complete and ready for delivery.""",
+        functions=[finalize_document]
+    )
 
 # User agent for interaction
 user = UserProxyAgent(
@@ -635,11 +631,9 @@ Please create a document based on this prompt:
     The essay should address economic benefits, environmental impact, and technological innovation.
     Target audience is policy makers and business leaders. Keep it under 1000 words.
 
-
 --------------------------------------------------------------------------------
 
 Next speaker: entry_agent
-
 
 >>>>>>>> USING AUTO REPLY...
 entry_agent (to chat_manager):
@@ -652,7 +646,6 @@ Arguments:
 --------------------------------------------------------------------------------
 
 Next speaker: _Swarm_Tool_Executor
-
 
 >>>>>>>> EXECUTING FUNCTION start_document_creation...
 Call ID: call_7UeskAnXlgXN9EFXBk3CFU9o
@@ -667,7 +660,6 @@ Document creation started for a essay based on the provided prompt.
 
 Next speaker: planning_agent
 
-
 >>>>>>>> USING AUTO REPLY...
 planning_agent (to chat_manager):
 
@@ -679,7 +671,6 @@ Arguments:
 --------------------------------------------------------------------------------
 
 Next speaker: _Swarm_Tool_Executor
-
 
 >>>>>>>> EXECUTING FUNCTION submit_document_plan...
 Call ID: call_od6eo6smvsJzSCSMtQ9UgT88
@@ -701,7 +692,6 @@ planning_agent (to chat_manager):
 --------------------------------------------------------------------------------
 
 Next speaker: drafting_agent
-
 
 >>>>>>>> USING AUTO REPLY...
 drafting_agent (to chat_manager):
@@ -748,7 +738,6 @@ Arguments:
 
 Next speaker: _Swarm_Tool_Executor
 
-
 >>>>>>>> EXECUTING FUNCTION submit_document_draft...
 Call ID: call_1ro59Yvaj0jwo31y5hpSu4t4
 Input arguments: {'title': 'Investing in Our Future: The Case for Renewable Energy Solutions', 'content': '**Title: Investing in Our Future: The Case for Renewable Energy Solutions**\n\n**Introduction**  \nIn the face of escalating climate change, dwindling natural resources, and a pressing need for economic revitalization, the call for increased investment in renewable energy solutions has never been more urgent. Policymakers and business leaders play a pivotal role in shaping the future of our planet and our economy. By committing to renewable energy investments, we can unlock significant economic benefits, mitigate environmental damage, and stimulate innovative technologies that will pave the way for a sustainable future.\n\n**The Economic Benefits of Renewable Energy**  \nInvesting in renewable energy is not only an environmentally conscious choice; it is also an economically advantageous one. The renewable energy sector has shown remarkable resilience and growth potential, creating millions of jobs worldwide. According to a report from the International Renewable Energy Agency (IRENA), the global renewable energy sector employed 11.5 million people in 2018, a number that has only continued to rise. By channeling investments into this sector, policymakers can drive job creation, stimulate local economies, and foster an environment conducive to innovation.\n\nMoreover, renewable energy projects often yield long-term financial benefits. The cost of solar and wind energy has plummeted in recent years, making these solutions more competitive with fossil fuels. As businesses transition to renewable sources, they can enjoy lower energy costs in the long run, improving their bottom line while simultaneously reducing their carbon footprint. This economic advantage positions renewable energy as not just a solution for environmental sustainability but also a strategic business investment.\n\n**Environmental Impact of Renewable Energy Solutions**  \nThe consequences of climate change are increasingly visible, with severe weather events, rising sea levels, and widespread ecological disruption becoming the norm. The burning of fossil fuels is a leading contributor to greenhouse gas emissions, necessitating an urgent shift towards cleaner energy sources. By investing in renewable energy, we can significantly reduce carbon emissions and combat the adverse effects of climate change.\n\nRenewable energy sources such as solar, wind, and hydroelectric power produce little to no emissions during operation. This transition is crucial for achieving the targets set by the Paris Agreement and for the preservation of our planet for future generations. Furthermore, renewable energy production often involves utilizing underused land, leading to minimal environmental disruption compared to traditional fossil fuel extraction and consumption. Investing in renewable energy is a vital step in protecting our ecosystems and ensuring a sustainable environment for all.\n\n**Technological Innovations in Renewable Energy**  \nThe renewable energy sector is at the forefront of technological innovation, driving advancements that enhance efficiency and reduce costs. Cutting-edge research and development in energy storage technologies, smart grid solutions, and energy efficiency measures are essential for maximizing the potential of renewable resources. As we invest in these technologies, we not only improve the efficacy of energy generation but also unlock new economic opportunities.\n\nThe emergence of electric vehicles (EVs) and their integration with renewable energy sources demonstrates the significant potential for technological innovation in this sector. Investments in EV infrastructure and renewable energy charging stations can create new markets and partnerships, propelling both economic growth and environmental sustainability. Furthermore, advancements in energy storage technologies—such as batteries that can store solar or wind energy—are crucial for addressing the intermittency challenges of renewable resources. These innovations contribute to a resilient energy system poised to meet demand more effectively.\n\n**Call to Action for Investment**  \nTo harness the full potential of renewable energy, policymakers and business leaders must take decisive action. Governments should implement supportive policies and incentives that encourage investment in renewable energy infrastructure. This includes offering tax credits, grants, and subsidies for businesses adopting renewable technologies, fostering a favorable environment for innovation and development.\n\nAdditionally, businesses are urged to prioritize sustainability in their operations. By investing in renewable energy projects, companies can enhance their reputations as responsible corporate citizens while reaping economic benefits. Collaboration between public and private sectors will be crucial in driving the transition towards a cleaner energy future.\n\n**Conclusion**  \nGreater investment in renewable energy solutions is not merely an option; it is an imperative for our economic resilience, environmental health, and technological advancement. Policymakers and business leaders must recognize the profound benefits that arise from embracing renewable energy. By collaborating and investing in this sector, we can create job opportunities, combat climate change, and foster a more sustainable and prosperous future for generations to come. Let us commit to a bold vision of renewable energy investment—a vision that promises economic vitality and a healthier planet.  \n\nNow is the time to act. The future is renewable, and it is in our hands. \n\n', 'document_type': 'essay'}
@@ -770,7 +759,6 @@ drafting_agent (to chat_manager):
 
 Next speaker: review_agent
 
-
 >>>>>>>> USING AUTO REPLY...
 review_agent (to chat_manager):
 
@@ -782,7 +770,6 @@ Arguments:
 --------------------------------------------------------------------------------
 
 Next speaker: _Swarm_Tool_Executor
-
 
 >>>>>>>> EXECUTING FUNCTION submit_feedback...
 Call ID: call_a7wd1rvZMbV8tal9Qc2NWC8w
@@ -805,7 +792,6 @@ review_agent (to chat_manager):
 
 Next speaker: revision_agent
 
-
 >>>>>>>> USING AUTO REPLY...
 revision_agent (to chat_manager):
 
@@ -817,7 +803,6 @@ Arguments:
 --------------------------------------------------------------------------------
 
 Next speaker: _Swarm_Tool_Executor
-
 
 >>>>>>>> EXECUTING FUNCTION submit_revised_document...
 Call ID: call_SEwqhvPjPFsvFAoENIBFqAKW
@@ -840,7 +825,6 @@ revision_agent (to chat_manager):
 
 Next speaker: review_agent
 
-
 >>>>>>>> USING AUTO REPLY...
 review_agent (to chat_manager):
 
@@ -852,7 +836,6 @@ Arguments:
 --------------------------------------------------------------------------------
 
 Next speaker: _Swarm_Tool_Executor
-
 
 >>>>>>>> EXECUTING FUNCTION submit_feedback...
 Call ID: call_ckg6ILeoKNwMqeYLzeFBjWB0
@@ -875,7 +858,6 @@ review_agent (to chat_manager):
 
 Next speaker: revision_agent
 
-
 >>>>>>>> USING AUTO REPLY...
 revision_agent (to chat_manager):
 
@@ -887,7 +869,6 @@ Arguments:
 --------------------------------------------------------------------------------
 
 Next speaker: _Swarm_Tool_Executor
-
 
 >>>>>>>> EXECUTING FUNCTION submit_revised_document...
 Call ID: call_ZQRBOJeThB87tM538lACUFBX
@@ -910,7 +891,6 @@ revision_agent (to chat_manager):
 
 Next speaker: review_agent
 
-
 >>>>>>>> USING AUTO REPLY...
 review_agent (to chat_manager):
 
@@ -922,7 +902,6 @@ Arguments:
 --------------------------------------------------------------------------------
 
 Next speaker: _Swarm_Tool_Executor
-
 
 >>>>>>>> EXECUTING FUNCTION submit_feedback...
 Call ID: call_ZXtTVixmLEg8gZmFRtCgPrEq
@@ -945,7 +924,6 @@ review_agent (to chat_manager):
 
 Next speaker: revision_agent
 
-
 >>>>>>>> USING AUTO REPLY...
 revision_agent (to chat_manager):
 
@@ -957,7 +935,6 @@ Arguments:
 --------------------------------------------------------------------------------
 
 Next speaker: _Swarm_Tool_Executor
-
 
 >>>>>>>> EXECUTING FUNCTION submit_revised_document...
 Call ID: call_qNOeMuCwSEj3ZYfkkJpyynqo
@@ -980,7 +957,6 @@ revision_agent (to chat_manager):
 
 Next speaker: finalization_agent
 
-
 >>>>>>>> USING AUTO REPLY...
 finalization_agent (to chat_manager):
 
@@ -992,7 +968,6 @@ Arguments:
 --------------------------------------------------------------------------------
 
 Next speaker: _Swarm_Tool_Executor
-
 
 >>>>>>>> EXECUTING FUNCTION finalize_document...
 Call ID: call_O1hQSLmSttxe74lU2czUAY0Y
@@ -1006,7 +981,6 @@ Document finalized. Feedback loop complete.
 --------------------------------------------------------------------------------
 
 Next speaker: finalization_agent
-
 
 >>>>>>>> USING AUTO REPLY...
 finalization_agent (to chat_manager):
@@ -1058,7 +1032,6 @@ Finalization: ✅ Completed
 
 ===== REVISION HISTORY =====
 
-
 ===== FINAL DOCUMENT =====
 
 **Title: Investing in Our Future: The Case for Renewable Energy Solutions**
@@ -1090,7 +1063,6 @@ Additionally, businesses are urged to prioritize sustainability in their operati
 
 **Conclusion**
 Greater investment in renewable energy solutions is not merely an option; it is an imperative for our economic resilience, environmental health, and technological advancement. Policymakers and business leaders must recognize the profound benefits that arise from embracing renewable energy, which include job creation, cost savings, and the reduction of harmful emissions. By collaborating and investing in this sector, we can facilitate job opportunities, combat climate change, and foster a more sustainable and prosperous future for generations to come. The urgency of our climate crisis demands immediate response, and it is within our reach to secure a better future. Now is the time to act; the future of energy is renewable, and it is our responsibility to lead the transition.
-
 
 ===== SPEAKER ORDER =====
 

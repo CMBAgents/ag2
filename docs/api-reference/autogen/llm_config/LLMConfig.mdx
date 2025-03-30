@@ -21,26 +21,15 @@ LLMConfig(**kwargs: Any)
 ### Static Methods
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
-#### get_current_llm_config
+#### from_json
 
 ```python
-get_current_llm_config() -> LLMConfig | None
-```
-
-    
-
-<br />
-
-### Instance Methods
-
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
-#### apply_filter
-
-```python
-apply_filter(
-    self,
-    filter: LLMConfigFilter | None,
-    exclude: bool = False
+from_json(
+    *,
+    env: str | None = None,
+    path: str | Path | None = None,
+    file_location: str | None = None,
+    **kwargs: Any
 ) -> LLMConfig
 ```
 
@@ -49,8 +38,55 @@ apply_filter(
 <b>Parameters:</b>
 | Name | Description |
 |--|--|
-| `filter` | **Type:** autogen.llm_config.LLMConfigFilter \| None |
-| `exclude` | **Type:** bool<br/><br/>**Default:** False |
+| `env` | **Type:** str \| None<br/><br/>**Default:** None |
+| `path` | **Type:** str \| pathlib.Path \| None<br/><br/>**Default:** None |
+| `file_location` | **Type:** str \| None<br/><br/>**Default:** None |
+| `**kwargs` | **Type:** Any |
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### get_current_llm_config
+
+```python
+get_current_llm_config(llm_config: Optional[LLMConfig] = None) -> LLMConfig | None
+```
+
+    
+
+<b>Parameters:</b>
+| Name | Description |
+|--|--|
+| `llm_config` | **Type:** Optional[[LLMConfig](/docs/api-reference/autogen/llm_config/LLMConfig)]<br/><br/>**Default:** None |
+
+<br />
+
+### Instance Methods
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### copy
+
+```python
+copy(self) -> LLMConfig
+```
+
+    
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### deepcopy
+
+```python
+deepcopy(self, memo: dict[int, Any] | None = None) -> LLMConfig
+```
+
+    
+
+<b>Parameters:</b>
+| Name | Description |
+|--|--|
+| `memo` | **Type:** dict[int, typing.Any] \| None<br/><br/>**Default:** None |
 
 <br />
 
@@ -172,11 +208,14 @@ model_validate_json(
     json_data: str | bytes | bytearray,
     *,
     strict: bool | None = None,
-    context: Any | None = None
+    context: Any | None = None,
+    by_alias: bool | None = None,
+    by_name: bool | None = None
 ) -> Self
 ```
 
-    Usage docs: https://docs.pydantic.dev/2.10/concepts/json/#json-parsing
+    !!! abstract "Usage Documentation"
+        [JSON Parsing](/docs/api-reference/autogen/concepts/json#json-parsing)
     
     Validate the given JSON data against the Pydantic model.<br/>
 
@@ -186,6 +225,8 @@ model_validate_json(
 | `json_data` | The JSON data to validate.<br/><br/>**Type:** str \| bytes \| bytearray |
 | `strict` | Whether to enforce types strictly.<br/><br/>**Type:** bool \| None<br/><br/>**Default:** None |
 | `context` | Extra variables to pass to the validator.<br/><br/>**Type:** Any \| None<br/><br/>**Default:** None |
+| `by_alias` | Whether to use the field's alias when validating against the provided input data.<br/><br/>**Type:** bool \| None<br/><br/>**Default:** None |
+| `by_name` | Whether to use the field's name when validating against the provided input data.<br/><br/>**Type:** bool \| None<br/><br/>**Default:** None |
 
 <b>Returns:</b>
 | Type | Description |
@@ -202,7 +243,9 @@ model_validate_strings(
     obj: Any,
     *,
     strict: bool | None = None,
-    context: Any | None = None
+    context: Any | None = None,
+    by_alias: bool | None = None,
+    by_name: bool | None = None
 ) -> Self
 ```
 
@@ -214,6 +257,8 @@ model_validate_strings(
 | `obj` | The object containing string data to validate.<br/><br/>**Type:** Any |
 | `strict` | Whether to enforce types strictly.<br/><br/>**Type:** bool \| None<br/><br/>**Default:** None |
 | `context` | Extra variables to pass to the validator.<br/><br/>**Type:** Any \| None<br/><br/>**Default:** None |
+| `by_alias` | Whether to use the field's alias when validating against the provided input data.<br/><br/>**Type:** bool \| None<br/><br/>**Default:** None |
+| `by_name` | Whether to use the field's name when validating against the provided input data.<br/><br/>**Type:** bool \| None<br/><br/>**Default:** None |
 
 <b>Returns:</b>
 | Type | Description |
@@ -230,5 +275,27 @@ values(self) -> Iterable[Any]
 ```
 
     
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### where
+
+```python
+where(
+    self,
+    *,
+    exclude: bool = False,
+    **kwargs: Any
+) -> LLMConfig
+```
+
+    
+
+<b>Parameters:</b>
+| Name | Description |
+|--|--|
+| `exclude` | **Type:** bool<br/><br/>**Default:** False |
+| `**kwargs` | **Type:** Any |
 
 <br />

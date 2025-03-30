@@ -11,7 +11,8 @@ title: autogen.llm_config.LLMConfigEntry
 LLMConfigEntry(**data: Any)
 ```
 
-    Usage docs: https://docs.pydantic.dev/2.10/concepts/models/
+    !!! abstract "Usage Documentation"
+        [Models](/docs/api-reference/autogen/concepts/models)
     
     A base class for creating Pydantic models.<br/>
 
@@ -42,6 +43,18 @@ LLMConfigEntry(**data: Any)
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
 #### base_url
+<br />
+
+    <br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
+#### default_headers
+<br />
+
+    <br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
+#### http_client
 <br />
 
     <br />
@@ -82,6 +95,31 @@ LLMConfigEntry(**data: Any)
 
     <br />
 
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>
+#### voice
+<br />
+
+    <br />
+
+### Static Methods
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### check_base_url
+
+```python
+check_base_url(v: Any, info: ValidationInfo) -> Any
+```
+
+    
+
+<b>Parameters:</b>
+| Name | Description |
+|--|--|
+| `v` | **Type:** Any |
+| `info` | **Type:** pydantic_core.core_schema.ValidationInfo |
+
+<br />
+
 ### Instance Methods
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
@@ -117,6 +155,28 @@ get(
 <br />
 
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### items
+
+```python
+items(self) -> Iterable[tuple[str, Any]]
+```
+
+    
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### keys
+
+```python
+keys(self) -> Iterable[str]
+```
+
+    
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
 #### model_dump
 
 ```python
@@ -128,7 +188,8 @@ model_dump(
 ) -> dict[str, Any]
 ```
 
-    Usage docs: https://docs.pydantic.dev/2.10/concepts/serialization/#modelmodel_dump
+    !!! abstract "Usage Documentation"
+        [`model_dump`](/docs/api-reference/autogen/concepts/serialization#modelmodel_dump)
     
     Generate a dictionary representation of the model, optionally specifying which fields to include or exclude.<br/>
 
@@ -158,7 +219,8 @@ model_dump_json(
 ) -> str
 ```
 
-    Usage docs: https://docs.pydantic.dev/2.10/concepts/serialization/#modelmodel_dump_json
+    !!! abstract "Usage Documentation"
+        [`model_dump_json`](/docs/api-reference/autogen/concepts/serialization#modelmodel_dump_json)
     
     Generates a JSON representation of the model using Pydantic's `to_json` method.<br/>
 
@@ -205,5 +267,16 @@ serialize_base_url(self, v: Any) -> Any
 | Name | Description |
 |--|--|
 | `v` | **Type:** Any |
+
+<br />
+
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>
+#### values
+
+```python
+values(self) -> Iterable[Any]
+```
+
+    
 
 <br />
