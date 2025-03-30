@@ -10,13 +10,19 @@ import json
 import logging
 import os
 import tempfile
+from typing import Any
 from unittest import mock
 from unittest.mock import patch
 
 import pytest
 
 import autogen
-from autogen.oai.openai_utils import DEFAULT_AZURE_API_VERSION, filter_config, is_valid_api_key
+from autogen.oai.openai_utils import (
+    DEFAULT_AZURE_API_VERSION,
+    filter_config,
+    get_first_llm_config,
+    is_valid_api_key,
+)
 
 from ..conftest import MOCK_OPEN_AI_API_KEY
 
@@ -70,6 +76,16 @@ JSON_SAMPLE = """
         "model": "gpt",
         "api_key": "not-needed",
         "base_url": "http://localhost:1234/v1"
+    },
+    {
+        "model": "gpt-4o",
+        "api_type": "openai",
+        "tags": ["gpt-4o"]
+    },
+    {
+        "model": "gpt-4o-mini",
+        "api_type": "openai",
+        "tags": ["gpt-4o-mini"]
     }
 ]
 """
@@ -86,17 +102,27 @@ FILTER_CONFIG_TEST = [
     {
         "filter_dict": {"tags": ["gpt35", "gpt4"]},
         "exclude": True,
-        "expected": JSON_SAMPLE_DICT[2:4],
+        "expected": JSON_SAMPLE_DICT[2:6],
     },
     {
         "filter_dict": {"api_type": "azure", "api_version": "2024-02-01"},
         "exclude": False,
         "expected": [JSON_SAMPLE_DICT[2]],
     },
+    {
+        "filter_dict": {"model": "gpt-4o-mini"},
+        "exclude": False,
+        "expected": [JSON_SAMPLE_DICT[5]],
+    },
+    {
+        "filter_dict": {"model": "gpt-4o"},
+        "exclude": False,
+        "expected": [JSON_SAMPLE_DICT[4]],
+    },
 ]
 
 
-def _compare_lists_of_dicts(list1: list[dict], list2: list[dict]) -> bool:
+def _compare_lists_of_dicts(list1: list[dict[str, Any]], list2: list[dict[str, Any]]) -> bool:
     dump1 = sorted(json.dumps(d, sort_keys=True) for d in list1)
     dump2 = sorted(json.dumps(d, sort_keys=True) for d in list2)
     return dump1 == dump2
@@ -113,10 +139,23 @@ def test_filter_config(test_case):
     filter_dict = test_case["filter_dict"]
     exclude = test_case["exclude"]
     expected = test_case["expected"]
+    print("hello")
 
     config_list = filter_config(JSON_SAMPLE_DICT, filter_dict, exclude)
 
+    print(f"config_list: {config_list}")
+    print(f"expected: {expected}")
+
     assert _compare_lists_of_dicts(config_list, expected)
+
+
+def test_filter_config_warning() -> None:
+    test_case = FILTER_CONFIG_TEST[0]
+    filter_dict = test_case["filter_dict"]
+    exclude = test_case["exclude"]
+
+    with pytest.warns(DeprecationWarning):
+        filter_config(JSON_SAMPLE_DICT, filter_dict, exclude)
 
 
 def test_config_list_from_json():
@@ -168,6 +207,15 @@ def test_config_list_from_json():
     # Test that an error is thrown when the config list is missing
     with pytest.raises(FileNotFoundError):
         autogen.config_list_from_json("OAI_CONFIG_LIST.missing")
+
+
+def test_config_list_from_json_warning():
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp_file:
+        tmp_file.write(JSON_SAMPLE)
+        tmp_file.flush()
+
+        with pytest.warns(DeprecationWarning):
+            autogen.config_list_from_json(tmp_file.name)
 
 
 def test_config_list_openai_aoai():
@@ -391,6 +439,44 @@ def test_get_config_list():
     api_keys_with_empty = ["key1", "", "key3"]
     config_list_with_empty_key = autogen.get_config_list(api_keys_with_empty, base_urls, api_type, api_version)
     assert len(config_list_with_empty_key) == 2, "The config_list should exclude configurations with empty api_keys."
+
+
+@pytest.mark.parametrize(
+    ("llm_config", "expected"),
+    [
+        (
+            {"model": "gpt-4o-mini", "api_key": ""},
+            {"model": "gpt-4o-mini", "api_key": ""},
+        ),
+        (
+            {"config_list": [{"model": "gpt-4o-mini", "api_key": ""}]},
+            {"model": "gpt-4o-mini", "api_key": ""},
+        ),
+        (
+            {
+                "config_list": [
+                    {"model": "gpt-4o-mini", "api_key": ""},
+                    {"model": "gpt-4o", "api_key": ""},
+                ]
+            },
+            {"model": "gpt-4o-mini", "api_key": ""},
+        ),
+    ],
+)
+def test_get_first_llm_config(llm_config: dict[str, Any], expected: dict[str, Any]) -> None:
+    assert get_first_llm_config(llm_config) == expected
+
+
+@pytest.mark.parametrize(
+    ("llm_config", "error_message"),
+    [
+        ({}, "llm_config must be a valid config dictionary."),
+        ({"config_list": []}, "Config list must contain at least one config."),
+    ],
+)
+def test_get_first_llm_config_incorrect_config(llm_config: dict[str, Any], error_message: str) -> None:
+    with pytest.raises(ValueError, match=error_message):
+        get_first_llm_config(llm_config)
 
 
 def test_tags():
