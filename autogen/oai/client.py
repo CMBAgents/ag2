@@ -243,6 +243,8 @@ class OpenAILLMConfigEntry(LLMConfigEntry):
     api_type: Literal["openai"] = "openai"
     top_p: Optional[float] = None
     price: Optional[list[float]] = Field(default=None, min_length=2, max_length=2)
+    reasoning_effort: Optional[Literal["low", "medium", "high"]] = None # cmbagent add on
+    check_every_ms: Optional[int] = None # cmbagent add on
     tool_choice: Optional[Literal["none", "auto", "required"]] = None
 
     def create_client(self) -> "ModelClient":
@@ -487,8 +489,10 @@ class OpenAIClient:
         ## cmbagent debug print to show all messages
         if cmbagent_debug:
             print("\n\n\n-----------------------------------\n")
-            print("in client.py create... params:",params)
+            # print("in client.py create... params:",params)
+            print(json.dumps(params, indent=4, default=str))
             print("\n\n\n-----------------------------------\n")
+            
         # import json
         # print(json.dumps(params, indent=4, default=str))
         # if "tools" in params and len(params['tools']):

@@ -17,6 +17,8 @@ import pandas as pd
 from IPython.display import display
 from IPython.display import Markdown
 
+from google.genai.errors import ClientError
+
 
 
 from collections import defaultdict
@@ -504,6 +506,10 @@ class ConversableAgent(LLMAgent):
         #     raise ValueError(
         #         "llm_config must be a dict or False or None."
         #     )
+
+        if cmbagent_debug:
+            print('\n\n\n\nin conversable_agent.py llm_config before validation: ', llm_config)
+            print('\n\n\n\nLLMConfig.get_current_llm_config(): ', LLMConfig.get_current_llm_config())
 
         if llm_config is None:
             llm_config = LLMConfig.get_current_llm_config()
@@ -1911,37 +1917,107 @@ class ConversableAgent(LLMAgent):
             if self.name == 'plan_recorder':
                 if cmbagent_debug:
                     print('\n\n\n\nin conversable_agent.py self.name == plan_recorder')
+                    print('\nforcing tool call for plan_recorder')
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "record_plan"}}
             elif self.name == 'review_recorder':
                 if cmbagent_debug:
                     print('\n\n\n\nin conversable_agent.py self.name == review_recorder')
+                    print('\nforcing tool call for review_recorder')
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "record_review"}}
-
+            elif self.name == 'terminator':
+                if cmbagent_debug:
+                    print('\n\n\n\nin conversable_agent.py self.name == terminator')
+                    print('\nforcing tool call for terminator')
+                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
+                tool_choice = {"type": "function", "function": {"name": "terminate_session"}}
             elif self.name == 'classy_sz_agent': # this is not used for the gptassistant agent
                 if cmbagent_debug:
                     print('\n\n\n\nin conversable_agent.py self.name == classy_sz_agent')
+                    print('\nforcing tool call for classy_sz_agent')
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "file_search"}}
+
+            elif self.name == 'task_recorder':
+                if cmbagent_debug:
+                    print('\n\n\n\nin conversable_agent.py self.name == task_recorder')
+                    print('\nforcing tool call for task_recorder')
+                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
+                tool_choice = {"type": "function", "function": {"name": "record_improved_task"}}
             else:
                 tool_choice = "auto"
+                
+            if 'context' in all_messages[-1]:
+                print("in conversable_agent.py context: ", all_messages[-1]['context'])
+                pprint.pprint(messages[-1].pop("context", None))
+                import pprint; pprint.pprint(all_messages[-1])
 
-            response = llm_client.create(
-                context=messages[-1].pop("context", None),
-                messages=all_messages,
-                cache=cache,
-                agent=self,
-                parallel_tool_calls=False,
-                tool_choice=tool_choice
-            )
-        except:
+            if (self.llm_config.config_list[0]['api_type'] == 'openai'):
+                response = llm_client.create(
+                    context=messages[-1].pop("context", None),
+                    messages=all_messages,
+                    cache=cache,
+                    agent=self,
+                    parallel_tool_calls=False, ## cmbagent added this to disable parallel tool calls
+                    tool_choice=tool_choice ## cmbagent added this to force tool call
+                )
+            else:
+                for im in range(len(all_messages)):
+                    all_messages[im]["role"] = "user" # cmbagent tweaked this to fix the error
+                    # all_messages[im].pop("tool_call_id", None) # cmbagent tweaked this to fix the error
+
+                response = llm_client.create(
+                    context=messages[-1].pop("context", None),
+                    messages=all_messages,
+                    cache=cache,
+                    agent=self
+                )
+        # except ClientError as e:
+        #     if cmbagent_debug:
+        #         print('\n\n\n\nin conversable_agent.py except ClientError: ', e)
+        #         print(self.llm_config)
+        #         print(self.llm_config.config_list[0]['api_type'])
+        #         print('messages[-1].pop("context", None): ', all_messages[-1].pop("context", None))
+        #         import pprint; pprint.pprint(all_messages)
+        #         print("\n\nlast message:")
+        #         pprint.pprint(all_messages[-1])
+        #         print(all_messages[-1]["role"])
+
+        #         print("\n\nlast to last message:")
+        #         pprint.pprint(all_messages[-2])
+        #         print(all_messages[-2]["role"])
+
+        #     all_messages[-1]["role"] = "user" # cmbagent tweaked this to fix the error
+        #     all_messages[-1].pop("tool_call_id", None) # cmbagent tweaked this to fix the error
+        #     all_messages[-2] = all_messages[-1] # cmbagent tweaked this to fix the error
+        #     # if messages and messages[-1]["role"] == "tool":
+        #     #     print("Removing dangling tool message to prevent Gemini 400 error.")
+        #     #     messages.pop()
+        #     if cmbagent_debug:
+        #         print("\n\nlast message after modification:")
+        #         pprint.pprint(all_messages[-1])
+        #         print(all_messages[-1]["role"])
+
+        #         print("\n\nlast to last message after modification:")
+        #         pprint.pprint(all_messages[-2])
+        #         print(all_messages[-2]["role"])
+
+        #     response = llm_client.create(
+        #         context=messages[-1].pop("context", None),
+        #         messages=all_messages,
+        #         cache=cache,
+        #         agent=self
+        #     )
+        except Exception as e:
+            if cmbagent_debug:  
+                print('\n\n\n\nin conversable_agent.py except Exception: ', e)
             response = llm_client.create(
                 context=messages[-1].pop("context", None),
                 messages=all_messages,
                 cache=cache,
                 agent=self
-            )
+            )           
         ## cmbagent modif print to help debug: 
         # print full raw response here
         # cmbagent debug

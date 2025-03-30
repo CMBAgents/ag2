@@ -200,6 +200,7 @@ class GPTAssistantAgent(ConversableAgent):
                         "tool_resources": openai_assistant_cfg.get("tool_resources", None),
                         "temperature": openai_assistant_cfg.get("temperature",None),
                         "top_p": openai_assistant_cfg.get("top_p",None),
+                        # "check_every_ms":500, ## cmbagent added this to check every 500ms
                     },
                 )
                 ## cmbagent debug print: 
@@ -286,7 +287,7 @@ class GPTAssistantAgent(ConversableAgent):
                 'type': 'file_search', ## cmbagent added this
                 'file_search': {'max_num_results': file_search_max_num_results} ## cmbagent added this
             }], ## cmbagent added this
-            tool_choice={"type": "file_search", "function": {"name": "file_search"}} ## cmbagent added this
+            tool_choice={"type": "file_search", "function": {"name": "file_search"}} ## cmbagent added this to force tool call
         )
 
 
@@ -592,6 +593,9 @@ class GPTAssistantAgent(ConversableAgent):
             run = self._openai_client.beta.threads.runs.retrieve(run_id, thread_id=thread_id)
             in_progress = run.status in ("in_progress", "queued")
             if in_progress:
+                if cmbagent_debug:  
+                    print('in gpt_assistant_agent.py _wait_for_run: in_progress')
+                    print('in gpt_assistant_agent.py llm_config:  ', self.llm_config)
                 time.sleep(self.llm_config.get("check_every_ms", 1000) / 1000)
         return run
 
@@ -770,6 +774,8 @@ class GPTAssistantAgent(ConversableAgent):
             openai_client_cfg.pop(item, None)
 
         ## cmbagent debug print check: 
-        # print('in gpt_assistant_agent.py openai_client_cfg: ', openai_client_cfg)
-        # print('in gpt_assistant_agent.py openai_assistant_cfg: ', openai_assistant_cfg)
+        if cmbagent_debug:
+            print('in gpt_assistant_agent.py openai_client_cfg: ', openai_client_cfg)
+            print('in gpt_assistant_agent.py openai_assistant_cfg: ', openai_assistant_cfg)
+        # import sys; sys.exit()
         return openai_client_cfg, openai_assistant_cfg

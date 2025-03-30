@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Annotated, Any, Mapping, Optional, Type, TypeV
 from httpx import Client as httpxClient
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, SecretStr, ValidationInfo, field_serializer, field_validator
 
+from .cmbagent_utils import cmbagent_debug
+
 if TYPE_CHECKING:
     from .oai.client import ModelClient
 
@@ -80,6 +82,9 @@ class LLMConfig(metaclass=MetaLLMConfig):
             if x in modified_kwargs:
                 modified_kwargs["config_list"] = [{**v, x: modified_kwargs[x]} for v in modified_kwargs["config_list"]]
                 modified_kwargs.pop(x)
+
+        if cmbagent_debug:
+            print('\n\n\n\nmodified_kwargs: ', modified_kwargs)
 
         self._model = self._get_base_model_class()(**modified_kwargs)
 
@@ -245,6 +250,9 @@ class LLMConfig(metaclass=MetaLLMConfig):
     def _get_base_model_class(cls) -> Type["BaseModel"]:
         def _get_cls(llm_config_classes: tuple[Type[LLMConfigEntry], ...]) -> Type[BaseModel]:
             if llm_config_classes in LLMConfig._base_model_classes:
+                if cmbagent_debug:
+                    print('\n\n\n\nLLMConfig._base_model_classes[llm_config_classes]: returning cached base model class')
+                    print(llm_config_classes)
                 return LLMConfig._base_model_classes[llm_config_classes]
 
             class _LLMConfig(BaseModel):
@@ -256,6 +264,8 @@ class LLMConfig(metaclass=MetaLLMConfig):
                 response_format: Optional[Union[str, dict[str, Any], BaseModel, Type[BaseModel]]] = None
                 timeout: Optional[int] = None
                 cache_seed: Optional[int] = None
+
+                check_every_ms: Optional[int] = 250 # cmbagent add on
 
                 tools: list[Any] = Field(default_factory=list)
                 functions: list[Any] = Field(default_factory=list)

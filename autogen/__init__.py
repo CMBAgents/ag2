@@ -30,8 +30,7 @@ from .agentchat import (
     initiate_chats,
     initiate_swarm_chat,
     register_function,
-    register_hand_off,
-    visualize_tree
+    register_hand_off
 )
 from .code_utils import DEFAULT_MODEL, FAST_MODEL
 # from .code_utils import cmbagent_debug
