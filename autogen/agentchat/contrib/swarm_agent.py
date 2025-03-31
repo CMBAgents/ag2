@@ -452,6 +452,8 @@ def _prepare_swarm_agents(
 
     # Update tool execution agent with all the functions from all the agents
     for agent in agents + nested_chat_agents:
+        if cmbagent_debug:
+            print('\n\n\n\nin swarm_agent.py _prepare_swarm_agents agent.name: ', agent.name)
         tool_execution._function_map.update(agent._function_map)
 
         # Add conditional functions to the tool_execution agent
@@ -463,9 +465,15 @@ def _prepare_swarm_agents(
             _change_tool_context_variables_to_depends(agent, tool, context_variables)
 
         # Add all tools to the Tool Executor agent
+        
         for tool in agent.tools:
+            if cmbagent_debug:
+                print('\n\n\n\nin swarm_agent.py _prepare_swarm_agents tool.name: ', tool.name)
+            # import ipdb; ipdb.set_trace()
+            # import pprint; pprint.pprint(tool.model_dump())
             tool_execution.register_for_execution(serialize=False, silent_override=True)(tool)
-
+    # import ipdb; ipdb.set_trace()
+    # import sys; sys.exit()
     if exclude_transit_message:
         # get all transit functions names
         to_be_removed = []

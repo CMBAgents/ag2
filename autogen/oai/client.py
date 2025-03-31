@@ -687,9 +687,19 @@ class OpenAIClient:
             # print('\n\n in oai/client.py params: ',params)
             # print('----> now creating response')
             ### end of cmbagent changes.
-            
 
-            response = create_or_parse(**params)
+            # import pprint; pprint.pprint(params)
+            # import sys; sys.exit()  
+            try:
+                response = create_or_parse(**params)
+            except Exception as e:
+                if cmbagent_debug:  
+                    print('\n\n\n\nin oai/client.py except Exception: ', e)
+                    import pprint; pprint.pprint(params.pop("check_every_ms", None))
+                    import pprint; pprint.pprint(params)
+                params.pop("check_every_ms", None)
+                response = create_or_parse(**params)
+                # import sys; sys.exit()
             # remove the system_message from the response and add it in the prompt at the start.
             if is_o1:
                 for msg in params["messages"]:
@@ -699,7 +709,8 @@ class OpenAIClient:
         ## cmbagent debug print to show all messages
         if cmbagent_debug:
             print("\n\n\n-----------------------------------\n")
-            print("in client.py create... response:",response)
+            print("in client.py create... response:")
+            import pprint; pprint.pprint(response.model_dump())
             print("\n\n\n-----------------------------------\n")
 
         return response

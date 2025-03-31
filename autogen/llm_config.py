@@ -257,7 +257,6 @@ class LLMConfig(metaclass=MetaLLMConfig):
 
             class _LLMConfig(BaseModel):
                 temperature: Optional[float] = None
-                check_every_ms: Optional[int] = None
                 max_new_tokens: Optional[int] = None
                 seed: Optional[int] = None
                 allow_format_str_template: Optional[bool] = None

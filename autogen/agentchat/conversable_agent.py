@@ -731,6 +731,15 @@ class ConversableAgent(LLMAgent):
         chat_message = ""
         message = chat.get("message")
 
+        print('\n\n\n\nin conversable_agent.py _process_nested_chat_carryover message: ')
+        import pprint; pprint.pprint(message)
+        print('\n\n\n\nsender.name: ', sender.name)
+        print(dir(sender))
+        print(sender.chat_messages)
+        # message = sender.chat_messages
+        # print(sender.model_dump())
+        # import sys; sys.exit()
+
         # If the message is a callable, run it and get the result
         if message:
             chat_message = message(recipient, messages, sender, config) if callable(message) else message
@@ -746,6 +755,10 @@ class ConversableAgent(LLMAgent):
 
         elif carryover_summary_method == "last_msg":
             # (e.g. message = <first nested chat message>\nContext: \n<last chat message>)
+            print('\n\n\n\nin conversable_agent.py _process_nested_chat_carryover content_messages: ')
+            import pprint; pprint.pprint(content_messages)
+            
+            # import sys; sys.exit()
             carry_over_message = concat_carryover(chat_message, content_messages[-1]["content"])
 
         elif carryover_summary_method == "reflection_with_llm":
@@ -1945,9 +1958,17 @@ class ConversableAgent(LLMAgent):
                     print('\nforcing tool call for task_recorder')
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "record_improved_task"}}
+
+            elif self.name == 'perplexity':
+                # # if cmbagent_debug:
+                # print('\n\n\n\nin conversable_agent.py self.name == perplexity')
+                # print('\nforcing tool call for perplexity')
+                tool_choice = {"type": "function", "function": {"name": "perplexity-search"}}
+                # import sys; sys.exit()
+
             else:
                 tool_choice = "auto"
-                
+
             if 'context' in all_messages[-1]:
                 print("in conversable_agent.py context: ", all_messages[-1]['context'])
                 pprint.pprint(messages[-1].pop("context", None))
@@ -2012,6 +2033,9 @@ class ConversableAgent(LLMAgent):
         except Exception as e:
             if cmbagent_debug:  
                 print('\n\n\n\nin conversable_agent.py except Exception: ', e)
+            # import pprint; pprint.pprint(self.llm_config)
+            # self.llm_config.check_every_ms = None
+            # import pprint; pprint.pprint(self.llm_config)
             response = llm_client.create(
                 context=messages[-1].pop("context", None),
                 messages=all_messages,

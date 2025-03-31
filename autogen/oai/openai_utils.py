@@ -874,7 +874,8 @@ def update_gpt_assistant(client: "OpenAI", assistant_id: str, assistant_config: 
         assistant_update_kwargs["tool_choice"] = assistant_config["tool_choice"]
 
     if cmbagent_debug:
-        print('in openai_utils.py update_gpt_assistant assistant_update_kwargs: ', assistant_update_kwargs)
+        print('in openai_utils.py update_gpt_assistant assistant_update_kwargs: ')
+        import pprint; pprint.pprint(assistant_update_kwargs)
 
     try:
         return client.beta.assistants.update(assistant_id=assistant_id, **assistant_update_kwargs)
