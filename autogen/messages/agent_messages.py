@@ -139,7 +139,7 @@ class ToolResponse(BaseModel):
         else:
             # f(self.content, flush=True)
             if not cmbagent_disable_display:
-                if self.content.startswith("content='"):
+                if self.content.startswith("content="):
                     # display(Markdown("Forwarding perplexity response..."))
                     display(Markdown("\nForwarding perplexity content...\n"))
                 else:
