@@ -258,7 +258,8 @@ class ToolCallMessage(BasePrintReceivedMessage):
                                     "joker_response_formatter",
                                     "lecturer_response_formatter",
                                     "course_director_response_formatter",
-                                    "course_material_provider"
+                                    "course_material_provider",
+                                    "perplexity"
                                     ]:
                 if not cmbagent_disable_display:
                     display(Markdown(self.content)) # it doesnt work all the time
