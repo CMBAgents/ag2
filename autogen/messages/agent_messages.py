@@ -105,7 +105,10 @@ class FunctionResponseMessage(BasePrintReceivedMessage):
         else:
             # f(self.content, flush=True)
             if not cmbagent_disable_display:    
-                display(Markdown(self.content))
+                if self.sender_name == "perplexity":
+                    print("Passing sonar response content to LLM")
+                else:
+                    display(Markdown(self.content))
             else:
                 f(self.content, flush=True)
 
@@ -136,7 +139,12 @@ class ToolResponse(BaseModel):
         else:
             # f(self.content, flush=True)
             if not cmbagent_disable_display:
-                display(Markdown(self.content))
+                if self.content.startswith("content='"):
+                    # display(Markdown("Forwarding perplexity response..."))
+                    display(Markdown("\nForwarding perplexity content...\n"))
+                else:
+                    display(Markdown(self.content))
+                # display(Markdown(self.content))
             else:
                 f(self.content, flush=True)
 
@@ -259,12 +267,14 @@ class ToolCallMessage(BasePrintReceivedMessage):
                                     "lecturer_response_formatter",
                                     "course_director_response_formatter",
                                     "course_material_provider",
-                                    "perplexity"
+                                    # "perplexity"
                                     ]:
                 if not cmbagent_disable_display:
                     display(Markdown(self.content)) # it doesnt work all the time
                 else:
                     f(self.content, flush=True)
+            # elif self.sender_name == "perplexity":
+            #     print("Passing sonar responsecontent to LLM")
             else:
                 f(self.content, flush=True)
             # cmbagent debug
@@ -335,6 +345,7 @@ class TextMessage(BasePrintReceivedMessage):
                                     "course_director_response_formatter",
                                     "course_material_provider",
                                     "review_recorder",
+                                    "perplexity",
                                     # "planner",
                                     # "plan_reviewer",
                                     ]:
