@@ -1252,12 +1252,16 @@ class GroupChatManager(ConversableAgent):
             for a in groupchat.agents:
                 a.previous_cache = a.client_cache
                 a.client_cache = self.client_cache
+        if cmbagent_debug:
+            groupchat.verbose = True
         for i in range(groupchat.max_round):
             # cmbagent debug -- print all messages
             # print("\n in groupchat.py i: ", i)
-            # print("\n\n\n-----------------------------------\n")
-            # print("\n in groupchat.py messages: ", messages)
-            # print("\n\n\n-----------------------------------\n")
+            if cmbagent_debug:  
+                print("\n\n\n-----------------------------------\n")
+                print("\n in groupchat.py messages: ")
+                import pprint; pprint.pprint(messages)
+                print("\n\n\n-----------------------------------\n")
             self._last_speaker = speaker
             groupchat.append(message, speaker)
             # broadcast the message to all agents except the speaker

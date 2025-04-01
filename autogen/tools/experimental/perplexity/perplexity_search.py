@@ -14,6 +14,7 @@ import requests
 from pydantic import BaseModel
 
 from autogen.tools import Tool
+from autogen.cmbagent_utils import cmbagent_debug
 
 
 class Message(BaseModel):
@@ -188,6 +189,10 @@ class PerplexitySearchTool(Tool):
         response = requests.request("POST", self.url, json=payload, headers=headers)
         response_json = response.json()
         perp_resp = PerplexityChatCompletionResponse(**response_json)
+        if cmbagent_debug:
+            print("\n\nin perplexity_search_tool.py _execute_query... perp_resp:")
+            import pprint; pprint.pprint(perp_resp)
+        # import sys; sys.exit()
         return perp_resp
 
     def search(self, query: Annotated[str, "The search query."]) -> SearchResponse:

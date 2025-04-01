@@ -1898,7 +1898,9 @@ class ConversableAgent(LLMAgent):
         # print('in conversable_agent.py generate_oai_reply( client_cache: ', self.client_cache)
         extracted_response = self._generate_oai_reply_from_client(
             client, self._oai_system_message + messages, self.client_cache)
-        # print('in conversable_agent.py generate_oai_reply extracted_response: ', extracted_response)
+        # print('\n\nin conversable_agent.py generate_oai_reply extracted_response: ')
+        # import pprint; pprint.pprint(extracted_response)
+        # import sys; sys.exit()
 
         return (False, None) if extracted_response is None else (True, extracted_response)
 
@@ -1959,12 +1961,12 @@ class ConversableAgent(LLMAgent):
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "record_improved_task"}}
 
-            elif self.name == 'perplexity':
-                # # if cmbagent_debug:
-                # print('\n\n\n\nin conversable_agent.py self.name == perplexity')
-                # print('\nforcing tool call for perplexity')
-                tool_choice = {"type": "function", "function": {"name": "perplexity-search"}}
-                # import sys; sys.exit()
+            # elif self.name == 'perplexity':
+            #     # # if cmbagent_debug:
+            #     # print('\n\n\n\nin conversable_agent.py self.name == perplexity')
+            #     # print('\nforcing tool call for perplexity')
+            #     tool_choice = {"type": "function", "function": {"name": "perplexity-search"}}
+            #     # import sys; sys.exit()
 
             else:
                 tool_choice = "auto"
@@ -2045,9 +2047,11 @@ class ConversableAgent(LLMAgent):
         ## cmbagent modif print to help debug: 
         # print full raw response here
         # cmbagent debug
-        # print('\n\nin conversable_agent.py response: ',response)
-        # import sys; sys.exit()
-        # print('\n\n')
+        if cmbagent_debug:
+            print('\n\nin conversable_agent.py response: ')
+            import pprint; pprint.pprint(response)
+            # import sys; sys.exit()
+            print('\n\n')
 
         # llm_client.print_usage_summary(mode="actual")  # print actual usage summary, i.e., excluding cached usage
         # Update dictionary containing all costs
@@ -2443,6 +2447,10 @@ class ConversableAgent(LLMAgent):
                 "tool_responses": tool_returns,
                 "content": "\n\n".join([self._str_for_tool_response(tool_return) for tool_return in tool_returns]),
             }
+        if cmbagent_debug:  
+            print("\n\nin conversable_agent.py generate_tool_calls_reply... tool_returns:")
+            import pprint; pprint.pprint(tool_returns)
+            # import sys; sys.exit()    
         return False, None
 
     async def _a_execute_tool_call(self, tool_call):
