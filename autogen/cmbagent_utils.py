@@ -33,11 +33,8 @@ LOGO = r"""
     multi-agent systems for autonomous discovery    
 
 Built with AG2
-Version: Beta2
+Version: Beta3
 Last updated: 11/03/5202
-Contributors: B. Bolliet, M. Cranmer, S. Krippendorf, 
-A. Laverick, J. Lesgourgues, A. Lewis, B. D. Sherwin, 
-K. M. Surrao, F. Villaescusa-Navarro, L. Xu, I. Zubeldia
 """
 
 # Calculate the image width as a module-level variable.
