@@ -12,10 +12,18 @@ from typing import Annotated, Any, Optional, Union
 
 import requests
 from pydantic import BaseModel
+import re
 
 from autogen.tools import Tool
 from autogen.cmbagent_utils import cmbagent_debug
-
+from autogen import SwarmResult, AfterWorkOption
+from autogen.agentchat.contrib.swarm_agent import (
+    AfterWork,
+    AfterWorkOption,
+    OnCondition,
+    OnContextCondition,
+    SwarmResult,
+)
 
 class Message(BaseModel):
     """
@@ -117,7 +125,7 @@ class PerplexitySearchTool(Tool):
 
     def __init__(
         self,
-        model: str = "sonar",
+        model: str = "sonar-pro",
         api_key: Optional[str] = None,
         max_tokens: int = 1000,
         search_domain_filter: Optional[list[str]] = None,
@@ -186,16 +194,20 @@ class PerplexitySearchTool(Tool):
             PerplexityChatCompletionResponse: Parsed response from the Perplexity API.
         """
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
-        response = requests.request("POST", self.url, json=payload, headers=headers)
-        response_json = response.json()
-        perp_resp = PerplexityChatCompletionResponse(**response_json)
-        if cmbagent_debug:
-            print("\n\nin perplexity_search_tool.py _execute_query... perp_resp:")
-            import pprint; pprint.pprint(perp_resp)
-        # import sys; sys.exit()
-        return perp_resp
+        response = requests.post(self.url, headers=headers, json=payload).json()
+        # print(response["choices"][0]["message"]["content"])
+        # print(response["citations"])
+        return response
+        # response = requests.request("POST", self.url, json=payload, headers=headers)
+        # response_json = response.json()
+        # perp_resp = PerplexityChatCompletionResponse(**response_json)
+        # if cmbagent_debug:
+        #     print("\n\nin perplexity_search_tool.py _execute_query... perp_resp:")
+        #     import pprint; pprint.pprint(perp_resp)
+        # # import sys; sys.exit()
+        # return perp_resp
 
-    def search(self, query: Annotated[str, "The search query."]) -> SearchResponse:
+    def search(self, query: Annotated[str, "The search query."], context_variables: dict) -> SearchResponse:
         """
         Perform a search query using the Perplexity AI API.
 
@@ -212,18 +224,51 @@ class PerplexitySearchTool(Tool):
             ValueError: If the search query is invalid.
             RuntimeError: If there is an error during the search process.
         """
+        # print('\n\n\n\nin perplexity_search_tool.py search: ', query)
+        # print(dir(self))
+        # print('\n\n\n\nin perplexity_search_tool.py context_variables: ', context_variables)
+        # print('\n perplexity_query: ', context_variables['perplexity_query'])
+        query = context_variables['perplexity_query']
+        # import sys; sys.exit()
         payload = {
             "model": self.model,
             "messages": [{"role": "system", "content": "Be precise and concise."}, {"role": "user", "content": query}],
-            "max_tokens": self.max_tokens,
+            # "max_tokens": self.max_tokens,
             "search_domain_filter": self.search_domain_filters,
-            "web_search_options": {"search_context_size": "high"},
+            # "web_search_options": {"search_context_size": "high"},
         }
+        # print('\n\n\n\nin perplexity_search_tool.py payload: ', payload)
         try:
             perplexity_response = self._execute_query(payload)
-            content = perplexity_response.choices[0].message.content
-            citations = perplexity_response.citations
-            return SearchResponse(content=content, citations=citations, error=None)
+            # content = perplexity_response.choices[0].message.content
+            # citations = perplexity_response.citations
+            content = perplexity_response["choices"][0]["message"]["content"]
+            citations = perplexity_response["citations"]
+            # print('\n\n\n\nin perplexity_search_tool.py content: ', content)
+            # print('\n\n\n\nin perplexity_search_tool.py citations: ', citations)
+            # context_variables["perplexity_response"] = content
+            context_variables["perplexity_citations"] = citations
+
+            # This regex removes everything from "<think>" up to the first occurrence of "</think>"
+            cleaned_response = re.sub(r'<think>.*?</think>\s*', '', content, flags=re.DOTALL)
+            # Update the final context with the cleaned response.
+            context_variables["perplexity_response"] = cleaned_response
+
+            def citation_repl(match):
+                # Extract the citation number as a string and convert to an integer.
+                number_str = match.group(1)
+                index = int(number_str) - 1  # Adjust for 0-based indexing
+                if 0 <= index < len(citations):
+                    return f'[[{number_str}]({citations[index]})]'
+                # If the citation number is out of bounds, return it unchanged.
+                return match.group(0)
+            # Replace all instances of citations in the form [x] using the helper function.
+            markdown_response = re.sub(r'\[(\d+)\]', citation_repl, cleaned_response)
+
+            # return SearchResponse(content=content, citations=citations, error=None)
+            return SwarmResult(agent=AfterWorkOption.TERMINATE, ## transfer to planner
+                                values=markdown_response,
+                                context_variables=context_variables)
         except Exception as e:
             return SearchResponse(
                 content=None, citations=None, error=f"PerplexitySearchTool failed to search. Error: {e}"

@@ -489,6 +489,7 @@ class ConversableAgent(LLMAgent):
                         agent.update_system_message(sys_message)
                         if cmbagent_debug:
                             print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message)
+                        # print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent 
                         return messages
 
                     return update_system_message_wrapper
@@ -1961,12 +1962,20 @@ class ConversableAgent(LLMAgent):
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "record_improved_task"}}
 
-            # elif self.name == 'perplexity':
-            #     # # if cmbagent_debug:
-            #     # print('\n\n\n\nin conversable_agent.py self.name == perplexity')
-            #     # print('\nforcing tool call for perplexity')
-            #     tool_choice = {"type": "function", "function": {"name": "perplexity-search"}}
-            #     # import sys; sys.exit()
+            elif self.name == 'aas_keyword_finder':
+                if cmbagent_debug:
+                    print('\n\n\n\nin conversable_agent.py self.name == aas_keyword_finder')
+                    print('\nforcing tool call for aas_keyword_finder')
+                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
+                tool_choice = {"type": "function", "function": {"name": "record_aas_keywords"}}
+
+
+            elif self.name == 'perplexity':
+                # if cmbagent_debug:
+                #     print('\n\n\n\nin conversable_agent.py self.name == perplexity')
+                #     print('\nforcing tool call for perplexity')
+                tool_choice = {"type": "function", "function": {"name": "perplexity-search"}}
+                # import sys; sys.exit()
 
             else:
                 tool_choice = "auto"
@@ -3726,7 +3735,7 @@ class ConversableAgent(LLMAgent):
             # print("\n in conversable_agent.py update_agent_state_before_reply hook: ", hook)
             hook(self, messages)
             # print("\n\n\n-----------------------------------\n")
-            # print("\n in conversable_agent.py update_agent_state_before_reply messages after hook: ", messages)
+            # print("\n in conversable_agent.py update_agent_state_before_reply messages after hook: ", messages) # this print the messages after the hook is called
             # print("\n\n\n-----------------------------------\n")
 
     def process_all_messages_before_reply(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
