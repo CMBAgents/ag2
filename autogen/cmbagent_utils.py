@@ -3,7 +3,7 @@
 import os
 
 cmbagent_debug = os.getenv("CMBAGENT_DEBUG", "False").lower() == "true"
-cmbagent_disable_display = os.getenv("CMBAGENT_DISABLE_DISPLAY", "True").lower() == "true"
+cmbagent_disable_display = os.getenv("ASTROPILOT_DISABLE_DISPLAY", "True").lower() == "true"
 
 
 # see https://github.com/openai/openai-python/blob/da48e4cac78d1d4ac749e2aa5cfd619fde1e6c68/src/openai/types/beta/file_search_tool.py#L20
@@ -24,17 +24,10 @@ cmbagent_default_color = "yellow"
 
 # Define the logo as a module-level constant.
 LOGO = r"""
- _____ ___  _________  ___  _____  _____ _   _ _____ 
-/  __ \|  \/  || ___ \/ _ \|  __ \|  ___| \ | |_   _|
-| /  \/| .  . || |_/ / /_\ \ |  \/| |__ |  \| | | |  
-| |    | |\/| || ___ \  _  | | __ |  __|| . ` | | |  
-| \__/\| |  | || |_/ / | | | |_\ \| |___| |\  | | |  
-\_____/\_|  |_/\____/\_| |_/\____/\____/\_| \_/ \_/  
-    multi-agent systems for autonomous discovery    
-
-Built with AG2
-Version: Beta3
-Last updated: 11/03/5202
+   ___   _____________  ____  ___  ______   ____  ______
+  / _ | / __/_  __/ _ \/ __ \/ _ \/  _/ /  / __ \/_  __/
+ / __ |_\ \  / / / , _/ /_/ / ___// // /__/ /_/ / / /   
+/_/ |_/___/ /_/ /_/|_|\____/_/  /___/____/\____/ /_/       
 """
 
 # Calculate the image width as a module-level variable.
