@@ -3695,14 +3695,14 @@ class ConversableAgent(LLMAgent):
 
         return _decorator
 
-    def register_model_client(self, model_client_cls: ModelClient, **kwargs: Any):
+    def register_model_client(self, mod_client_cls: ModelClient, **kwargs: Any):
         """Register a model client.
 
         Args:
-            model_client_cls: A custom client class that follows the Client interface
+            mod_client_cls: A custom client class that follows the Client interface
             **kwargs: The kwargs for the custom client class to be initialized with
         """
-        self.client.register_model_client(model_client_cls, **kwargs)
+        self.client.register_model_client(mod_client_cls, **kwargs)
 
     def register_hook(self, hookable_method: str, hook: Callable):
         """Registers a hook to be called by a hookable method, in order to add a capability to the agent.

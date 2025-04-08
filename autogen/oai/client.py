@@ -926,7 +926,7 @@ class OpenAIWrapper:
         """
         openai_config = {**openai_config, **{k: v for k, v in config.items() if k in self.openai_kwargs}}
         api_type = config.get("api_type")
-        model_client_cls_name = config.get("model_client_cls")
+        mod_client_cls_name = config.get("mod_client_cls")
         response_format = config.get("response_format")
 
         ## cmbagent modif print to help debug: 
@@ -934,12 +934,12 @@ class OpenAIWrapper:
         ## print('in oai/client.py response_format: ',response_format)
         ## print('\n\n')
 
-        if model_client_cls_name is not None:
+        if mod_client_cls_name is not None:
             # a config for a custom client is set
             # adding placeholder until the register_model_client is called with the appropriate class
             self._clients.append(PlaceHolderClient(config))
             logger.info(
-                f"Detected custom model client in config: {model_client_cls_name}, model client can not be used until register_model_client is called."
+                f"Detected custom model client in config: {mod_client_cls_name}, model client can not be used until register_model_client is called."
             )
             # TODO: logging for custom client
         else:
@@ -1016,11 +1016,11 @@ class OpenAIWrapper:
             if logging_enabled():
                 log_new_client(client, self, openai_config)
 
-    def register_model_client(self, model_client_cls: ModelClient, **kwargs: Any):
+    def register_model_client(self, mod_client_cls: ModelClient, **kwargs: Any):
         """Register a model client.
 
         Args:
-            model_client_cls: A custom client class that follows the ModelClient interface
+            mod_client_cls: A custom client class that follows the ModelClient interface
             kwargs: The kwargs for the custom client class to be initialized with
         """
         existing_client_class = False
@@ -1028,20 +1028,20 @@ class OpenAIWrapper:
             if isinstance(client, PlaceHolderClient):
                 placeholder_config = client.config
 
-                if placeholder_config.get("model_client_cls") == model_client_cls.__name__:
-                    self._clients[i] = model_client_cls(placeholder_config, **kwargs)
+                if placeholder_config.get("mod_client_cls") == mod_client_cls.__name__:
+                    self._clients[i] = mod_client_cls(placeholder_config, **kwargs)
                     return
-            elif isinstance(client, model_client_cls):
+            elif isinstance(client, mod_client_cls):
                 existing_client_class = True
 
         if existing_client_class:
             logger.warn(
-                f"Model client {model_client_cls.__name__} is already registered. Add more entries in the config_list to use multiple model clients."
+                f"Model client {mod_client_cls.__name__} is already registered. Add more entries in the config_list to use multiple model clients."
             )
         else:
             raise ValueError(
-                f'Model client "{model_client_cls.__name__}" is being registered but was not found in the config_list. '
-                f'Please make sure to include an entry in the config_list with "model_client_cls": "{model_client_cls.__name__}"'
+                f'Model client "{mod_client_cls.__name__}" is being registered but was not found in the config_list. '
+                f'Please make sure to include an entry in the config_list with "mod_client_cls": "{mod_client_cls.__name__}"'
             )
 
     @classmethod
@@ -1111,7 +1111,7 @@ class OpenAIWrapper:
         last = len(self._clients) - 1
         # Check if all configs in config list are activated
         non_activated = [
-            client.config["model_client_cls"] for client in self._clients if isinstance(client, PlaceHolderClient)
+            client.config["mod_client_cls"] for client in self._clients if isinstance(client, PlaceHolderClient)
         ]
         if non_activated:
             raise RuntimeError(

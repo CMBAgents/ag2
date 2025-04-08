@@ -64,7 +64,7 @@ def test_custom_model_client():
     config_list = [
         {
             "model": TEST_LOCAL_MODEL_NAME,
-            "model_client_cls": "CustomModel",
+            "mod_client_cls": "CustomModel",
             "device": TEST_DEVICE,
             "params": {
                 "max_length": TEST_MAX_LENGTH,
@@ -76,7 +76,7 @@ def test_custom_model_client():
     test_hook = {"called": False}
 
     client = OpenAIWrapper(config_list=config_list)
-    client.register_model_client(model_client_cls=CustomModel, test_hook=test_hook)
+    client.register_model_client(mod_client_cls=CustomModel, test_hook=test_hook)
 
     response = client.create(messages=[{"role": "user", "content": "2+2="}], cache_seed=None)
     assert response.choices[0].message.content == TEST_CUSTOM_RESPONSE
@@ -111,13 +111,13 @@ def test_registering_with_wrong_class_name_raises_error():
     config_list = [
         {
             "model": "local_model_name",
-            "model_client_cls": "CustomModelWrongName",
+            "mod_client_cls": "CustomModelWrongName",
         },
     ]
     client = OpenAIWrapper(config_list=config_list)
 
     with pytest.raises(ValueError):
-        client.register_model_client(model_client_cls=CustomModel)
+        client.register_model_client(mod_client_cls=CustomModel)
 
 
 @run_for_optional_imports(["openai"], "openai")
@@ -142,7 +142,7 @@ def test_not_all_clients_registered_raises_error():
     config_list = [
         {
             "model": "local_model_name",
-            "model_client_cls": "CustomModel",
+            "mod_client_cls": "CustomModel",
             "device": "cpu",
             "params": {
                 "max_length": 1000,
@@ -151,7 +151,7 @@ def test_not_all_clients_registered_raises_error():
         },
         {
             "model": "local_model_name_2",
-            "model_client_cls": "CustomModel",
+            "mod_client_cls": "CustomModel",
             "device": "cpu",
             "params": {
                 "max_length": 1000,
@@ -162,7 +162,7 @@ def test_not_all_clients_registered_raises_error():
 
     client = OpenAIWrapper(config_list=config_list)
 
-    client.register_model_client(model_client_cls=CustomModel)
+    client.register_model_client(mod_client_cls=CustomModel)
 
     with pytest.raises(RuntimeError):
         client.create(messages=[{"role": "user", "content": "2+2="}], cache_seed=None)
@@ -196,7 +196,7 @@ def test_registering_with_extra_config_args():
     config_list = [
         {
             "model": "local_model_name",
-            "model_client_cls": "CustomModel",
+            "mod_client_cls": "CustomModel",
             "device": "test_device",
         },
     ]
@@ -204,6 +204,6 @@ def test_registering_with_extra_config_args():
     test_hook = {"called": False}
 
     client = OpenAIWrapper(config_list=config_list, cache_seed=None)
-    client.register_model_client(model_client_cls=CustomModel, test_hook=test_hook)
+    client.register_model_client(mod_client_cls=CustomModel, test_hook=test_hook)
     client.create(messages=[{"role": "user", "content": "2+2="}])
     assert test_hook["called"]

@@ -2138,14 +2138,14 @@ def test_custom_model_client():
         def get_usage(response):
             return {}
 
-    llm_config = {"config_list": [{"model": "test_model_name", "model_client_cls": "CustomModelClient"}]}
+    llm_config = {"config_list": [{"model": "test_model_name", "mod_client_cls": "CustomModelClient"}]}
 
     group_chat = autogen.GroupChat(
         agents=[],
         messages=[],
         max_round=3,
         select_speaker_auto_llm_config=llm_config,
-        select_speaker_auto_model_client_cls=CustomModelClient,
+        select_speaker_auto_mod_client_cls=CustomModelClient,
     )
 
     checking_agent, speaker_selection_agent = group_chat._create_internal_agents(
@@ -2159,7 +2159,7 @@ def test_custom_model_client():
 
     # Check that the LLM Config is assigned
     expected_config_list = [
-        {"model": "test_model_name", "model_client_cls": "CustomModelClient", "api_type": "openai", "tags": []}
+        {"model": "test_model_name", "mod_client_cls": "CustomModelClient", "api_type": "openai", "tags": []}
     ]
     assert speaker_selection_agent.client._config_list == expected_config_list
 

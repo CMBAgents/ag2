@@ -149,7 +149,7 @@ class GroupChat:
         "clear history" phrase in user prompt. This is experimental feature.
         See description of GroupChatManager.clear_agents_history function for more info.
     - send_introductions: send a round of introductions at the start of the group chat, so agents know who they can speak to (default: False)
-    - select_speaker_auto_model_client_cls: Custom model client class for the internal speaker select agent used during 'auto' speaker selection (optional)
+    - select_speaker_auto_mod_client_cls: Custom model client class for the internal speaker select agent used during 'auto' speaker selection (optional)
     - select_speaker_auto_llm_config: LLM config for the internal speaker select agent used during 'auto' speaker selection (optional)
     - role_for_select_speaker_messages: sets the role name for speaker selection when in 'auto' mode, typically 'user' or 'system'. (default: 'system')
     """
@@ -186,7 +186,7 @@ class GroupChat:
     Respond with ONLY the name of the speaker and DO NOT provide a reason."""
     select_speaker_transform_messages: Optional[transform_messages.TransformMessages] = None
     select_speaker_auto_verbose: Optional[bool] = False
-    select_speaker_auto_model_client_cls: Optional[Union[ModelClient, list[ModelClient]]] = None
+    select_speaker_auto_mod_client_cls: Optional[Union[ModelClient, list[ModelClient]]] = None
     select_speaker_auto_llm_config: Optional[Union[LLMConfig, dict[str, Any], Literal[False]]] = None
     role_for_select_speaker_messages: Optional[str] = "system"
     verbose: Optional[bool] = False
@@ -656,36 +656,36 @@ class GroupChat:
         return agent if agent else self.next_agent(last_speaker, agents)
 
     def _register_client_from_config(self, agent: Agent, config: dict):
-        model_client_cls_to_match = config.get("model_client_cls")
-        if model_client_cls_to_match:
-            if not self.select_speaker_auto_model_client_cls:
+        mod_client_cls_to_match = config.get("mod_client_cls")
+        if mod_client_cls_to_match:
+            if not self.select_speaker_auto_mod_client_cls:
                 raise ValueError(
-                    "A custom model was detected in the config but no 'model_client_cls' "
+                    "A custom model was detected in the config but no 'mod_client_cls' "
                     "was supplied for registration in GroupChat."
                 )
 
-            if isinstance(self.select_speaker_auto_model_client_cls, list):
+            if isinstance(self.select_speaker_auto_mod_client_cls, list):
                 # Register the first custom model client class matching the name specified in the config
                 matching_model_cls = [
                     client_cls
-                    for client_cls in self.select_speaker_auto_model_client_cls
-                    if client_cls.__name__ == model_client_cls_to_match
+                    for client_cls in self.select_speaker_auto_mod_client_cls
+                    if client_cls.__name__ == mod_client_cls_to_match
                 ]
                 if len(set(matching_model_cls)) > 1:
                     raise RuntimeError(
-                        f"More than one unique 'model_client_cls' with __name__ '{model_client_cls_to_match}'."
+                        f"More than one unique 'mod_client_cls' with __name__ '{mod_client_cls_to_match}'."
                     )
                 if not matching_model_cls:
                     raise ValueError(
                         "No model's __name__ matches the model client class "
-                        f"'{model_client_cls_to_match}' specified in select_speaker_auto_llm_config."
+                        f"'{mod_client_cls_to_match}' specified in select_speaker_auto_llm_config."
                     )
-                select_speaker_auto_model_client_cls = matching_model_cls[0]
+                select_speaker_auto_mod_client_cls = matching_model_cls[0]
             else:
                 # Register the only custom model client
-                select_speaker_auto_model_client_cls = self.select_speaker_auto_model_client_cls
+                select_speaker_auto_mod_client_cls = self.select_speaker_auto_mod_client_cls
 
-            agent.register_model_client(select_speaker_auto_model_client_cls)
+            agent.register_model_client(select_speaker_auto_mod_client_cls)
 
     def _register_custom_model_clients(self, agent: ConversableAgent):
         if not self.select_speaker_auto_llm_config:
