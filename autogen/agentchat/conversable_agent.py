@@ -1969,6 +1969,14 @@ class ConversableAgent(LLMAgent):
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "record_aas_keywords"}}
 
+            elif self.name == 'control':
+                if cmbagent_debug:
+                    print('\n\n\n\nin conversable_agent.py self.name == aas_keyword_finder')
+                    print('\nforcing tool call for aas_keyword_finder')
+                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
+                tool_choice = {"type": "function", "function": {"name": "record_status"}}
+
+
 
             elif self.name == 'perplexity':
                 # if cmbagent_debug:
