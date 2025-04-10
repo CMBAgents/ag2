@@ -1971,8 +1971,8 @@ class ConversableAgent(LLMAgent):
 
             elif self.name == 'control':
                 if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == aas_keyword_finder')
-                    print('\nforcing tool call for aas_keyword_finder')
+                    print('\n\n\n\nin conversable_agent.py self.name == control')
+                print('\nforcing tool call for control')
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "record_status"}}
 
@@ -1984,6 +1984,13 @@ class ConversableAgent(LLMAgent):
                 #     print('\nforcing tool call for perplexity')
                 tool_choice = {"type": "function", "function": {"name": "perplexity-search"}}
                 # import sys; sys.exit()
+
+            elif self.name == 'executor_response_formatter':
+                if cmbagent_debug:
+                    print('\n\n\n\nin conversable_agent.py self.name == executor_response_formatter')
+                print('\nforcing tool call for executor_response_formatter')
+                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
+                tool_choice = {"type": "function", "function": {"name": "post_execution_transfer"}}
 
             else:
                 tool_choice = "auto"
