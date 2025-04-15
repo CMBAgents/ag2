@@ -489,7 +489,9 @@ class ConversableAgent(LLMAgent):
                         agent.update_system_message(sys_message)
                         if cmbagent_debug:
                             print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message)
-                        # print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent 
+
+                        # if self.name == "executor_response_formatter":
+                            # print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
                         return messages
 
                     return update_system_message_wrapper
@@ -1930,7 +1932,14 @@ class ConversableAgent(LLMAgent):
             if cmbagent_debug:
                 print('\n\n\n\nin conversable_agent.py try:')
                 print('\n\n\n\nin conversable_agent.py self.name: ', self.name)
-            if self.name == 'plan_recorder':
+            if self.name == 'plan_setter':
+                if cmbagent_debug:
+                    print('\n\n\n\nin conversable_agent.py self.name == plan_setter')
+                    # print('\nforcing tool call for plan_setter')
+                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
+                tool_choice = {"type": "function", "function": {"name": "record_plan_constraints"}}
+
+            elif self.name == 'plan_recorder':
                 if cmbagent_debug:
                     print('\n\n\n\nin conversable_agent.py self.name == plan_recorder')
                     print('\nforcing tool call for plan_recorder')
@@ -1972,7 +1981,7 @@ class ConversableAgent(LLMAgent):
             elif self.name == 'control':
                 if cmbagent_debug:
                     print('\n\n\n\nin conversable_agent.py self.name == control')
-                print('\nforcing tool call for control')
+                    print('\nforcing tool call for control')
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "record_status"}}
 
@@ -1988,7 +1997,7 @@ class ConversableAgent(LLMAgent):
             elif self.name == 'executor_response_formatter':
                 if cmbagent_debug:
                     print('\n\n\n\nin conversable_agent.py self.name == executor_response_formatter')
-                print('\nforcing tool call for executor_response_formatter')
+                    print('\nforcing tool call for executor_response_formatter')
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "post_execution_transfer"}}
 
@@ -2099,6 +2108,8 @@ class ConversableAgent(LLMAgent):
             }])
             if not cmbagent_disable_display:
                 display(df.style.hide(axis="index"))
+            else:
+                print(df.to_string(index=False))
             
             self.cost_dict['Agent'].append(name)
             self.cost_dict['Cost'].append(cost) 
@@ -3065,6 +3076,7 @@ class ConversableAgent(LLMAgent):
             iostream.send(ExecuteCodeBlockMessage(code=code, language=lang, code_block_count=i, recipient=self))
 
             if lang in ["bash", "shell", "sh"]:
+                print('in conversable_agent.py execute_code_blocks bash')
                 exitcode, logs, image = self.run_code(code, lang=lang, **self._code_execution_config)
             elif lang in PYTHON_VARIANTS:
                 filename = code[11 : code.find("\n")].strip() if code.startswith("# filename: ") else None
@@ -3750,8 +3762,8 @@ class ConversableAgent(LLMAgent):
             # print("\n in conversable_agent.py update_agent_state_before_reply hook: ", hook)
             hook(self, messages)
             # print("\n\n\n-----------------------------------\n")
-            # print("\n in conversable_agent.py update_agent_state_before_reply messages after hook: ", messages) # this print the messages after the hook is called
-            # print("\n\n\n-----------------------------------\n")
+            # print("\n in conversable_agent.py update_agent_state_before_reply messages after hook: ", messages) # this print the messages after the hook is called... hook cmbagent debug
+            # print("\n-----------------------------------\n\n")
 
     def process_all_messages_before_reply(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Calls any registered capability hooks to process all messages, potentially modifying the messages."""

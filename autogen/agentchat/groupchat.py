@@ -1219,7 +1219,11 @@ class GroupChatManager(ConversableAgent):
         message = messages[-1]
         speaker = sender
         groupchat = config
+        # print("\n in groupchat.py messages: ", messages)
+        # import sys; sys.exit()
         # print("\n in groupchat.py groupchat config: ", groupchat)
+        # import sys; sys.exit()
+
         if cmbagent_debug:
             print("\n in groupchat.py groupchat config.verbose: ", groupchat.verbose)
         # import sys; sys.exit()
@@ -1256,13 +1260,19 @@ class GroupChatManager(ConversableAgent):
             groupchat.verbose = True
         for i in range(groupchat.max_round):
             # cmbagent debug -- print all messages
+            # print("\n\n\n-----------------------------------\n")
             # print("\n in groupchat.py i: ", i)
-            if cmbagent_debug:  
-                print("\n\n\n-----------------------------------\n")
-                print("\n in groupchat.py messages: ")
-                import pprint; pprint.pprint(messages)
-                print("\n\n\n-----------------------------------\n")
+            # if cmbagent_debug:  
+            # print("\n\n\n-----------------------------------\n")
+            # print("\n in groupchat.py messages: ")
+            # import pprint; pprint.pprint(messages)
+            # print("\n\n\n-----------------------------------\n")
             self._last_speaker = speaker
+            last_agent_for_sub_task = self.get_context("agent_for_sub_task")
+            last_plan_step = self.get_context("current_plan_step_number")
+
+
+
             groupchat.append(message, speaker)
             # broadcast the message to all agents except the speaker
             for agent in groupchat.agents:
@@ -1398,9 +1408,66 @@ class GroupChatManager(ConversableAgent):
             ):
                 reply["content"] = self.clear_agents_history(reply, groupchat)
 
+            
+
             # The speaker sends the message without requesting a reply
             speaker.send(reply, self, request_reply=False, silent=silent)
             message = self.last_message(speaker)
+            # print("\n in groupchat.py current_plan_step_number from manager context: ", self.get_context("current_plan_step_number"))
+            # print("\n in groupchat.py agent_for_sub_task: ", self.get_context("agent_for_sub_task"))
+            agent_for_sub_task = self.get_context("agent_for_sub_task")
+            plan_step = self.get_context("current_plan_step_number")
+            
+
+            #--------------------------------
+            # if agent_for_sub_task=="engineer":
+                # print(f"\n in groupchat.py Entering step {plan_step} with agent {agent_for_sub_task}")
+                # print("MESSAGES--------")
+                # import pprint; pprint.pprint(messages[-4:])
+                # print("self.MESSAGES--------")
+                # import pprint; pprint.pprint(groupchat.messages[-2:])
+                # import sys; sys.exit()
+
+            # if plan_step != last_plan_step: ### continue here to clip messages!!!
+                # print(f"exiting step {last_plan_step} with agent {last_agent_for_sub_task} and entering step {plan_step} with agent {agent_for_sub_task}")
+                # if last_agent_for_sub_task=="engineer":
+                    # print(f"\n in groupchat.py engineer was in charge of step {last_plan_step}")
+                    # import pprint; pprint.pprint(groupchat.messages[-2:])
+                    # import sys; sys.exit()
+
+            #--------------------------------
+
+
+            # if self._last_speaker.name == "executor_response_formatter":
+            #     n_attempts =  self._last_speaker.get_context("n_attempts")
+            #     import pprint; pprint.pprint(messages[-2:])
+            #     pprint.pprint(message)
+            #     print("\n in groupchat.py n_attempts: ", n_attempts)
+            #     print("\n in groupchat.py len(messages): ", len(messages))
+
+            #     # get the current plan step number
+            #     current_plan_step_number = speaker.get_context("current_plan_step_number")
+            #     # print("\n in groupchat.py current_plan_step_number from speaker context: ", current_plan_step_number)
+            #     print("\n in groupchat.py self.get_context('current_plan_step_number'): ", self.get_context("current_plan_step_number"))
+
+            #     exec_status = messages[-1]['tool_calls'][0]['function']['arguments']
+            #     print("\n in groupchat.py exec_status: ", exec_status)
+            #     exec_status = json.loads(exec_status)
+            #     print("\n in groupchat.py exec_status: ", exec_status.get("execution_status"))
+            #     if exec_status.get("execution_status") == "success":
+            #         for imsg, msg in enumerate(messages):
+            #             print(i,imsg,msg['role'],msg['name'])
+            #             if msg['name'] == "executor_response_formatter":
+            #                 pprint.pprint(msg)
+            #             print("\n")
+
+            #         print("CLIPPING FAILED CODES")
+            #         # current_plan_step_number = exec_status.get("current_plan_step_number")
+            #         #agent_for_subtask = 
+            #         print("\n in groupchat.py current_plan_step_number: ", current_plan_step_number)
+            #     # import sys; sys.exit()
+                
+
         if self.client_cache is not None:
             for a in groupchat.agents:
                 a.client_cache = a.previous_cache

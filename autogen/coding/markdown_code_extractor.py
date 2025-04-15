@@ -7,7 +7,7 @@
 import re
 from typing import Union
 
-from ..code_utils import CODE_BLOCK_PATTERN, MD_CODE_BLOCK_PATTERN, UNKNOWN, content_str, infer_lang
+from ..code_utils import CODE_BLOCK_PATTERN, MD_CODE_BLOCK_PATTERN, UNKNOWN, content_str, infer_lang, BASH_CODE_BLOCK_PATTERN
 from ..doc_utils import export_module
 from ..types import UserMessageImageContentPart, UserMessageTextContentPart
 from .base import CodeBlock, CodeExtractor
@@ -109,6 +109,15 @@ class MarkdownCodeExtractor(CodeExtractor):
         match = re.findall(CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
         if cmbagent_debug:
             print('in markdown_code_extractor.py match: ', match)
+            print('in markdown_code_extractor.py match: ', match)
+            print('in markdown_code_extractor.py name: ', name)
+        if name=="installer":
+            # print('in markdown_code_extractor.py bash in name')
+            match = re.findall(BASH_CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
+            # code_blocks = []
+            # # code_blocks.append(CodeBlock(code=match, language="sh"))
+            # # return code_blocks
+        # print('in markdown_code_extractor.py bash match: ', match)
         if not match:
             return []
         code_blocks = []

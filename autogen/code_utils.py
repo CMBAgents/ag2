@@ -39,6 +39,7 @@ FAST_MODEL = "gpt-3.5-turbo"
 # was: CODE_BLOCK_PATTERN = r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
 # now: CODE_BLOCK_PATTERN = r"```[ \t]*(python)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
 CODE_BLOCK_PATTERN = r"```[ \t]*(python)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
+BASH_CODE_BLOCK_PATTERN = r"```[ \t]*(bash)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
 #MD_CODE_BLOCK_PATTERN = r"```[ \t]*(markdown)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
 MD_CODE_BLOCK_PATTERN = r"```[ \t]*(?:markdown)[ \t]*\r?\n(.*)\r?\n[ \t]*```"
 
