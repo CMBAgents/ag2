@@ -649,14 +649,17 @@ class GPTAssistantAgent(ConversableAgent):
             agent: the agent with whom the chat history to clear. If None, clear the chat history with all agents.
         """
         super().clear_history(agent)
-        if self._openai_threads.get(agent, None) is not None:
-            # Delete the existing thread to start fresh in the next conversation
-            thread = self._openai_threads[agent]
+        try:
+            if self._openai_threads.get(agent, None) is not None:
+                # Delete the existing thread to start fresh in the next conversation
+                thread = self._openai_threads[agent]
             logger.info("Clearing thread %s", thread.id)
             self._openai_client.beta.threads.delete(thread.id)
             self._openai_threads.pop(agent)
             self._unread_index[agent] = 0
-
+        except:
+            pass
+        
     def pretty_print_thread(self, thread):
         """Pretty print the thread."""
         if thread is None:
