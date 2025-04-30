@@ -30,6 +30,22 @@ LOGO = r"""
 /_/ |_/___/ /_/ /_/|_|\____/_/  /___/____/\____/ /_/       
 """
 
+
+# Define the logo as a module-level constant.
+# LOGO = r"""
+#  _____ ___  _________  ___  _____  _____ _   _ _____ 
+# /  __ \|  \/  || ___ \/ _ \|  __ \|  ___| \ | |_   _|
+# | /  \/| .  . || |_/ / /_\ \ |  \/| |__ |  \| | | |  
+# | |    | |\/| || ___ \  _  | | __ |  __|| . ` | | |  
+# | \__/\| |  | || |_/ / | | | |_\ \| |___| |\  | | |  
+# \_____/\_|  |_/\____/\_| |_/\____/\____/\_| \_/ \_/  
+#     multi-agent systems for autonomous discovery    
+
+# Built with AG2
+# Version: Beta3
+# Last updated: 11/03/5202
+# """
+
 # Calculate the image width as a module-level variable.
 _lines = LOGO.splitlines()
 _ascii_width = max(len(line) for line in _lines)
