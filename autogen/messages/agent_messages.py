@@ -259,7 +259,7 @@ class ToolCallMessage(BasePrintReceivedMessage):
                                     "engineer_response_formatter", 
                                     "control",
                                     "camels_agent",
-                                    "admin",
+                                    # "admin",
                                     "camels_response_formatter",
                                     "classy_sz_response_formatter",
                                     "joke_critique_response_formatter",
