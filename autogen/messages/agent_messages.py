@@ -335,7 +335,7 @@ class TextMessage(BasePrintReceivedMessage):
                                     "idea_hater_response_formatter",
                                     "control",
                                     "camels_agent",
-                                    "admin",
+                                    # "admin",
                                     "camels_response_formatter",
                                     # "researcher_response_formatter",
                                     "classy_sz_response_formatter",

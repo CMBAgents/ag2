@@ -1317,25 +1317,27 @@ class GroupChatManager(ConversableAgent):
                     
                     if speaker.name == "admin":
                         # print("\n in groupchat.py speaker.name == admin")
-                        # selected_agent, agents, messages = self._prepare_and_select_agents(last_speaker)
+                        # selected_agent, agents, messages = self._prepare_and_select_agents(self._last_speaker)
                         # print("--> in groupchat.py selected_agent: ", selected_agent)
                         # print("--> in groupchat.py agents: ", agents)
                         # print("--> in groupchat.py message by admin: ", message)
                         # print("--> in groupchat.py message by admin: ", message["content"])
-                        if message["content"] == "proceed":
-                            # print("\n in groupchat.py proceed")
-                            # print("--> in groupchat.py previous message:",messages[-2])
-                            # print("--> in groupchat.py previous message content:",messages[-2]["content"])
-                            if "**Next Agent Suggestion:**" in messages[-2]["content"]:
-                                next_agent_suggestion = extract_next_agent_suggestion(messages[-2]["content"])
-                                # print("--> in groupchat.py next_agent_suggestion: ", next_agent_suggestion)
-                                speaker = groupchat.agent_by_name(next_agent_suggestion)
-                            else:
-                                speaker = groupchat.select_speaker(speaker, self)
+                        # if message["content"] == "proceed":
+                        #     # print("\n in groupchat.py proceed")
+                        #     # print("--> in groupchat.py previous message:",messages[-2])
+                        #     # print("--> in groupchat.py previous message content:",messages[-2]["content"])
+                        #     if "**Next Agent Suggestion:**" in messages[-2]["content"]:
+                        #         next_agent_suggestion = extract_next_agent_suggestion(messages[-2]["content"])
+                        #         # print("--> in groupchat.py next_agent_suggestion: ", next_agent_suggestion)
+                        #         speaker = groupchat.agent_by_name(next_agent_suggestion)
+                        #     else:
+                        #         speaker = groupchat.select_speaker(speaker, self)
 
-                        else:
+                        # else:
 
-                            speaker = groupchat.select_speaker(speaker, self)
+                        #     print("\n in groupchat.py speaker.name: ", speaker.name)
+
+                        speaker = groupchat.select_speaker(speaker, self)
                     
 
                     elif groupchat.rag_agents is not None:
