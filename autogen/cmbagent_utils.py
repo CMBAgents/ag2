@@ -23,6 +23,9 @@ cmbagent_default_color = "yellow"
 
 
 # Define the logo as a module-level constant.
+# LOGO = r"""
+# """
+
 LOGO = r"""
    ___   _____________  ____  ___  ______   ____  ______
   / _ | / __/_  __/ _ \/ __ \/ _ \/  _/ /  / __ \/_  __/

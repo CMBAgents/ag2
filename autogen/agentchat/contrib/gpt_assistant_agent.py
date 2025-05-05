@@ -297,8 +297,8 @@ class GPTAssistantAgent(ConversableAgent):
         run_response_messages = self._get_run_response(assistant_thread, run)
 
         ## cmbagent debug print: 
-        # if cmbagent_debug == False:
         if cmbagent_debug:
+        # if cmbagent_debug:
             print('in gpt_assistant_agent.py run: ', run)
             # print('in gpt_assistant_agent.py run_response_messages: ', run_response_messages)
             print('in gpt_assistant_agent.py run_response_messages json depth 3: ', json.dumps(run_response_messages, indent=3))

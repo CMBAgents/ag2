@@ -1951,18 +1951,35 @@ class ConversableAgent(LLMAgent):
                     print('\nforcing tool call for review_recorder')
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "record_review"}}
+
+            elif self.name == "answer_recorder":
+                if cmbagent_debug:
+                    print('\n\n\n\nin conversable_agent.py self.name == answer_recorder')
+                    print('\nforcing tool call for answer_recorder')
+                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
+                tool_choice = {"type": "function", "function": {"name": "record_answer"}}
+
+            elif self.name == "question_recorder":
+                if cmbagent_debug:
+                    print('\n\n\n\nin conversable_agent.py self.name == question_recorder')
+                    print('\nforcing tool call for question_recorder')
+                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
+                tool_choice = {"type": "function", "function": {"name": "record_question"}}
+
             elif self.name == 'terminator':
                 if cmbagent_debug:
                     print('\n\n\n\nin conversable_agent.py self.name == terminator')
                     print('\nforcing tool call for terminator')
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "terminate_session"}}
-            elif self.name == 'classy_sz_agent': # this is not used for the gptassistant agent
+            elif self.name == 'classy_sz_agent': # this is not used for the gptassistant agent, see in run = self._openai_client.beta.threads.runs.create( for that
                 if cmbagent_debug:
                     print('\n\n\n\nin conversable_agent.py self.name == classy_sz_agent')
                     print('\nforcing tool call for classy_sz_agent')
                     # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
                 tool_choice = {"type": "function", "function": {"name": "file_search"}}
+
+
 
             elif self.name == 'task_recorder':
                 if cmbagent_debug:
@@ -2565,7 +2582,7 @@ class ConversableAgent(LLMAgent):
         sender_name = "the sender" if sender is None else sender.name
         if self.human_input_mode == "ALWAYS":
             reply = self.get_human_input(
-                f"Provide feedback to {sender_name}. Type 'proceed' to continue as suggested or type your suggestion, or type 'exit' to end the conversation: "
+                f"Type your suggestion, or type 'exit' to end the conversation: "
             )
             no_human_input_msg = "NO HUMAN INPUT RECEIVED." if not reply else ""
             # if the human input is empty, and the message is a termination message, then we will terminate the conversation

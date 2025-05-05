@@ -472,6 +472,7 @@ class GroupChat:
         # If self.speaker_selection_method is a string, return it.
         # print("\n in groupchat.py _prepare_and_select_agents last_speaker: ", last_speaker)
         speaker_selection_method = self.speaker_selection_method
+        # print("\n in groupchat.py speaker_selection_method: ", speaker_selection_method)
         if isinstance(self.speaker_selection_method, Callable):
             selected_agent = self.speaker_selection_method(last_speaker, self)
             if selected_agent is None:
@@ -616,6 +617,10 @@ class GroupChat:
         """Select the next speaker (with requery)."""
         # Prepare the list of available agents and select an agent if selection method allows (non-auto)
         selected_agent, agents, messages = self._prepare_and_select_agents(last_speaker)
+        # print("\n in groupchat.py selected_agent: ", selected_agent)
+        # print("\n in groupchat.py agents: ", [agent.name for agent in agents])
+        # print("\n in groupchat.py messages: ", messages)
+
         if selected_agent:
             return selected_agent
         elif self.speaker_selection_method == "manual":
