@@ -73,7 +73,7 @@ class BasePrintReceivedMessage(BaseMessage, ABC):
             else:
                 f(message, flush=True)
         else:
-            if self.sender_name != "_Swarm_Tool_Executor":
+            if self.sender_name not in ["_Swarm_Tool_Executor", "_User"]:
                 message = f"Message from {self.sender_name}:\n"  # Store in a variable
                 if not cmbagent_disable_display:
                     f(colored(message, color), flush=True)  # Apply `colored` separately

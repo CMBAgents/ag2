@@ -48,7 +48,7 @@ from ..code_utils import (
     infer_lang,
     # cmbagent_debug
 )
-from ..cmbagent_utils import cmbagent_debug, cmbagent_disable_display
+from ..cmbagent_utils import cmbagent_debug, cmbagent_disable_display, streamlit_on
 
 from ..coding.base import CodeExecutor
 from ..coding.factory import CodeExecutorFactory
@@ -2123,10 +2123,11 @@ class ConversableAgent(LLMAgent):
                 "Completion Tokens": completion_tokens,
                 "Total Tokens": total_tokens,
             }])
-            if not cmbagent_disable_display:
-                display(df.style.hide(axis="index"))
-            else:
-                print(df.to_string(index=False))
+            if not streamlit_on:
+                if not cmbagent_disable_display:
+                    display(df.style.hide(axis="index"))
+                else:
+                    print(df.to_string(index=False))
             
             self.cost_dict['Agent'].append(name)
             self.cost_dict['Cost'].append(cost) 

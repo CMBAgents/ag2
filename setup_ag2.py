@@ -21,7 +21,7 @@ with open(os.path.join(here, "autogen/version.py")) as fp:
 __version__ = version["__version__"]
 
 setuptools.setup(
-    name="ag2",
+    name="pyautogen_cmbagent",
     version=__version__,
     description="Alias package for pyautogen",
     long_description=long_description,
@@ -89,6 +89,6 @@ setuptools.setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
-    license="Apache Software License 2.0",
+    # license="Apache Software License 2.0",
     python_requires=">=3.9,<3.14",
 )
