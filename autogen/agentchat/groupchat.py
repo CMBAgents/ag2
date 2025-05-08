@@ -1273,8 +1273,8 @@ class GroupChatManager(ConversableAgent):
             # import pprint; pprint.pprint(messages)
             # print("\n\n\n-----------------------------------\n")
             self._last_speaker = speaker
-            last_agent_for_sub_task = self.get_context("agent_for_sub_task")
-            last_plan_step = self.get_context("current_plan_step_number")
+            # last_agent_for_sub_task = self.get_context("agent_for_sub_task")
+            # last_plan_step = self.get_context("current_plan_step_number")
 
 
 
@@ -1422,8 +1422,8 @@ class GroupChatManager(ConversableAgent):
             message = self.last_message(speaker)
             # print("\n in groupchat.py current_plan_step_number from manager context: ", self.get_context("current_plan_step_number"))
             # print("\n in groupchat.py agent_for_sub_task: ", self.get_context("agent_for_sub_task"))
-            agent_for_sub_task = self.get_context("agent_for_sub_task")
-            plan_step = self.get_context("current_plan_step_number")
+            # agent_for_sub_task = self.get_context("agent_for_sub_task")
+            # plan_step = self.get_context("current_plan_step_number")
             
 
             #--------------------------------
