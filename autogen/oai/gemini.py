@@ -181,6 +181,12 @@ class GeminiClient:
 
         self.api_version = kwargs.get("api_version")
 
+        # print("\n\n\n")
+        # print("in gemini.py, vertexai is set to ", self.use_vertexai)
+        # print("\n\n\n")
+
+        self.use_vertexai = True
+
         # Store the response format, if provided (for structured outputs)
         self._response_format: Optional[type[BaseModel]] = None
 
