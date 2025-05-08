@@ -13,6 +13,7 @@ import logging
 import re
 import threading
 import warnings
+from copy import deepcopy
 
 import pandas as pd
 from IPython.display import display
@@ -2224,6 +2225,8 @@ class ConversableAgent(LLMAgent):
 
         return (False, None) if extracted_response is None else (True, extracted_response)
 
+
+
     def _generate_oai_reply_from_client(self, llm_client, messages, cache) -> Optional[Union[str, dict[str, Any]]]:
         # unroll tool_responses
         all_messages = []
@@ -2237,196 +2240,76 @@ class ConversableAgent(LLMAgent):
             else:
                 all_messages.append(message)
 
-        # TODO: #1143 handle token limit exceeded error
-        ## Key part for formatting
-        ## cmbagent debug print to see what's in all_messages: 
-        # print('in conversable_agent.py all_messages: ',all_messages)
-        # print('in conversable_agent.py response_format: ',response_format)
-        # print('in conversable_agent.py agent llm_config: ',self.llm_config)
-        if cmbagent_debug:
-            print('in conversable_agent.py self.name check here if you want to print all_messages: ', self.name)
-        try:
-            if cmbagent_debug:
-                print('\n\n\n\nin conversable_agent.py try:')
-                print('\n\n\n\nin conversable_agent.py self.name: ', self.name)
-            if self.name == 'plan_setter':
-                if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == plan_setter')
-                    # print('\nforcing tool call for plan_setter')
-                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
-                tool_choice = {"type": "function", "function": {"name": "record_plan_constraints"}}
 
-            elif self.name == 'plan_recorder':
-                if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == plan_recorder')
-                    print('\nforcing tool call for plan_recorder')
-                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
-                tool_choice = {"type": "function", "function": {"name": "record_plan"}}
-            elif self.name == 'review_recorder':
-                if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == review_recorder')
-                    print('\nforcing tool call for review_recorder')
-                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
-                tool_choice = {"type": "function", "function": {"name": "record_review"}}
+        force_tool_call = False
 
-            elif self.name == "answer_recorder":
-                if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == answer_recorder')
-                    print('\nforcing tool call for answer_recorder')
-                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
-                tool_choice = {"type": "function", "function": {"name": "record_answer"}}
+        if self.name == 'plan_setter':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "record_plan_constraints"}}
 
-            elif self.name == "question_recorder":
-                if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == question_recorder')
-                    print('\nforcing tool call for question_recorder')
-                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
-                tool_choice = {"type": "function", "function": {"name": "record_question"}}
+        elif self.name == 'control':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "record_status"}}
 
-            elif self.name == 'terminator':
-                if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == terminator')
-                    print('\nforcing tool call for terminator')
-                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
-                tool_choice = {"type": "function", "function": {"name": "terminate_session"}}
-            elif self.name == 'classy_sz_agent': # this is not used for the gptassistant agent, see in run = self._openai_client.beta.threads.runs.create( for that
-                if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == classy_sz_agent')
-                    print('\nforcing tool call for classy_sz_agent')
-                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
-                tool_choice = {"type": "function", "function": {"name": "file_search"}}
+        elif self.name == 'executor_response_formatter':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "post_execution_transfer"}}
+
+        elif self.name == 'plan_recorder':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "record_plan"}}
+
+        elif self.name == 'review_recorder':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "record_review"}}
+
+        elif self.name == "answer_recorder":
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "record_answer"}}
+
+        elif self.name == "question_recorder":
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "record_question"}}
+
+        elif self.name == 'terminator':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "terminate_session"}}
+
+        elif self.name == 'classy_sz_agent': # this is not used for the gptassistant agent, see in run = self._openai_client.beta.threads.runs.create( for that
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "file_search"}}
+
+        elif self.name == 'task_recorder':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "record_improved_task"}}
+
+        elif self.name == 'aas_keyword_finder':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "record_aas_keywords"}}
 
 
 
-            elif self.name == 'task_recorder':
-                if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == task_recorder')
-                    print('\nforcing tool call for task_recorder')
-                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
-                tool_choice = {"type": "function", "function": {"name": "record_improved_task"}}
 
-            elif self.name == 'aas_keyword_finder':
-                if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == aas_keyword_finder')
-                    print('\nforcing tool call for aas_keyword_finder')
-                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
-                tool_choice = {"type": "function", "function": {"name": "record_aas_keywords"}}
-
-            elif self.name == 'control':
-                if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == control')
-                    print('\nforcing tool call for control')
-                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
-                tool_choice = {"type": "function", "function": {"name": "record_status"}}
-
-
-
-            elif self.name == 'perplexity':
-                # if cmbagent_debug:
-                #     print('\n\n\n\nin conversable_agent.py self.name == perplexity')
-                #     print('\nforcing tool call for perplexity')
-                tool_choice = {"type": "function", "function": {"name": "perplexity-search"}}
-                # import sys; sys.exit()
-
-            elif self.name == 'executor_response_formatter':
-                if cmbagent_debug:
-                    print('\n\n\n\nin conversable_agent.py self.name == executor_response_formatter')
-                    print('\nforcing tool call for executor_response_formatter')
-                    # print('\n\n\n\nin conversable_agent.py all_messages: ', all_messages)
-                tool_choice = {"type": "function", "function": {"name": "post_execution_transfer"}}
-
-            else:
-                tool_choice = "auto"
-
-            if 'context' in all_messages[-1]:
-                print("in conversable_agent.py context: ", all_messages[-1]['context'])
-                pprint.pprint(messages[-1].pop("context", None))
-                import pprint; pprint.pprint(all_messages[-1])
-
-            if (self.llm_config.config_list[0]['api_type'] == 'openai'):
-                response = llm_client.create(
-                    context=messages[-1].pop("context", None),
-                    messages=all_messages,
-                    cache=cache,
-                    agent=self,
-                    parallel_tool_calls=False, ## cmbagent added this to disable parallel tool calls
-                    tool_choice=tool_choice ## cmbagent added this to force tool call
-                )
-            else:
-                # for im in range(len(all_messages)):
-                    # all_messages[im]["role"] = "user" # cmbagent tweaked this to fix the error with gemini
-                    # print("setting all_messages[im]['role'] to 'user'")
-                    # if cmbagent_debug == False:
-                    #     print("\nMessage", im + 1, "of", len(all_messages))
-                    #     print("Role:", all_messages[im]["role"])
-                    #     print("Content:", all_messages[im].get("content", "No content"))
-                    #     if "tool_calls" in all_messages[im]:
-                    #         print("Tool calls:", all_messages[im]["tool_calls"])
-                    #     print("-" * 40)
-                    # all_messages[im].pop("tool_call_id", None) # cmbagent tweaked this to fix the error
-
-                response = llm_client.create(
-                    context=messages[-1].pop("context", None),
-                    messages=all_messages,
-                    cache=cache,
-                    agent=self
-                )
-        # except ClientError as e:
-        #     if cmbagent_debug:
-        #         print('\n\n\n\nin conversable_agent.py except ClientError: ', e)
-        #         print(self.llm_config)
-        #         print(self.llm_config.config_list[0]['api_type'])
-        #         print('messages[-1].pop("context", None): ', all_messages[-1].pop("context", None))
-        #         import pprint; pprint.pprint(all_messages)
-        #         print("\n\nlast message:")
-        #         pprint.pprint(all_messages[-1])
-        #         print(all_messages[-1]["role"])
-
-        #         print("\n\nlast to last message:")
-        #         pprint.pprint(all_messages[-2])
-        #         print(all_messages[-2]["role"])
-
-        #     all_messages[-1]["role"] = "user" # cmbagent tweaked this to fix the error
-        #     all_messages[-1].pop("tool_call_id", None) # cmbagent tweaked this to fix the error
-        #     all_messages[-2] = all_messages[-1] # cmbagent tweaked this to fix the error
-        #     # if messages and messages[-1]["role"] == "tool":
-        #     #     print("Removing dangling tool message to prevent Gemini 400 error.")
-        #     #     messages.pop()
-        #     if cmbagent_debug:
-        #         print("\n\nlast message after modification:")
-        #         pprint.pprint(all_messages[-1])
-        #         print(all_messages[-1]["role"])
-
-        #         print("\n\nlast to last message after modification:")
-        #         pprint.pprint(all_messages[-2])
-        #         print(all_messages[-2]["role"])
-
-        #     response = llm_client.create(
-        #         context=messages[-1].pop("context", None),
-        #         messages=all_messages,
-        #         cache=cache,
-        #         agent=self
-        #     )
-        except Exception as e:
-            if cmbagent_debug:  
-                print('\n\n\n\nin conversable_agent.py except Exception: ', e)
-            # import pprint; pprint.pprint(self.llm_config)
-            # self.llm_config.check_every_ms = None
-            # import pprint; pprint.pprint(self.llm_config)
+        if force_tool_call:
             response = llm_client.create(
                 context=messages[-1].pop("context", None),
                 messages=all_messages,
                 cache=cache,
-                agent=self
-            )           
-        ## cmbagent modif print to help debug: 
-        # print full raw response here
-        # cmbagent debug
-        if cmbagent_debug:
-            print('\n\nin conversable_agent.py response: ')
-            import pprint; pprint.pprint(response)
-            # import sys; sys.exit()
-            print('\n\n')
+                agent=self,
+                parallel_tool_calls=False, ## cmbagent added this to disable parallel tool calls
+                tool_choice=tool_choice ## cmbagent added this to force tool call
+            )
+
+        else:
+            # TODO: #1143 handle token limit exceeded error
+            response = llm_client.create(
+                context=messages[-1].pop("context", None),
+                messages=all_messages,
+                cache=cache,
+                agent=self,
+            )
+        extracted_response = llm_client.extract_text_or_completion_object(response)[0]
+
 
         # llm_client.print_usage_summary(mode="actual")  # print actual usage summary, i.e., excluding cached usage
         # Update dictionary containing all costs
@@ -2459,18 +2342,6 @@ class ConversableAgent(LLMAgent):
             self.cost_dict['Prompt Tokens'].append(prompt_tokens)
             self.cost_dict['Completion Tokens'].append(completion_tokens)
             self.cost_dict['Total Tokens'].append(total_tokens)
-
-        if name == 'summarizer':
-
-            content = response.choices[0].message.content
-            extracted_response = content
-
-            print('\n\n'+llm_client.extract_text_or_completion_object(response)[0])
-
-        else:
-            extracted_response = llm_client.extract_text_or_completion_object(response)[0]
-        # print('\n\nin conversable_agent.py extracted_response: \n\n',extracted_response)
-        # print('\n\n')
 
         if extracted_response is None:
             warnings.warn(f"Extracted_response from {response} is None.", UserWarning)
