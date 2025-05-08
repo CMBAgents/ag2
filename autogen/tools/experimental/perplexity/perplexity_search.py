@@ -7,12 +7,13 @@ This module provides classes for interacting with the Perplexity AI search API.
 It defines data models for responses and a tool for executing web and conversational searches.
 """
 
+import json
 import os
-from typing import Annotated, Any, Optional, Union
+from typing import Any, Optional, Union
 
 import requests
-from pydantic import BaseModel
 import re
+from pydantic import BaseModel, ValidationError
 
 from autogen.tools import Tool
 from autogen.cmbagent_utils import cmbagent_debug
@@ -79,9 +80,9 @@ class PerplexityChatCompletionResponse(BaseModel):
         model (str): The model name used for generating the response.
         created (int): Timestamp when the response was created.
         usage (Usage): Token usage details.
-        citations (list[str]): List of citation strings included in the response.
+        citations (list[str]): list of citation strings included in the response.
         object (str): Type of the response object.
-        choices (list[Choice]): List of choices returned by the API.
+        choices (list[Choice]): list of choices returned by the API.
     """
 
     id: str
@@ -99,7 +100,7 @@ class SearchResponse(BaseModel):
 
     Attributes:
         content (Optional[str]): The textual content returned from the search.
-        citations (Optional[List[str]]): A list of citation URLs relevant to the search result.
+        citations (Optional[list[str]]): A list of citation URLs relevant to the search result.
         error (Optional[str]): An error message if the search failed.
     """
 
@@ -137,7 +138,7 @@ class PerplexitySearchTool(Tool):
             model (str, optional): The model to use. Defaults to "sonar".
             api_key (Optional[str], optional): API key for authentication.
             max_tokens (int, optional): Maximum number of tokens for the response. Defaults to 1000.
-            search_domain_filter (Optional[list[str]], optional): List of domain filters to restrict search.
+            search_domain_filter (Optional[list[str]], optional): list of domain filters to restrict search.
 
         Raises:
             ValueError: If the API key is missing, the model is empty, max_tokens is not positive,
@@ -147,7 +148,6 @@ class PerplexitySearchTool(Tool):
         self._validate_tool_config(model, self.api_key, max_tokens, search_domain_filter)
         self.url = "https://api.perplexity.ai/chat/completions"
         self.model = model
-        self.api_key = api_key
         self.max_tokens = max_tokens
         self.search_domain_filters = search_domain_filter
         super().__init__(
@@ -176,14 +176,14 @@ class PerplexitySearchTool(Tool):
         """
         if not api_key:
             raise ValueError("Perplexity API key is missing")
-        if model is None or model == "":
+        if not model:
             raise ValueError("model cannot be empty")
         if max_tokens <= 0:
             raise ValueError("max_tokens must be positive")
         if search_domain_filter is not None and not isinstance(search_domain_filter, list):
             raise ValueError("search_domain_filter must be a list")
 
-    def _execute_query(self, payload: dict[str, Any]) -> PerplexityChatCompletionResponse:
+    def _execute_query(self, payload: dict[str, Any]) -> "PerplexityChatCompletionResponse":
         """
         Executes a query by sending a POST request to the Perplexity API.
 
@@ -192,22 +192,46 @@ class PerplexitySearchTool(Tool):
 
         Returns:
             PerplexityChatCompletionResponse: Parsed response from the Perplexity API.
+
+        Raises:
+            RuntimeError: If there is a network error, HTTP error, JSON parsing error, or if the response
+                          cannot be parsed into a PerplexityChatCompletionResponse.
         """
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
-        response = requests.post(self.url, headers=headers, json=payload).json()
-        # print(response["choices"][0]["message"]["content"])
-        # print(response["citations"])
-        return response
-        # response = requests.request("POST", self.url, json=payload, headers=headers)
-        # response_json = response.json()
-        # perp_resp = PerplexityChatCompletionResponse(**response_json)
-        # if cmbagent_debug:
-        #     print("\n\nin perplexity_search_tool.py _execute_query... perp_resp:")
-        #     import pprint; pprint.pprint(perp_resp)
-        # # import sys; sys.exit()
-        # return perp_resp
+        response = requests.request("POST", self.url, json=payload, headers=headers, timeout=10)
+        try:
+            response.raise_for_status()
+        except requests.exceptions.Timeout as e:
+            raise RuntimeError(
+                f"Perplexity API => Request timed out: {response.text}. Status code: {response.status_code}"
+            ) from e
+        except requests.exceptions.HTTPError as e:
+            raise RuntimeError(
+                f"Perplexity API => HTTP error occurred: {response.text}. Status code: {response.status_code}"
+            ) from e
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(
+                f"Perplexity API => Error during request: {response.text}. Status code: {response.status_code}"
+            ) from e
 
-    def search(self, query: Annotated[str, "The search query."], context_variables: dict) -> SearchResponse:
+        try:
+            response_json = response.json()
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Perplexity API => Invalid JSON response received. Error: {e}") from e
+
+        try:
+            # This may raise a pydantic.ValidationError if the response structure is not as expected.
+            perp_resp = PerplexityChatCompletionResponse(**response_json)
+        except ValidationError as e:
+            raise RuntimeError("Perplexity API => Validation error when parsing API response: " + str(e)) from e
+        except Exception as e:
+            raise RuntimeError(
+                "Perplexity API => Failed to parse API response into PerplexityChatCompletionResponse: " + str(e)
+            ) from e
+
+        return perp_resp
+
+    def search(self, query: str) -> "SearchResponse":
         """
         Perform a search query using the Perplexity AI API.
 
@@ -224,12 +248,9 @@ class PerplexitySearchTool(Tool):
             ValueError: If the search query is invalid.
             RuntimeError: If there is an error during the search process.
         """
-        # print('\n\n\n\nin perplexity_search_tool.py search: ', query)
-        # print(dir(self))
-        # print('\n\n\n\nin perplexity_search_tool.py context_variables: ', context_variables)
-        # print('\n perplexity_query: ', context_variables['perplexity_query'])
-        query = context_variables['perplexity_query']
-        # import sys; sys.exit()
+        if not query or not isinstance(query, str):
+            raise ValueError("A valid non-empty query string must be provided.")
+
         payload = {
             "model": self.model,
             "messages": [{"role": "system", "content": "Be precise and concise."}, {"role": "user", "content": query}],
@@ -237,7 +258,6 @@ class PerplexitySearchTool(Tool):
             "search_domain_filter": self.search_domain_filters,
             # "web_search_options": {"search_context_size": "high"},
         }
-        # print('\n\n\n\nin perplexity_search_tool.py payload: ', payload)
         try:
             perplexity_response = self._execute_query(payload)
             # content = perplexity_response.choices[0].message.content
@@ -270,6 +290,5 @@ class PerplexitySearchTool(Tool):
                                 values=markdown_response,
                                 context_variables=context_variables)
         except Exception as e:
-            return SearchResponse(
-                content=None, citations=None, error=f"PerplexitySearchTool failed to search. Error: {e}"
-            )
+            # Return a SearchResponse with an error message if something goes wrong.
+            return SearchResponse(content=None, citations=None, error=f"{e}")

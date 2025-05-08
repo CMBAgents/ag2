@@ -15,22 +15,22 @@ from typing import Any, Callable, Literal, Optional, Union
 
 from ..code_utils import content_str
 from ..doc_utils import export_module
+from ..events.agent_events import (
+    ClearAgentsHistoryEvent,
+    GroupChatResumeEvent,
+    GroupChatRunChatEvent,
+    SelectSpeakerEvent,
+    SelectSpeakerInvalidInputEvent,
+    SelectSpeakerTryCountExceededEvent,
+    SpeakerAttemptFailedMultipleAgentsEvent,
+    SpeakerAttemptFailedNoAgentsEvent,
+    SpeakerAttemptSuccessfulEvent,
+    TerminationEvent,
+)
 from ..exception_utils import AgentNameConflictError, NoEligibleSpeakerError, UndefinedNextAgentError
 from ..graph_utils import check_graph_validity, invert_disallowed_to_allowed
 from ..io.base import IOStream
 from ..llm_config import LLMConfig
-from ..messages.agent_messages import (
-    ClearAgentsHistoryMessage,
-    GroupChatResumeMessage,
-    GroupChatRunChatMessage,
-    SelectSpeakerInvalidInputMessage,
-    SelectSpeakerMessage,
-    SelectSpeakerTryCountExceededMessage,
-    SpeakerAttemptFailedMultipleAgentsMessage,
-    SpeakerAttemptFailedNoAgentsMessage,
-    SpeakerAttemptSuccessfulMessage,
-    TerminationMessage,
-)
 from ..oai.client import ModelClient
 from ..runtime_logging import log_new_agent, logging_enabled
 from .agent import Agent
@@ -434,14 +434,14 @@ class GroupChat:
         if agents is None:
             agents = self.agents
 
-        iostream.send(SelectSpeakerMessage(agents=agents))
+        iostream.send(SelectSpeakerEvent(agents=agents))
 
         try_count = 0
         # Assume the user will enter a valid number within 3 tries, otherwise use auto selection to avoid blocking.
         while try_count <= 3:
             try_count += 1
             if try_count >= 3:
-                iostream.send(SelectSpeakerTryCountExceededMessage(try_count=try_count, agents=agents))
+                iostream.send(SelectSpeakerTryCountExceededEvent(try_count=try_count, agents=agents))
                 break
             try:
                 i = iostream.input(
@@ -455,7 +455,7 @@ class GroupChat:
                 else:
                     raise ValueError
             except ValueError:
-                iostream.send(SelectSpeakerInvalidInputMessage(agents=agents))
+                iostream.send(SelectSpeakerInvalidInputEvent(agents=agents))
         return None
 
     def random_select_speaker(self, agents: Optional[list[Agent]] = None) -> Union[Agent, None]:
@@ -932,7 +932,7 @@ class GroupChat:
             if no_of_mentions == 1:
                 # Success on retry, we have just one name mentioned
                 iostream.send(
-                    SpeakerAttemptSuccessfulMessage(
+                    SpeakerAttemptSuccessfulEvent(
                         mentions=mentions,
                         attempt=attempt,
                         attempts_left=attempts_left,
@@ -941,7 +941,7 @@ class GroupChat:
                 )
             elif no_of_mentions == 1:
                 iostream.send(
-                    SpeakerAttemptFailedMultipleAgentsMessage(
+                    SpeakerAttemptFailedMultipleAgentsEvent(
                         mentions=mentions,
                         attempt=attempt,
                         attempts_left=attempts_left,
@@ -950,7 +950,7 @@ class GroupChat:
                 )
             else:
                 iostream.send(
-                    SpeakerAttemptFailedNoAgentsMessage(
+                    SpeakerAttemptFailedNoAgentsEvent(
                         mentions=mentions,
                         attempt=attempt,
                         attempts_left=attempts_left,
@@ -1373,7 +1373,7 @@ class GroupChatManager(ConversableAgent):
                     iostream = IOStream.get_default()
                     # iostream.print(colored(f"\nCalling {speaker.name}...\n", "green"), flush=True)
                     # iostream.print(f"\n in groupchat.py Calling {speaker.name}...\n", flush=True)
-                    iostream.send(GroupChatRunChatMessage(speaker=speaker, silent=silent))
+                    iostream.send(GroupChatRunChatEvent(speaker=speaker, silent=silent))
                 # let the speaker speak
                 if groupchat.verbose:
                     print("\n\n\n-----------------------------------\n")
@@ -1481,7 +1481,7 @@ class GroupChatManager(ConversableAgent):
                 a.previous_cache = None
 
         if termination_reason:
-            iostream.send(TerminationMessage(termination_reason=termination_reason))
+            iostream.send(TerminationEvent(termination_reason=termination_reason))
 
         return True, None
 
@@ -1517,6 +1517,7 @@ class GroupChatManager(ConversableAgent):
                 a.client_cache = self.client_cache
         for i in range(groupchat.max_round):
             groupchat.append(message, speaker)
+            self._last_speaker = speaker
 
             if self._is_termination_msg(message):
                 # The conversation is over
@@ -1564,7 +1565,7 @@ class GroupChatManager(ConversableAgent):
                 a.previous_cache = None
 
         if termination_reason:
-            iostream.send(TerminationMessage(termination_reason=termination_reason))
+            iostream.send(TerminationEvent(termination_reason=termination_reason))
 
         return True, None
 
@@ -1664,7 +1665,7 @@ class GroupChatManager(ConversableAgent):
 
         if not silent:
             iostream = IOStream.get_default()
-            iostream.send(GroupChatResumeMessage(last_speaker_name=last_speaker_name, messages=messages, silent=silent))
+            iostream.send(GroupChatResumeEvent(last_speaker_name=last_speaker_name, events=messages, silent=silent))
 
         # Update group chat settings for resuming
         self._groupchat.send_introductions = False
@@ -1767,7 +1768,7 @@ class GroupChatManager(ConversableAgent):
 
         if not silent:
             iostream = IOStream.get_default()
-            iostream.send(GroupChatResumeMessage(last_speaker_name=last_speaker_name, messages=messages, silent=silent))
+            iostream.send(GroupChatResumeEvent(last_speaker_name=last_speaker_name, events=messages, silent=silent))
 
         # Update group chat settings for resuming
         self._groupchat.send_introductions = False
@@ -1917,7 +1918,7 @@ class GroupChatManager(ConversableAgent):
             )
         # clear history
         iostream.send(
-            ClearAgentsHistoryMessage(agent=agent_to_memory_clear, nr_messages_to_preserve=nr_messages_to_preserve)
+            ClearAgentsHistoryEvent(agent=agent_to_memory_clear, nr_events_to_preserve=nr_messages_to_preserve)
         )
         if agent_to_memory_clear:
             agent_to_memory_clear.clear_history(nr_messages_to_preserve=nr_messages_to_preserve)

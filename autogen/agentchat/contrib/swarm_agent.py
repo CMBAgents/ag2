@@ -2,8 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import copy
 import inspect
+import threading
 import warnings
 from dataclasses import dataclass
 from enum import Enum
@@ -14,25 +16,30 @@ from typing import Annotated, Any, Callable, Literal, Optional, Union
 from pydantic import BaseModel, field_serializer
 
 from ...doc_utils import export_module
-from IPython.display import Markdown, display
+from IPython.display import Markdown, display ## useful for displaying in cmbagent notebooks
 # from ...code_utils import cmbagent_debug
 from ...cmbagent_utils import cmbagent_debug
+from ...events.agent_events import ErrorEvent, RunCompletionEvent
+from ...io.base import IOStream
+from ...io.run_response import AsyncRunResponse, AsyncRunResponseProtocol, RunResponse, RunResponseProtocol
+from ...io.thread_io_stream import AsyncThreadIOStream, ThreadIOStream
 from ...oai import OpenAIWrapper
 from ...tools import Depends, Tool
 from ...tools.dependency_injection import inject_params, on
 from ..agent import Agent
 from ..chat import ChatResult
-from ..conversable_agent import __CONTEXT_VARIABLES_PARAM_NAME__, ConversableAgent
+from ..conversable_agent import ConversableAgent
+from ..group.context_expression import ContextExpression
+from ..group.context_str import ContextStr
+from ..group.context_variables import __CONTEXT_VARIABLES_PARAM_NAME__, ContextVariables
 from ..groupchat import SELECT_SPEAKER_PROMPT_TEMPLATE, GroupChat, GroupChatManager
 from ..user_proxy_agent import UserProxyAgent
-from ..utils import ContextExpression
 
 __all__ = [
     "AFTER_WORK",
     "ON_CONDITION",
     "AfterWork",
     "AfterWorkOption",
-    "ContextStr",
     "OnCondition",
     "OnContextCondition",
     "SwarmAgent",
@@ -40,42 +47,8 @@ __all__ = [
     "create_swarm_transition",
     "initiate_swarm_chat",
     "register_hand_off",
+    "run_swarm",
 ]
-
-
-@dataclass
-class ContextStr:
-    """A string that requires context variable substitution.
-
-    Use the format method to substitute context variables into the string.
-
-    Args:
-        template (str): The string to be substituted with context variables. It is expected that the string will contain `{var}` placeholders
-            and that string format will be able to replace all values.
-    """
-
-    template: str
-
-    def __init__(self, template: str):
-        self.template = template
-
-    def format(self, context_variables: dict[str, Any]) -> Optional[str]:
-        """Substitute context variables into the string.
-
-        Args:
-            context_variables (dict[str, Any]): The context variables to substitute into the string.
-
-        Returns:
-            Optional[str]: The formatted string with context variables substituted.
-        """
-        return OpenAIWrapper.instantiate(
-            template=self.template,
-            context=context_variables,
-            allow_format_str_template=True,
-        )
-
-    def __str__(self) -> str:
-        return f"ContextStr, unformatted: {self.template}"
 
 
 # Created tool executor's name
@@ -323,11 +296,11 @@ def _run_oncontextconditions(
             if callable(on_condition.available):
                 is_available = on_condition.available(agent, next(iter(agent.chat_messages.values())))
             elif isinstance(on_condition.available, str):
-                is_available = agent.get_context(on_condition.available) or False
+                is_available = agent.context_variables.get(on_condition.available) or False
             elif isinstance(on_condition.available, ContextExpression):
-                is_available = on_condition.available.evaluate(agent._context_variables)
+                is_available = on_condition.available.evaluate(agent.context_variables)
 
-        if is_available and on_condition._context_condition.evaluate(agent._context_variables):
+        if is_available and on_condition._context_condition.evaluate(agent.context_variables):
             # Condition has been met, we'll set the Tool Executor's _swarm_next_agent
             # attribute and that will be picked up on the next iteration when
             # _determine_next_agent is called
@@ -346,15 +319,15 @@ def _run_oncontextconditions(
     return False, None
 
 
-def _modify_context_variables_param(f: Callable[..., Any], context_variables: dict[str, Any]) -> Callable[..., Any]:
+def _modify_context_variables_param(f: Callable[..., Any], context_variables: ContextVariables) -> Callable[..., Any]:
     """Modifies the context_variables parameter to use dependency injection and link it to the swarm context variables.
 
     This essentially changes:
-    def some_function(some_variable: int, context_variables: dict[str, Any]) -> str:
+    def some_function(some_variable: int, context_variables: ContextVariables) -> str:
 
     to:
 
-    def some_function(some_variable: int, context_variables: Annotated[dict[str, Any], Depends(on(self._context_variables))]) -> str:
+    def some_function(some_variable: int, context_variables: Annotated[ContextVariables, Depends(on(self.context_variables))]) -> str:
     """
     sig = inspect.signature(f)
 
@@ -364,7 +337,7 @@ def _modify_context_variables_param(f: Callable[..., Any], context_variables: di
         for name, param in sig.parameters.items():
             if name == __CONTEXT_VARIABLES_PARAM_NAME__:
                 # Replace with new annotation using Depends
-                new_param = param.replace(annotation=Annotated[dict[str, Any], Depends(on(context_variables))])
+                new_param = param.replace(annotation=Annotated[ContextVariables, Depends(on(context_variables))])
                 new_params.append(new_param)
             else:
                 new_params.append(param)
@@ -377,7 +350,7 @@ def _modify_context_variables_param(f: Callable[..., Any], context_variables: di
 
 
 def _change_tool_context_variables_to_depends(
-    agent: ConversableAgent, current_tool: Tool, context_variables: dict[str, Any]
+    agent: ConversableAgent, current_tool: Tool, context_variables: ContextVariables
 ) -> None:
     """Checks for the context_variables parameter in the tool and updates it to use dependency injection."""
 
@@ -403,7 +376,7 @@ def _change_tool_context_variables_to_depends(
 def _prepare_swarm_agents(
     initial_agent: ConversableAgent,
     agents: list[ConversableAgent],
-    context_variables: dict[str, Any],
+    context_variables: ContextVariables,
     exclude_transit_message: bool = True,
 ) -> tuple[ConversableAgent, list[ConversableAgent]]:
     """Validates agents, create the tool executor, configure nested chats.
@@ -411,7 +384,7 @@ def _prepare_swarm_agents(
     Args:
         initial_agent (ConversableAgent): The first agent in the conversation.
         agents (list[ConversableAgent]): List of all agents in the conversation.
-        context_variables (dict[str, Any]): Context variables to assign to all agents.
+        context_variables (ContextVariables): Context variables to assign to all agents.
         exclude_transit_message (bool): Whether to exclude transit messages from the agents.
 
     Returns:
@@ -604,7 +577,7 @@ def _setup_context_variables(
     tool_execution: ConversableAgent,
     agents: list[ConversableAgent],
     manager: GroupChatManager,
-    context_variables: dict[str, Any],
+    context_variables: ContextVariables,
 ) -> None:
     """Assign a common context_variables reference to all agents in the swarm, including the tool executor and group chat manager.
 
@@ -615,7 +588,7 @@ def _setup_context_variables(
         context_variables: Context variables to assign to all agents.
     """
     for agent in agents + [tool_execution] + [manager]:
-        agent._context_variables = context_variables
+        agent.context_variables = context_variables
 
 
 def _cleanup_temp_user_messages(chat_result: ChatResult) -> None:
@@ -671,11 +644,13 @@ def _prepare_groupchat_auto_speaker(
         groupchat.select_speaker_prompt_template = substitute_agentlist(after_work_next_agent_selection_msg)
     elif isinstance(after_work_next_agent_selection_msg, ContextStr):
         # Replace the agentlist in the string first, putting it into a new ContextStr
-        agent_list_replaced_string = ContextStr(substitute_agentlist(after_work_next_agent_selection_msg.template))
+        agent_list_replaced_string = ContextStr(
+            template=substitute_agentlist(after_work_next_agent_selection_msg.template)
+        )
 
         # Then replace the context variables
         groupchat.select_speaker_prompt_template = agent_list_replaced_string.format(  # type: ignore[assignment]
-            last_swarm_agent._context_variables
+            last_swarm_agent.context_variables
         )
     elif callable(after_work_next_agent_selection_msg):
         groupchat.select_speaker_prompt_template = substitute_agentlist(
@@ -951,7 +926,7 @@ def initiate_swarm_chat(
     user_agent: Optional[UserProxyAgent] = None,
     swarm_manager_args: Optional[dict[str, Any]] = None,
     max_rounds: int = 20,
-    context_variables: Optional[dict[str, Any]] = None,
+    context_variables: Optional[ContextVariables] = None,
     after_work: Optional[
         Union[
             AfterWorkOption,
@@ -961,7 +936,7 @@ def initiate_swarm_chat(
         ]
     ] = AfterWorkOption.TERMINATE,
     exclude_transit_message: bool = True,
-) -> tuple[ChatResult, dict[str, Any], ConversableAgent]:
+) -> tuple[ChatResult, ContextVariables, ConversableAgent]:
     """Initialize and run a swarm chat
 
     Args:
@@ -987,10 +962,10 @@ def initiate_swarm_chat(
             Note: only with transition functions added with `register_handoff` will be removed. If you pass in a function to manage workflow, it will not be removed. You may register a cumstomized hook to `process_all_messages_before_reply` to remove that.
     Returns:
         ChatResult:     Conversations chat history.
-        dict[str, Any]: Updated Context variables.
+        ContextVariables: Updated Context variables.
         ConversableAgent:     Last speaker.
     """
-    context_variables = context_variables or {}
+    context_variables = context_variables or ContextVariables()
 
     tool_execution, nested_chat_agents = _prepare_swarm_agents(
         initial_agent, agents, context_variables, exclude_transit_message
@@ -1046,7 +1021,66 @@ def initiate_swarm_chat(
 
     _cleanup_temp_user_messages(chat_result)
 
-    return chat_result, context_variables if context_variables != {} else None, manager.last_speaker  # type: ignore[return-value]
+    return chat_result, context_variables, manager.last_speaker  # type: ignore[return-value]
+
+
+@export_module("autogen")
+def run_swarm(
+    initial_agent: ConversableAgent,
+    messages: Union[list[dict[str, Any]], str],
+    agents: list[ConversableAgent],
+    user_agent: Optional[UserProxyAgent] = None,
+    swarm_manager_args: Optional[dict[str, Any]] = None,
+    max_rounds: int = 20,
+    context_variables: Optional[ContextVariables] = None,
+    after_work: Optional[
+        Union[
+            AfterWorkOption,
+            Callable[
+                [ConversableAgent, list[dict[str, Any]], GroupChat], Union[AfterWorkOption, ConversableAgent, str]
+            ],
+        ]
+    ] = AfterWorkOption.TERMINATE,
+    exclude_transit_message: bool = True,
+) -> RunResponseProtocol:
+    iostream = ThreadIOStream()
+    response = RunResponse(iostream, agents)  # type: ignore[arg-type]
+
+    def stream_run(
+        iostream: ThreadIOStream = iostream,
+        response: RunResponse = response,
+    ) -> None:
+        with IOStream.set_default(iostream):
+            try:
+                chat_result, returned_context_variables, last_speaker = initiate_swarm_chat(
+                    initial_agent=initial_agent,
+                    messages=messages,
+                    agents=agents,
+                    user_agent=user_agent,
+                    swarm_manager_args=swarm_manager_args,
+                    max_rounds=max_rounds,
+                    context_variables=context_variables,
+                    after_work=after_work,
+                    exclude_transit_message=exclude_transit_message,
+                )
+
+                IOStream.get_default().send(
+                    RunCompletionEvent(  # type: ignore[call-arg]
+                        history=chat_result.chat_history,
+                        summary=chat_result.summary,
+                        cost=chat_result.cost,
+                        last_speaker=last_speaker.name,
+                        context_variables=returned_context_variables,
+                    )
+                )
+            except Exception as e:
+                response.iostream.send(ErrorEvent(error=e))  # type: ignore[call-arg]
+
+    threading.Thread(
+        target=stream_run,
+    ).start()
+
+    return response
 
 
 @export_module("autogen")
@@ -1057,7 +1091,7 @@ async def a_initiate_swarm_chat(
     user_agent: Optional[UserProxyAgent] = None,
     swarm_manager_args: Optional[dict[str, Any]] = None,
     max_rounds: int = 20,
-    context_variables: Optional[dict[str, Any]] = None,
+    context_variables: Optional[ContextVariables] = None,
     after_work: Optional[
         Union[
             AfterWorkOption,
@@ -1067,7 +1101,7 @@ async def a_initiate_swarm_chat(
         ]
     ] = AfterWorkOption.TERMINATE,
     exclude_transit_message: bool = True,
-) -> tuple[ChatResult, dict[str, Any], ConversableAgent]:
+) -> tuple[ChatResult, ContextVariables, ConversableAgent]:
     """Initialize and run a swarm chat asynchronously
 
     Args:
@@ -1093,10 +1127,10 @@ async def a_initiate_swarm_chat(
             Note: only with transition functions added with `register_handoff` will be removed. If you pass in a function to manage workflow, it will not be removed. You may register a cumstomized hook to `process_all_messages_before_reply` to remove that.
     Returns:
         ChatResult:     Conversations chat history.
-        dict[str, Any]: Updated Context variables.
+        ContextVariables: Updated Context variables.
         ConversableAgent:     Last speaker.
     """
-    context_variables = context_variables or {}
+    context_variables = context_variables or ContextVariables()
     tool_execution, nested_chat_agents = _prepare_swarm_agents(
         initial_agent, agents, context_variables, exclude_transit_message
     )
@@ -1127,6 +1161,10 @@ async def a_initiate_swarm_chat(
     # Point all ConversableAgent's context variables to this function's context_variables
     _setup_context_variables(tool_execution, agents, manager, context_variables)
 
+    # Link all agents with the GroupChatManager to allow access to the group chat
+    # and other agents, particularly the tool executor for setting _swarm_next_agent
+    _link_agents_to_swarm_manager(groupchat.agents, manager)
+
     if len(processed_messages) > 1:
         last_agent, last_message = await manager.a_resume(messages=processed_messages)
         clear_history = False
@@ -1145,21 +1183,84 @@ async def a_initiate_swarm_chat(
 
     _cleanup_temp_user_messages(chat_result)
 
-    return chat_result, context_variables if context_variables != {} else None, manager.last_speaker  # type: ignore[return-value]
+    return chat_result, context_variables, manager.last_speaker  # type: ignore[return-value]
 
 
+@export_module("autogen")
+async def a_run_swarm(
+    initial_agent: ConversableAgent,
+    messages: Union[list[dict[str, Any]], str],
+    agents: list[ConversableAgent],
+    user_agent: Optional[UserProxyAgent] = None,
+    swarm_manager_args: Optional[dict[str, Any]] = None,
+    max_rounds: int = 20,
+    context_variables: Optional[ContextVariables] = None,
+    after_work: Optional[
+        Union[
+            AfterWorkOption,
+            Callable[
+                [ConversableAgent, list[dict[str, Any]], GroupChat], Union[AfterWorkOption, ConversableAgent, str]
+            ],
+        ]
+    ] = AfterWorkOption.TERMINATE,
+    exclude_transit_message: bool = True,
+) -> AsyncRunResponseProtocol:
+    iostream = AsyncThreadIOStream()
+    response = AsyncRunResponse(iostream, agents)  # type: ignore[arg-type]
+
+    async def stream_run(
+        iostream: AsyncThreadIOStream = iostream,
+        response: AsyncRunResponse = response,
+    ) -> None:
+        with IOStream.set_default(iostream):
+            try:
+                chat_result, returned_context_variables, last_speaker = await a_initiate_swarm_chat(
+                    initial_agent=initial_agent,
+                    messages=messages,
+                    agents=agents,
+                    user_agent=user_agent,
+                    swarm_manager_args=swarm_manager_args,
+                    max_rounds=max_rounds,
+                    context_variables=context_variables,
+                    after_work=after_work,
+                    exclude_transit_message=exclude_transit_message,
+                )
+
+                IOStream.get_default().send(
+                    RunCompletionEvent(  # type: ignore[call-arg]
+                        history=chat_result.chat_history,
+                        summary=chat_result.summary,
+                        cost=chat_result.cost,
+                        last_speaker=last_speaker.name,
+                        context_variables=returned_context_variables,
+                    )
+                )
+            except Exception as e:
+                response.iostream.send(ErrorEvent(error=e))  # type: ignore[call-arg]
+
+    asyncio.create_task(stream_run())
+
+    return response
+
+
+@export_module("autogen")
 class SwarmResult(BaseModel):
     """Encapsulates the possible return values for a swarm agent function."""
 
     values: str = ""
     agent: Optional[Union[ConversableAgent, AfterWorkOption, str]] = None
-    context_variables: dict[str, Any] = {}
+    context_variables: Optional[ContextVariables] = None
 
     @field_serializer("agent", when_used="json")
     def serialize_agent(self, agent: Union[ConversableAgent, str]) -> str:
         if isinstance(agent, ConversableAgent):
             return agent.name
         return agent
+
+    def model_post_init(self, __context: Any) -> None:
+        # Initialise with a new ContextVariables object if not provided
+        if self.context_variables is None:
+            self.context_variables = ContextVariables()
 
     class Config:  # Add this inner class
         arbitrary_types_allowed = True
@@ -1179,6 +1280,7 @@ def _set_to_tool_execution(agent: ConversableAgent) -> None:
     agent.register_reply([Agent, None], _generate_swarm_tool_reply)
 
 
+@export_module("autogen")
 def register_hand_off(
     agent: ConversableAgent,
     hand_to: Union[list[Union[OnCondition, OnContextCondition, AfterWork]], OnCondition, OnContextCondition, AfterWork],
@@ -1263,9 +1365,9 @@ def _update_conditional_functions(agent: ConversableAgent, messages: Optional[li
             if callable(on_condition.available):
                 is_available = on_condition.available(agent, next(iter(agent.chat_messages.values())))
             elif isinstance(on_condition.available, str):
-                is_available = agent.get_context(on_condition.available) or False
+                is_available = agent.context_variables.get(on_condition.available) or False
             elif isinstance(on_condition.available, ContextExpression):
-                is_available = on_condition.available.evaluate(agent._context_variables)
+                is_available = on_condition.available.evaluate(agent.context_variables)
 
         # first remove the function if it exists
         if func_name in agent._function_map:
@@ -1276,7 +1378,7 @@ def _update_conditional_functions(agent: ConversableAgent, messages: Optional[li
         if is_available:
             condition = on_condition.condition
             if isinstance(condition, ContextStr):
-                condition = condition.format(context_variables=agent._context_variables)
+                condition = condition.format(context_variables=agent.context_variables)
             elif callable(condition):
                 condition = condition(agent, messages)
 
@@ -1330,8 +1432,8 @@ def _generate_swarm_tool_reply(
                 content = tool_response.get("content")
 
                 if isinstance(content, SwarmResult):
-                    if content.context_variables != {}:
-                        agent._context_variables.update(content.context_variables)
+                    if content.context_variables is not None and content.context_variables.to_dict() != {}:
+                        agent.context_variables.update(content.context_variables.to_dict())
                     if content.agent is not None:
                         next_agent = content.agent  # type: ignore[assignment]
                 elif isinstance(content, Agent):
