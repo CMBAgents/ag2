@@ -2036,8 +2036,16 @@ class ConversableAgent(LLMAgent):
                     tool_choice=tool_choice ## cmbagent added this to force tool call
                 )
             else:
-                for im in range(len(all_messages)):
-                    all_messages[im]["role"] = "user" # cmbagent tweaked this to fix the error
+                # for im in range(len(all_messages)):
+                    # all_messages[im]["role"] = "user" # cmbagent tweaked this to fix the error with gemini
+                    # print("setting all_messages[im]['role'] to 'user'")
+                    # if cmbagent_debug == False:
+                    #     print("\nMessage", im + 1, "of", len(all_messages))
+                    #     print("Role:", all_messages[im]["role"])
+                    #     print("Content:", all_messages[im].get("content", "No content"))
+                    #     if "tool_calls" in all_messages[im]:
+                    #         print("Tool calls:", all_messages[im]["tool_calls"])
+                    #     print("-" * 40)
                     # all_messages[im].pop("tool_call_id", None) # cmbagent tweaked this to fix the error
 
                 response = llm_client.create(
