@@ -17,14 +17,8 @@ from pydantic import BaseModel, ValidationError
 
 from autogen.tools import Tool
 from autogen.cmbagent_utils import cmbagent_debug
-from autogen import SwarmResult, AfterWorkOption
-from autogen.agentchat.contrib.swarm_agent import (
-    AfterWork,
-    AfterWorkOption,
-    OnCondition,
-    OnContextCondition,
-    SwarmResult,
-)
+from autogen.agentchat.group import TerminateTarget, ReplyResult
+from autogen.agentchat.group import ContextVariables
 
 class Message(BaseModel):
     """
@@ -231,7 +225,7 @@ class PerplexitySearchTool(Tool):
 
         return perp_resp
 
-    def search(self, query: str) -> "SearchResponse":
+    def search(self, query: str, context_variables: ContextVariables) -> "SearchResponse":
         """
         Perform a search query using the Perplexity AI API.
 
@@ -286,8 +280,8 @@ class PerplexitySearchTool(Tool):
             markdown_response = re.sub(r'\[(\d+)\]', citation_repl, cleaned_response)
 
             # return SearchResponse(content=content, citations=citations, error=None)
-            return SwarmResult(agent=AfterWorkOption.TERMINATE, ## transfer to planner
-                                values=markdown_response,
+            return ReplyResult(target=TerminateTarget(), 
+                                message=markdown_response,
                                 context_variables=context_variables)
         except Exception as e:
             # Return a SearchResponse with an error message if something goes wrong.
