@@ -20,6 +20,7 @@ from IPython.display import display
 from IPython.display import Markdown
 
 from google.genai.errors import ClientError
+from openai import BadRequestError
 
 
 
@@ -2289,21 +2290,32 @@ class ConversableAgent(LLMAgent):
 
 
 
-
+        context = messages[-1].pop("context", None)
         if force_tool_call:
-            response = llm_client.create(
-                context=messages[-1].pop("context", None),
-                messages=all_messages,
-                cache=cache,
-                agent=self,
-                parallel_tool_calls=False, ## cmbagent added this to disable parallel tool calls
-                tool_choice=tool_choice ## cmbagent added this to force tool call
-            )
+            try:
+                response = llm_client.create(
+                    context=context,
+                    messages=all_messages,
+                    cache=cache,
+                    agent=self,
+                    parallel_tool_calls=False, ## cmbagent added this to disable parallel tool calls
+                    tool_choice=tool_choice ## cmbagent added this to force tool call
+                )
+            except BadRequestError as e:
+                if "parallel_tool_calls" in str(e):
+                    response = llm_client.create(
+                            context=context,
+                            messages=all_messages,
+                            cache=cache,
+                            agent=self,
+                            tool_choice=tool_choice ## cmbagent added this to force tool call
+                        )
+
 
         else:
             # TODO: #1143 handle token limit exceeded error
             response = llm_client.create(
-                context=messages[-1].pop("context", None),
+                context=context,
                 messages=all_messages,
                 cache=cache,
                 agent=self,
