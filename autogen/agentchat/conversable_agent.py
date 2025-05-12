@@ -499,8 +499,8 @@ class ConversableAgent(LLMAgent):
                         if cmbagent_debug:
                             print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message)
 
-                        # if self.name == "executor_response_formatter":
-                            # print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
+                        # if self.name == "engineer":
+                        #     print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
                         return messages
 
                     return update_system_message_wrapper
@@ -745,9 +745,9 @@ class ConversableAgent(LLMAgent):
 
         print('\n\n\n\nin conversable_agent.py _process_nested_chat_carryover message: ')
         import pprint; pprint.pprint(message)
-        print('\n\n\n\nsender.name: ', sender.name)
-        print(dir(sender))
-        print(sender.chat_messages)
+        # print('\n\n\n\nsender.name: ', sender.name)
+        # print(dir(sender))
+        # print(sender.chat_messages)
         # message = sender.chat_messages
         # print(sender.model_dump())
         # import sys; sys.exit()
@@ -1544,12 +1544,17 @@ class ConversableAgent(LLMAgent):
             else:
                 msg2send = self.generate_init_message(message, **kwargs)
             self.send(msg2send, recipient, silent=silent)
+        # print("XXXXXXXXXX==========  in conversable_agent.py chat messages: ", self.chat_messages)
+        # print("XXXXXXXXXX==========  in conversable_agent.py recipient name: ", recipient.name)
+        # print("XXXXXXXXXX==========  in conversable_agent.py sender name: ", _chat_info["sender"])
         summary = self._summarize_chat(
             summary_method,
             summary_args,
             recipient,
             cache=cache,
         )
+        # print("XXXXXXXXXX==========  in conversable_agent.py summary: ", summary)
+        
         for agent in [self, recipient]:
             agent.client_cache = agent.previous_cache
             agent.previous_cache = None
@@ -2252,6 +2257,10 @@ class ConversableAgent(LLMAgent):
             force_tool_call = True
             tool_choice = {"type": "function", "function": {"name": "record_status"}}
 
+        elif self.name == 'control_starter':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "record_status_starter"}}
+
         elif self.name == 'executor_response_formatter':
             force_tool_call = True
             tool_choice = {"type": "function", "function": {"name": "post_execution_transfer"}}
@@ -2289,9 +2298,24 @@ class ConversableAgent(LLMAgent):
             tool_choice = {"type": "function", "function": {"name": "record_aas_keywords"}}
 
 
+        elif self.name == 'idea_saver':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "record_ideas"}}
+
+        # from google.genai.types import FunctionCallingConfig, FunctionCallingConfigMode, ToolConfig
+
+        # # Must call a tool gemini setup
+        # function_calling_config = FunctionCallingConfig(
+        #     mode=FunctionCallingConfigMode.ANY,
+        #     )
+
+        # tool_config = ToolConfig(
+        #     function_calling_config=function_calling_config,
+        #     )
 
         context = messages[-1].pop("context", None)
         if force_tool_call:
+            print("dealing with force_tool_call in conversable_agent.py")
             try:
                 response = llm_client.create(
                     context=context,
@@ -2299,10 +2323,12 @@ class ConversableAgent(LLMAgent):
                     cache=cache,
                     agent=self,
                     parallel_tool_calls=False, ## cmbagent added this to disable parallel tool calls
-                    tool_choice=tool_choice ## cmbagent added this to force tool call
+                    tool_choice=tool_choice, ## cmbagent added this to force tool call
+                    # tool_config=tool_config,
                 )
             except BadRequestError as e:
                 if "parallel_tool_calls" in str(e):
+                    print("dealing with parallel_tool_calls error in conversable_agent.py")
                     response = llm_client.create(
                             context=context,
                             messages=all_messages,
@@ -2313,7 +2339,44 @@ class ConversableAgent(LLMAgent):
 
 
         else:
-            # TODO: #1143 handle token limit exceeded error
+            print("dealing with non-tool calling agent in conversable_agent.py")
+            # if self.name == "engineer_response_formatter":
+            #     print("dealing with engineer_response_formatter in conversable_agent.py")
+            #     from pydantic import BaseModel, Field
+            #     from typing import Optional
+
+            #     class EngineerResponse(BaseModel):
+            #         filename: str = Field(..., description="The name to give to this Python script")
+            #         relative_path: Optional[str] = Field(
+            #             None, description="The relative path to the file (exclude <filename>.py itself)"
+            #         )
+            #         code_explanation: str = Field(
+            #             ..., description="Copy of the engineer's explanation of the Python code provided. Including the docstrings of the methods used."
+            #         )
+            #         modification_summary: Optional[str] = Field(
+            #             None,
+            #             description="Copy of the engineer's summary of any modifications made to fix errors from the previous version."
+            #         )
+            #         python_code: str = Field(
+            #             ..., description="Copy of the engineer's Python code in a form ready to execute. Should not contain anything else than code."
+            #         )
+            #     # TODO: #1143 handle token limit exceeded error
+            #     response = llm_client.create(
+            #         context=context,
+            #         messages=all_messages,
+            #         cache=cache,
+            #         agent=self,
+            #         response_mime_type="application/json",
+            #         response_schema = list[EngineerResponse]
+            #     )
+            # else:
+            #     print("dealing with other non-tool calling agent in conversable_agent.py")
+            #     response = llm_client.create(
+            #         context=context,
+            #         messages=all_messages,
+            #         cache=cache,
+            #         agent=self,
+            #     )
             response = llm_client.create(
                 context=context,
                 messages=all_messages,

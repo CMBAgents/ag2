@@ -38,6 +38,19 @@ from .contrib.capabilities import transform_messages
 from .conversable_agent import ConversableAgent
 from ..cmbagent_utils import cmbagent_debug
 
+import re
+# cmbagent addition:
+def extract_python_code_blocks(text: str) -> str:
+    """
+    Extracts the first Python code block from a string formatted with triple backticks.
+    Returns only the code content, excluding any Markdown or surrounding explanation.
+    """
+    match = re.search(r"```python(.*?)```", text, re.DOTALL)
+    return match.group(1).strip() if match else ""
+
+
+
+
 ## cmbagent addition:
 def extract_next_agent_suggestion(message):
     """
@@ -1263,7 +1276,16 @@ class GroupChatManager(ConversableAgent):
                 a.client_cache = self.client_cache
         if cmbagent_debug:
             groupchat.verbose = True
+
+        executed_code_str = None # tmp variable to collect the executed code from engineer_response_formatter in the nested chat 
+        
+        
         for i in range(groupchat.max_round):
+
+
+            # for agent in groupchat.agents:
+            #     if agent.name in one_shot_agents:
+            #         agent.reset()
             # cmbagent debug -- print all messages
             # print("\n\n\n-----------------------------------\n")
             # print("\n in groupchat.py i: ", i)
@@ -1273,8 +1295,79 @@ class GroupChatManager(ConversableAgent):
             # import pprint; pprint.pprint(messages)
             # print("\n\n\n-----------------------------------\n")
             self._last_speaker = speaker
+
+
+
+
+
+
             # last_agent_for_sub_task = self.get_context("agent_for_sub_task")
             # last_plan_step = self.get_context("current_plan_step_number")
+
+                # import sys; sys.exit()
+
+            # # Print engineer_nest messages
+            # if speaker.name == "executor_response_formatter":
+            #     # we can reset the engineer here
+            #     print("\n in groupchat.py resetting engineer")
+                # groupchat.agent_by_name("engineer").reset()
+                # for agent in groupchat.agents:
+                #     if agent.name == "engineer":
+                #         agent.reset()
+            #     print("\n=== executor_response_formatter ===\n")
+            #     # print(f"Content: {message.get('content', '')}")
+            #     # print(executed_code_str)
+            #     print("\n\n\n-----------------------------------\n")
+            #     print(messages)
+            #     print("\n\n\n-----------------------------------\n")
+                # import sys; sys.exit()
+
+
+            if speaker.name == "engineer_response_formatter":
+                # print("\n=== Engineer Response Formatter Message ===\n")
+                # print(f"Content: {message.get('content', '')}")
+                executed_code_str = extract_python_code_blocks(message['content']) # set the global variable
+
+            # set engineer_nest messages, which is what the groupchat returns
+            if speaker.name == "executor":
+                # print("\n=== Executor Message ===\n")
+                # print(f"Content: {message.get('content', '')}")
+
+                for msg in messages[::-1]:
+                    #print messages of engineer_nest
+                    if msg['name'] == "engineer_nest":
+                        # print("XXXXXXXXXX==========  in groupchat.py messages: ", msg['content'])
+                        #overwrite the content with executor's response
+                        msg['content'] = rf"""
+The executed code was:
+
+```python
+{executed_code_str}
+```
+
+================================================    
+
+The output of the executed code was:
+
+{message['content']}
+
+================================================    
+                        """
+                        # reset the executed_code_str
+                        executed_code_str = None
+                        break
+
+
+            if speaker.name == "idea_maker_response_formatter":
+                generated_ideas = message['content']
+                print("\n in groupchat.py generated_ideas: ", generated_ideas)
+                # import sys; sys.exit()
+
+            if speaker.name == "idea_saver":
+                for msg in messages[::-1]:
+                    if msg['name'] == "idea_maker_nest":
+                        msg['content'] = generated_ideas
+                        break
 
 
 
@@ -1283,6 +1376,10 @@ class GroupChatManager(ConversableAgent):
             for agent in groupchat.agents:
                 if agent != speaker:
                     self.send(message, agent, request_reply=False, silent=True)
+
+            
+
+
             if self._is_termination_msg(message):
                 # The conversation is over
                 termination_reason = f"Termination message condition on the GroupChatManager '{self.name}' met"
@@ -1290,6 +1387,21 @@ class GroupChatManager(ConversableAgent):
             elif i == groupchat.max_round - 1:
                 # It's the last round
                 termination_reason = f"Maximum rounds ({groupchat.max_round}) reached"
+
+                # reset the entire groupchat
+                groupchat.reset()
+
+                ## here we can post-process the messages of the nested chat
+                if speaker.name == "executor":
+                    for agent in groupchat.agents:                        
+                        if agent.name != "engineer_nest":
+                            agent.reset()
+
+                if speaker.name == "idea_saver":
+                    for agent in groupchat.agents:
+                        if agent.name != "idea_maker_nest":
+                            agent.reset()
+
                 break
             try:
                 ### cmbagent 
@@ -1308,12 +1420,6 @@ class GroupChatManager(ConversableAgent):
                         speaker = groupchat.agent_by_name("admin")
                         self.last_admin_summarizer_speaker = "admin"
 
-                # elif i == 0 and "planner" in [agent.name for agent in groupchat.agents]:  # Default to 'planner' in standard case
-                #     print("\n in groupchat.py, i == 0")
-                #     if "memory_agent" in [agent.name for agent in groupchat.agents]:
-                #         speaker = groupchat.agent_by_name("memory_agent")
-                #     else:
-                #         speaker = groupchat.agent_by_name("planner")
 
                 else:
                     if groupchat.verbose:
@@ -1481,6 +1587,7 @@ class GroupChatManager(ConversableAgent):
                 a.previous_cache = None
 
         if termination_reason:
+            # print("XXXXXXXXXX==========  in groupchat.py termination_reason: ", termination_reason)
             iostream.send(TerminationEvent(termination_reason=termination_reason))
 
         return True, None
