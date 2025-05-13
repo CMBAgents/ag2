@@ -548,18 +548,20 @@ class PostCarryoverProcessingMessage(BaseMessage):
 
         print_carryover = self._process_carryover()
 
-        f(colored("\n" + "*" * 80, "blue"), flush=True, sep="")
-        f(
-            colored(
-                "Starting a new chat....",
-                "blue",
-            ),
-            flush=True,
-        )
-        if self.verbose:
-            f(colored("Message:\n" + self.message, "blue"), flush=True)
-            f(colored("Carryover:\n" + print_carryover, "blue"), flush=True)
-        f(colored("\n" + "*" * 80, "blue"), flush=True, sep="")
+        if not cmbagent_gui_mode:
+
+            f(colored("\n" + "*" * 80, "blue"), flush=True, sep="")
+            f(
+                colored(
+                    "Starting a new chat....",
+                    "blue",
+                ),
+                flush=True,
+            )
+            if self.verbose:
+                f(colored("Message:\n" + self.message, "blue"), flush=True)
+                f(colored("Carryover:\n" + print_carryover, "blue"), flush=True)
+            f(colored("\n" + "*" * 80, "blue"), flush=True, sep="")
 
 
 @deprecated_by(ClearAgentsHistoryEvent, param_mapping={"nr_messages_to_preserve": "nr_events_to_preserve"})

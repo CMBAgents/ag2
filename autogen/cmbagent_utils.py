@@ -55,3 +55,8 @@ _lines = LOGO.splitlines()
 _ascii_width = max(len(line) for line in _lines)
 _scaling_factor = 8  # For example, 8 pixels per character.
 IMG_WIDTH = _ascii_width * _scaling_factor
+
+cmbagent_gui_mode = os.getenv("CMBAGENT_GUI_MODE", "False").lower() == "true"
+cmbagent_gui_mode = True
+# print("\n in cmbagent_utils.py cmbagent_gui_mode: ", cmbagent_gui_mode)
+# import sys; sys.exit()

@@ -13,6 +13,8 @@ from .transforms import MessageTransform
 if TYPE_CHECKING:
     from ...conversable_agent import ConversableAgent
 
+from ....cmbagent_utils import cmbagent_gui_mode
+
 
 class TransformMessages:
     """Agent capability for transforming messages before reply generation.
@@ -84,8 +86,9 @@ class TransformMessages:
 
             if self._verbose:
                 logs_str, had_effect = transform.get_logs(pre_transform_messages, post_transform_messages)
-                if had_effect:
-                    print(colored(logs_str, "yellow"))
+                if not cmbagent_gui_mode:
+                    if had_effect:
+                        print(colored(logs_str, "yellow"))
 
         if system_message:
             post_transform_messages.insert(0, system_message)

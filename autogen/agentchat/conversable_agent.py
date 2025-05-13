@@ -2315,7 +2315,7 @@ class ConversableAgent(LLMAgent):
 
         context = messages[-1].pop("context", None)
         if force_tool_call:
-            print("dealing with force_tool_call in conversable_agent.py")
+            # print("dealing with force_tool_call in conversable_agent.py")
             try:
                 response = llm_client.create(
                     context=context,
@@ -2328,7 +2328,7 @@ class ConversableAgent(LLMAgent):
                 )
             except BadRequestError as e:
                 if "parallel_tool_calls" in str(e):
-                    print("dealing with parallel_tool_calls error in conversable_agent.py")
+                    # print("dealing with parallel_tool_calls error in conversable_agent.py")
                     response = llm_client.create(
                             context=context,
                             messages=all_messages,
@@ -2339,7 +2339,7 @@ class ConversableAgent(LLMAgent):
 
 
         else:
-            print("dealing with non-tool calling agent in conversable_agent.py")
+            # print("dealing with non-tool calling agent in conversable_agent.py")
             # if self.name == "engineer_response_formatter":
             #     print("dealing with engineer_response_formatter in conversable_agent.py")
             #     from pydantic import BaseModel, Field
@@ -2578,14 +2578,14 @@ class ConversableAgent(LLMAgent):
 
             # found code blocks, execute code.
             code_result = self._code_executor.execute_code_blocks(code_blocks)
-            exitcode2str = "execution results:" if code_result.exit_code == 0 else "execution results:"
+            exitcode2str = "Execution results:\n" if code_result.exit_code == 0 else "execution results:"
             # return True, f"exitcode: {code_result.exit_code} ({exitcode2str})\nCode output: {code_result.output}"
 
             ## cmbagent tuned output: 
             if code_result.output is not None and len(code_result.output) > 0:
                 # print('in conversable agent.py len(code_result.output): ', len(code_result.output))
                 # print('in conversable_agent.py code_result.output: ', code_result.output)
-                if exitcode2str == "execution results:":
+                if exitcode2str == "Execution results:\n":
                     return_message = f"{exitcode2str}\nExecution output: {code_result.output}"
                 else:
                     return_message = f"{exitcode2str}\nExecution output: {code_result.output}"
