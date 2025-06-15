@@ -1172,6 +1172,11 @@ class OpenAIWrapper:
                     print('\n\n in oai/client.py LEGACY_CACHE_DIR: ', LEGACY_CACHE_DIR)
                 cache_client = Cache.disk(cache_seed, LEGACY_CACHE_DIR)
 
+            cache_client = None # cmbagent force disable cache
+            cache_seed = None # cmbagent force disable cache
+            cache = None # cmbagent force disable cache
+            # print('\n\n in oai/client.py cache_client: ', cache_client)
+
             log_cache_seed_value(cache if cache is not None else cache_seed, client=client)
 
             if cache_client is not None:

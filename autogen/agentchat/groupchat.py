@@ -1360,7 +1360,7 @@ The output of the executed code was:
 
             if speaker.name == "idea_maker_response_formatter":
                 generated_ideas = message['content']
-                print("\n in groupchat.py generated_ideas: ", generated_ideas)
+                # print("\n in groupchat.py generated_ideas: ", generated_ideas)
                 # import sys; sys.exit()
 
             if speaker.name == "idea_saver":
