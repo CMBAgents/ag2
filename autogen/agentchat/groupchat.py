@@ -1296,7 +1296,7 @@ class GroupChatManager(ConversableAgent):
                 if not isinstance(work_dir, Path):
                     work_dir = Path(work_dir)
 
-                if self.name != "main_cmbagent_chat": # dont save output for main chat
+                if self.name != "main_cmbagent_chat": # output of nested chats
                     # create the json file where we will save the messages
                     if "engineer" in self.name:
                         n_attempts = speaker.context_variables.get("n_attempts", 0) + 1
@@ -1308,7 +1308,10 @@ class GroupChatManager(ConversableAgent):
                     if speaker.name == "plan_setter":
                         self.chat_output_filename = work_dir / "chats" / f"chat_output_planning.json"
                     elif "control" in speaker.name:
-                        self.chat_output_filename = work_dir / "chats" / f"chat_output_{agent_for_sub_task}_step_{current_step}.json"
+                        if agent_for_sub_task == "None" or agent_for_sub_task == None: # for the planning_and_control without context carryover.  
+                            self.chat_output_filename = work_dir / "chats" / f"chat_output.json"
+                        else:
+                            self.chat_output_filename = work_dir / "chats" / f"chat_output_{agent_for_sub_task}_step_{current_step}.json"
                     else:
                         self.chat_output_filename = work_dir / "chats" / f"chat_output_step_{current_step}.json"
                 
