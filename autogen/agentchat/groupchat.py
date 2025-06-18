@@ -1279,12 +1279,48 @@ class GroupChatManager(ConversableAgent):
 
         executed_code_str = None # tmp variable to collect the executed code from engineer_response_formatter in the nested chat 
         
-        
+
+        self.chat_output_filename = None # cmbagent add on...
         for i in range(groupchat.max_round):
+            # self.name is the name of the groupchat manager, main_cmbagent_chat, or engineer_nested_chat
 
 
+            import json
+
+            if i == 1: ## skip first round which is a temporary user proxy message
+                current_step = speaker.context_variables.get("current_plan_step_number", 0)
+                agent_for_sub_task = speaker.context_variables.get("agent_for_sub_task", "None")
+                work_dir = speaker.context_variables.get("work_dir", ".")
+                # print("context variables: ", speaker.context_variables)
+                from pathlib import Path
+                if not isinstance(work_dir, Path):
+                    work_dir = Path(work_dir)
+
+                if self.name != "main_cmbagent_chat": # dont save output for main chat
+                    # create the json file where we will save the messages
+                    if "engineer" in self.name:
+                        n_attempts = speaker.context_variables.get("n_attempts", 0) + 1
+                        self.chat_output_filename = work_dir / "chats" / f"nested_chat_output_{agent_for_sub_task}_step_{current_step}_attempt_{n_attempts}.json"
+                    else:
+                        self.chat_output_filename = work_dir / "chats" / f"nested_chat_output_{agent_for_sub_task}_step_{current_step}.json"
+
+                else: # main chat other agents 
+                    if speaker.name == "plan_setter":
+                        self.chat_output_filename = work_dir / "chats" / f"chat_output_planning.json"
+                    elif "control" in speaker.name:
+                        self.chat_output_filename = work_dir / "chats" / f"chat_output_{agent_for_sub_task}_step_{current_step}.json"
+                    else:
+                        self.chat_output_filename = work_dir / "chats" / f"chat_output_step_{current_step}.json"
+                
+
+
+
+            # print("...logging messages...")
             # for agent in groupchat.agents:
-            #     if agent.name in one_shot_agents:
+            #     print(f"in groupchat.py groupchat manager: {self.name}, agent.name: {agent.name}, speaker.name: {speaker.name}")
+            # print(f"{speaker.name} cost: {speaker.cost_dict}")
+            # print(f"{speaker.name} chat_output_filename: {self.chat_output_filename}")
+            # print("...logging done...")
             #         agent.reset()
             # cmbagent debug -- print all messages
             # print("\n\n\n-----------------------------------\n")
@@ -1295,6 +1331,7 @@ class GroupChatManager(ConversableAgent):
             # import pprint; pprint.pprint(messages)
             # print("\n\n\n-----------------------------------\n")
             self._last_speaker = speaker
+
 
 
 
@@ -1322,6 +1359,31 @@ class GroupChatManager(ConversableAgent):
             #     print("\n\n\n-----------------------------------\n")
                 # import sys; sys.exit()
 
+            # cmbagent add on...
+            if self.chat_output_filename is not None:
+                import os
+                from datetime import datetime
+
+                existing_messages = []
+                if os.path.exists(self.chat_output_filename):
+                    with open(self.chat_output_filename, "r") as f:
+                        try:
+                            existing_messages = json.load(f)
+                        except json.JSONDecodeError:
+                            existing_messages = []
+
+                # Append a new message as a dictionary
+                existing_messages.append({
+                    "name": speaker.name,
+                    "content": message['content'],
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "cost": speaker.cost_dict,
+                    # "llm_config": speaker.llm_config['config_list'][0]
+                })
+
+                # print(f"in groupchat.py saving {speaker.name} message: {message['content']}")
+                with open(self.chat_output_filename, "w") as f:
+                    json.dump(existing_messages, f, indent=2)
 
             if speaker.name == "engineer_response_formatter":
                 # print("\n=== Engineer Response Formatter Message ===\n")

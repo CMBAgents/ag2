@@ -394,7 +394,7 @@ class ConversableAgent(LLMAgent):
         }
 
         # set up dictionary attribute for cost summary
-        self.cost_dict = {'Agent': [], 'Cost': [], 'Prompt Tokens': [], 'Completion Tokens': [], 'Total Tokens': []}
+        self.cost_dict = {'Agent': [], 'Model': [], 'Cost': [], 'Prompt Tokens': [], 'Completion Tokens': [], 'Total Tokens': []}
         # Associate agent update state hooks
         self._register_update_agent_state_before_reply(update_agent_state_before_reply)
 
@@ -1564,6 +1564,31 @@ class ConversableAgent(LLMAgent):
             cost=gather_usage_summary([self, recipient]),
             human_input=self._human_input,
         )
+
+        
+        # # cmbagent add on...
+        # if self.name != "_User": # dont save output for main chat
+
+        #     # Save (nested) chat output to JSON file
+        #     import json
+        #     import os
+        #     from datetime import datetime
+        #     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        #     current_step = self.context_variables.get("current_plan_step_number", 0)
+        #     filename = self.context_variables.get("work_dir", ".") + "/" +f"nested_chat_output_{self.name}_step_{current_step}_{timestamp}.json"
+
+
+        #     # Save chat history to file
+        #     with open( filename, "w") as f:
+        #         json.dump(chat_result.chat_history, f, indent=2)
+            
+        #     print(f"\nChat history saved to {filename}")
+
+        #     print("nested_chat*"*70)
+        #     print("\n in conversable_agent.py chat_result: ", chat_result)
+        #     print("\n in conversable_agent.py chat_result.chat_history: ", chat_result.chat_history)
+        #     print("nested_chat*"*70)
+
         return chat_result
 
     def run(
@@ -2392,10 +2417,10 @@ class ConversableAgent(LLMAgent):
         name = None # default name
         if usage_summary is not None:
             cost, prompt_tokens, completion_tokens, total_tokens = usage_summary
-            if self.name in ['planner', 'engineer', 'summarizer']:
-                name = self.name
-            else:
-                name = 'admin (' + self.name + ')'
+            # if self.name in ['planner', 'engineer', 'summarizer']:
+            #     name = self.name
+            # else:
+            #     name = 'admin (' + self.name + ')'
         
             # Restructure tokens_dict to create a DataFrame
             df = pd.DataFrame([{
@@ -2412,11 +2437,14 @@ class ConversableAgent(LLMAgent):
                 else:
                     print(df.to_string(index=False))
             
-            self.cost_dict['Agent'].append(name)
+            self.cost_dict['Model'].append(response.model)
+            self.cost_dict['Agent'].append(self.name)
             self.cost_dict['Cost'].append(cost) 
             self.cost_dict['Prompt Tokens'].append(prompt_tokens)
             self.cost_dict['Completion Tokens'].append(completion_tokens)
             self.cost_dict['Total Tokens'].append(total_tokens)
+            # import pdb; pdb.set_trace()
+            # self.cost_dict['LLMConfig'].append(llm_client.config)
 
         if extracted_response is None:
             warnings.warn(f"Extracted_response from {response} is None.", UserWarning)

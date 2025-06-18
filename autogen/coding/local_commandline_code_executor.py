@@ -326,28 +326,64 @@ $functions"""
                     activation_script = os.path.join(virtual_env_abs_path, "activate.bat")
                     cmd = [activation_script, "&&", *cmd]
 
+            # try:
+            #     # result = subprocess.run(
+            #     #     cmd,
+            #     #     cwd=self._work_dir,
+            #     #     capture_output=True,
+            #     #     text=True,
+            #     #     timeout=float(self._timeout),
+            #     #     env=env,
+            #     #     encoding="utf-8",
+            #     # )
+
+            # except subprocess.TimeoutExpired:
+            #     logs_all += "\n" + TIMEOUT_MSG
+            #     # Same exit code as the timeout command on linux.
+            #     exitcode = 124
+            #     break
+
+            # logs_all += result.stderr
+            # logs_all += result.stdout
+            # exitcode = result.returncode
+
+            # if exitcode != 0:
+            #     break
+
+
             try:
-                result = subprocess.run(
+                ## disable warnings
+                env = os.environ.copy()
+                env["PYTHONWARNINGS"] = "ignore"
+
+                ## run the command
+                
+                process = subprocess.Popen(
                     cmd,
                     cwd=self._work_dir,
-                    capture_output=True,
-                    text=True,
-                    timeout=float(self._timeout),
                     env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
                     encoding="utf-8",
                 )
-            except subprocess.TimeoutExpired:
-                logs_all += "\n" + TIMEOUT_MSG
-                # Same exit code as the timeout command on linux.
-                exitcode = 124
-                break
+                logs_all = "\n"
+                print("\n code being executed....\n")
+                for line in process.stdout:
+                    print(line, end='')   # Print live
+                    logs_all += line      # Save for later
+                print("\n")
 
-            logs_all += result.stderr
-            logs_all += result.stdout
-            exitcode = result.returncode
+                exitcode = process.wait()
 
-            if exitcode != 0:
-                break
+                if exitcode != 0:
+                    # handle non-zero exit code if needed
+                    pass
+
+            except Exception as e:
+                logs_all += f"\nException: {e}\n"
+                exitcode = 1  # or another appropriate code
+
 
         code_file = str(file_names[0]) if len(file_names) > 0 else None
         return CommandLineCodeResult(exit_code=exitcode, output=logs_all, code_file=code_file)

@@ -83,6 +83,9 @@ def initiate_group_chat(
         clear_history=clear_history,
         summary_method=pattern.summary_method,
     )
+    # print("!"*70)
+    # print("\n in multi_agent_chat.py chat_result: ", chat_result)
+    # print("!"*70)
 
     cleanup_temp_user_messages(chat_result)
 
@@ -146,6 +149,10 @@ async def a_initiate_group_chat(
         summary_method=pattern.summary_method,
     )
 
+    # print("+"*70)
+    # print("\n in multi_agent_chat.py a_initiate_group_chat chat_result: ", chat_result)
+    # print("+"*70)
+
     cleanup_temp_user_messages(chat_result)
 
     return chat_result, context_variables, manager.last_speaker
@@ -175,6 +182,9 @@ def run_group_chat(
                     messages=messages,
                     max_rounds=max_rounds,
                 )
+                # print("??"*70)
+                # print("\n in multi_agent_chat.py run_group_chat chat_result: ", chat_result)
+                # print("??"*70)
 
                 IOStream.get_default().send(
                     RunCompletionEvent(  # type: ignore[call-arg]
@@ -219,6 +229,10 @@ async def a_run_group_chat(
                     messages=messages,
                     max_rounds=max_rounds,
                 )
+
+                # print("??"*70)
+                # print("\n in multi_agent_chat.py a_run_group_chat2 chat_result: ", chat_result)
+                # print("??"*70)
 
                 IOStream.get_default().send(
                     RunCompletionEvent(  # type: ignore[call-arg]
