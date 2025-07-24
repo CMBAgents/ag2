@@ -1170,7 +1170,8 @@ class OpenAIWrapper:
                 if cmbagent_debug:
                     print('\n\n in oai/client.py cache_seed: ', cache_seed)
                     print('\n\n in oai/client.py LEGACY_CACHE_DIR: ', LEGACY_CACHE_DIR)
-                cache_client = Cache.disk(cache_seed, LEGACY_CACHE_DIR)
+                # do nothing for now. This seems to create issues. 
+                # cache_client = Cache.disk(cache_seed, LEGACY_CACHE_DIR)
 
             cache_client = None # cmbagent force disable cache
             cache_seed = None # cmbagent force disable cache
