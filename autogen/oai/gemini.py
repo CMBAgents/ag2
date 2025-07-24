@@ -954,6 +954,7 @@ def calculate_gemini_cost(use_vertexai: bool, input_tokens: int, output_tokens: 
             "gemini-2.5-pro-preview-03-25" in model_name
             or "gemini-2.5-pro-exp-03-25" in model_name
             or "gemini-2.5-pro-preview-05-06" in model_name
+            or "gemini-2.5-pro" in model_name
         ):
             # https://ai.google.dev/gemini-api/docs/pricing#gemini-2.5-pro-preview
             if up_to_200k:
