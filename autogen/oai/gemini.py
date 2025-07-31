@@ -909,13 +909,16 @@ def calculate_gemini_cost(use_vertexai: bool, input_tokens: int, output_tokens: 
             "gemini-2.5-pro-preview-03-25" in model_name
             or "gemini-2.5-pro-exp-03-25" in model_name
             or "gemini-2.5-pro-preview-05-06" in model_name
+            or "gemini-2.5-pro" in model_name
         ):
             if up_to_200k:
                 return total_cost_mil(1.25, 10)
             else:
                 return total_cost_mil(2.5, 15)
 
-        elif "gemini-2.5-flash-preview-04-17" in model_name:
+        elif ("gemini-2.5-flash-preview-04-17" in model_name
+              or "gemini-2.5-flash" in model_name
+              ):
             return total_cost_mil(0.15, 0.6)  # NON-THINKING OUTPUT PRICE, $3 FOR THINKING!
 
         elif "gemini-2.0-flash-lite" in model_name:

@@ -3,7 +3,7 @@
 import os
 
 cmbagent_debug = os.getenv("CMBAGENT_DEBUG", "False").lower() == "true"
-cmbagent_disable_display = os.getenv("ASTROPILOT_DISABLE_DISPLAY", "True").lower() == "true"
+cmbagent_disable_display = os.getenv("CMBAGENT_DISABLE_DISPLAY", "True").lower() == "true"
 streamlit_on = os.getenv("STREAMLIT_ON", "False").lower() == "true"
 
 
@@ -30,7 +30,10 @@ cmbagent_default_color = "yellow"
 LOGO = r"""
 Multi-Agent Systems for Autonomous Discovery
 
-Built with AG2
+
+Get the source code [here](https://github.com/CMBAgents/cmbagent/tree/main).
+
+Built with [AG2](https://github.com/ag2ai/ag2).
 """
 
 
@@ -52,7 +55,7 @@ Built with AG2
 # Calculate the image width as a module-level variable.
 _lines = LOGO.splitlines()
 _ascii_width = max(len(line) for line in _lines)
-_scaling_factor = 8  # For example, 8 pixels per character.
+_scaling_factor = 4  # For example, 8 pixels per character.
 IMG_WIDTH = _ascii_width * _scaling_factor
 
 cmbagent_gui_mode = os.getenv("CMBAGENT_GUI_MODE", "False").lower() == "true" ## not used 
