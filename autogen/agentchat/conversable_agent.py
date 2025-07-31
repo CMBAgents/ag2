@@ -2322,10 +2322,17 @@ class ConversableAgent(LLMAgent):
             force_tool_call = True
             tool_choice = {"type": "function", "function": {"name": "record_aas_keywords"}}
 
-
         elif self.name == 'idea_saver':
             force_tool_call = True
             tool_choice = {"type": "function", "function": {"name": "record_ideas"}}
+            
+        elif self.name == 'plot_judge':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "call_vlm_judge"}}
+            
+        elif self.name == 'plot_debugger':
+            force_tool_call = True
+            tool_choice = {"type": "function", "function": {"name": "route_plot_judge_verdict"}}
 
         # from google.genai.types import FunctionCallingConfig, FunctionCallingConfigMode, ToolConfig
 
