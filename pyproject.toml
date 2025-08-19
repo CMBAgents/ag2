@@ -50,7 +50,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "openai>=1.69",
+    "openai==1.99.9",
     "diskcache",
     "termcolor",
     "python-dotenv",
@@ -338,14 +338,13 @@ exclude = ["/test", "/notebook"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["autogen"]
-only-include = ["autogen", "autogen/agentchat/contrib/captainagent/tools"]
+only-include = ["autogen"]
 
 [tool.hatch.build.targets.sdist]
 exclude = ["test", "notebook"]
 
 [tool.hatch.build.targets.wheel.sources]
 "autogen" = "autogen"
-"autogen/agentchat/contrib/captainagent/tools" = "autogen/agentchat/contrib/captainagent/tools"
 
 [tool.pytest.ini_options]
 addopts = '--cov=autogen --cov-append --cov-branch --cov-report=xml -m "not conda"'
