@@ -2348,6 +2348,16 @@ class ConversableAgent(LLMAgent):
         context = messages[-1].pop("context", None)
         if force_tool_call:
             # print("dealing with force_tool_call in conversable_agent.py")
+            # print(self.llm_config)
+            # response = llm_client.create(
+            #     context=context,
+            #     messages=all_messages,
+            #     cache=cache,
+            #     agent=self,
+            #     parallel_tool_calls=False, ## cmbagent added this to disable parallel tool calls
+            #     tool_choice=tool_choice, ## cmbagent added this to force tool call
+            #     # tool_config=tool_config,
+            # )
             try:
                 response = llm_client.create(
                     context=context,
