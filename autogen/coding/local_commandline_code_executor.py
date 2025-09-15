@@ -127,7 +127,7 @@ $functions"""
 
         self._functions_module = functions_module
 
-        work_dir.mkdir(exist_ok=True)
+        # work_dir.mkdir(exist_ok=True)
 
         
 
