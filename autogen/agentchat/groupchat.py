@@ -1138,7 +1138,7 @@ class GroupChatManager(ConversableAgent):
         self._silent = silent
 
         ## cmbagent addition:
-        self.cmbagent_summarizer = None
+        self.cmbagent_session_summarizer = None
 
         # Order of register_reply is important.
         # Allow sync chat if initiated using initiate_chat
@@ -1476,11 +1476,11 @@ The output of the executed code was:
 
                 # Select the next speaker
                 # If summarizer is needed (i.e., when we need to summarize the session), alternate between admin and summarizer
-                if self.cmbagent_summarizer is not None:
+                if self.cmbagent_session_summarizer is not None:
                     # Alternate between 'admin' and 'summarizer'
                     if i==0 or self.last_admin_summarizer_speaker == "admin":
-                        speaker = groupchat.agent_by_name("summarizer")
-                        self.last_admin_summarizer_speaker = "summarizer"
+                        speaker = groupchat.agent_by_name("session_summarizer")
+                        self.last_admin_summarizer_speaker = "session_summarizer"
                     else:
                         speaker = groupchat.agent_by_name("admin")
                         self.last_admin_summarizer_speaker = "admin"
