@@ -133,7 +133,9 @@
                     "docs/user-guide/advanced-concepts/orchestration/group-chat/agent-tools-functions",
                     "docs/user-guide/advanced-concepts/orchestration/group-chat/context-variables",
                     "docs/user-guide/advanced-concepts/orchestration/group-chat/handoffs",
-                    "docs/user-guide/advanced-concepts/orchestration/group-chat/patterns"
+                    "docs/user-guide/advanced-concepts/orchestration/group-chat/patterns",
+                    "docs/user-guide/advanced-concepts/orchestration/group-chat/guardrails",
+                    "docs/user-guide/advanced-concepts/orchestration/group-chat/safeguards"
                   ]
                 },
                 {
@@ -200,7 +202,8 @@
               ]
             },
             "docs/user-guide/advanced-concepts/rag",
-            "docs/user-guide/advanced-concepts/code-execution"
+            "docs/user-guide/advanced-concepts/code-execution",
+            "docs/user-guide/advanced-concepts/iterating-runs"
           ]
         },
         {
@@ -214,6 +217,7 @@
             "docs/user-guide/models/google-gemini",
             "docs/user-guide/models/google-vertexai",
             "docs/user-guide/models/groq",
+            "docs/user-guide/models/huggingface",
             {
               "group": "LiteLLM Proxy Server",
               "pages":
@@ -228,6 +232,8 @@
             "docs/user-guide/models/mistralai",
             "docs/user-guide/models/ollama",
             "docs/user-guide/models/openai",
+            "docs/user-guide/models/openai_responses",
+            "docs/user-guide/models/grok-and-oai-compatible-models",
             "docs/user-guide/models/togetherai",
             "docs/user-guide/models/vLLM"
           ]
@@ -247,8 +253,14 @@
                 "docs/user-guide/reference-agents/communication-platforms/telegramagent"
               ]
             },
-            "docs/user-guide/reference-agents/docagent",
-            "docs/user-guide/reference-agents/docagent-performance",
+            {
+              "group": "DocAgent",
+              "pages":
+              [
+                "docs/user-guide/reference-agents/docagent/index",
+                "docs/user-guide/reference-agents/docagent/docagent-performance"
+              ]
+            },
             "docs/user-guide/reference-agents/reasoningagent",
             "docs/user-guide/reference-agents/deepresearchagent",
             "docs/user-guide/reference-agents/websurferagent",
@@ -272,7 +284,7 @@
             "docs/user-guide/reference-tools/perplexity-search",
             "docs/user-guide/reference-tools/wikipedia-search",
             "docs/user-guide/reference-tools/browser-use",
-            "docs/user-guide/reference-tools/deep-research",
+            "docs/user-guide/reference-tools/code-execution",
             {
               "group": "Communication Platforms",
               "pages":
@@ -282,10 +294,27 @@
                 "docs/user-guide/reference-tools/communication-platforms/telegram"
               ]
             },
-            "docs/user-guide/reference-tools/crawl4ai"
+            "docs/user-guide/reference-tools/crawl4ai",
+            "docs/user-guide/reference-tools/deep-research",
+            "docs/user-guide/reference-tools/firecrawl",
+            "docs/user-guide/reference-tools/searxng-search"
           ]
         },
-        "docs/faq/FAQ"
+        {
+          "group": "A2A",
+          "pages": [
+            "docs/user-guide/a2a/index",
+            "docs/user-guide/a2a/server",
+            "docs/user-guide/a2a/client"
+          ]
+        },
+        {
+          "group": "Observability",
+          "pages": [
+            "docs/user-guide/observability/logging_events"
+          ]
+        },
+            "docs/user-guide/FAQ"
       ]
     },
     {
@@ -331,7 +360,8 @@
         "docs/ecosystem/ollama",
         "docs/ecosystem/pgvector",
         "docs/ecosystem/portkey",
-        "docs/ecosystem/promptflow"
+        "docs/ecosystem/promptflow",
+        "docs/ecosystem/waldiez"
       ]
     },
      {

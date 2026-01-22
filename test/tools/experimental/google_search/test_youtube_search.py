@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -13,8 +13,7 @@ from autogen.tools.experimental import YoutubeSearchTool
 from autogen.tools.experimental.google_search.youtube_search import (
     _youtube_search,
 )
-
-from ....conftest import Credentials
+from test.credentials import Credentials
 
 
 class TestYoutubeSearchTool:
@@ -33,7 +32,7 @@ class TestYoutubeSearchTool:
             YoutubeSearchTool(youtube_api_key=None)
 
     @pytest.fixture
-    def mock_search_response(self) -> Dict[str, Any]:
+    def mock_search_response(self) -> dict[str, Any]:
         return {
             "items": [
                 {
@@ -58,7 +57,7 @@ class TestYoutubeSearchTool:
         }
 
     @pytest.fixture
-    def mock_video_details(self) -> Dict[str, Any]:
+    def mock_video_details(self) -> dict[str, Any]:
         return {
             "items": [
                 {
@@ -86,7 +85,7 @@ class TestYoutubeSearchTool:
             ]
         }
 
-    def test_youtube_search_basic(self, mock_search_response: Dict[str, Any]) -> None:
+    def test_youtube_search_basic(self, mock_search_response: dict[str, Any]) -> None:
         with (
             patch(
                 "autogen.tools.experimental.google_search.youtube_search._execute_search_query",
@@ -111,7 +110,7 @@ class TestYoutubeSearchTool:
             assert results[1]["title"] == "Test Video 2"
 
     def test_youtube_search_with_details(
-        self, mock_search_response: Dict[str, Any], mock_video_details: Dict[str, Any]
+        self, mock_search_response: dict[str, Any], mock_video_details: dict[str, Any]
     ) -> None:
         with (
             patch(
@@ -140,8 +139,8 @@ class TestYoutubeSearchTool:
         self,
         youtube_search_tool: YoutubeSearchTool,
         credentials: Credentials,
-        expected_search_result: Dict[str, Any],
-        expected_details_result: Dict[str, Any],
+        expected_search_result: dict[str, Any],
+        expected_details_result: dict[str, Any],
     ) -> None:
         assistant = AssistantAgent(
             name="assistant",
@@ -174,8 +173,8 @@ class TestYoutubeSearchTool:
     def test_end_to_end_openai(
         self,
         credentials_gpt_4o_mini: Credentials,
-        mock_search_response: Dict[str, Any],
-        mock_video_details: Dict[str, Any],
+        mock_search_response: dict[str, Any],
+        mock_video_details: dict[str, Any],
     ) -> None:
         youtube_search_tool = YoutubeSearchTool(youtube_api_key="api_key")
         self._test_end_to_end(
@@ -189,8 +188,8 @@ class TestYoutubeSearchTool:
     def test_end_to_end_gemini(
         self,
         credentials_gemini_flash_exp: Credentials,
-        mock_search_response: Dict[str, Any],
-        mock_video_details: Dict[str, Any],
+        mock_search_response: dict[str, Any],
+        mock_video_details: dict[str, Any],
     ) -> None:
         youtube_search_tool = YoutubeSearchTool(youtube_api_key="api_key")
         self._test_end_to_end(

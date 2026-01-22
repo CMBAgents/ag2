@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional, Union
+from typing import Any
 from unittest.mock import MagicMock, _Call, call
 from uuid import UUID
 
@@ -335,7 +335,7 @@ class TestToolCallEvent:
         ["assistant", None],
     )
     def test_print(
-        self, uuid: UUID, sender: ConversableAgent, recipient: ConversableAgent, role: Optional[EventRole]
+        self, uuid: UUID, sender: ConversableAgent, recipient: ConversableAgent, role: EventRole | None
     ) -> None:
         self.event["role"] = role
 
@@ -647,7 +647,7 @@ class TestPostCarryoverProcessingEvent:
     )
     def test__process_carryover(
         self,
-        carryover: Union[str, list[Union[str, dict[str, Any], Any]]],
+        carryover: str | list[str | dict[str, Any] | Any],
         expected: str,
         uuid: UUID,
         sender: ConversableAgent,
@@ -709,7 +709,7 @@ class TestClearAgentsHistoryEvent:
         ],
     )
     def test_print(
-        self, agent: Optional[ConversableAgent], nr_events_to_preserve: Optional[int], expected: str, uuid: UUID
+        self, agent: ConversableAgent | None, nr_events_to_preserve: int | None, expected: str, uuid: UUID
     ) -> None:
         actual = ClearAgentsHistoryEvent(uuid=uuid, agent=agent, nr_events_to_preserve=nr_events_to_preserve)
         assert isinstance(actual, ClearAgentsHistoryEvent)
@@ -1141,12 +1141,14 @@ class TestTerminationAndHumanReplyEvent:
 
 
 class TestTerminationEvent:
-    def test_print(self, uuid: UUID) -> None:
+    def test_print(self, uuid: UUID, sender: ConversableAgent, recipient: ConversableAgent) -> None:
         termination_reason = "User requested to end the conversation."
 
         actual = TerminationEvent(
             uuid=uuid,
             termination_reason=termination_reason,
+            sender=sender,
+            recipient=recipient,
         )
         assert isinstance(actual, TerminationEvent)
 
@@ -1155,6 +1157,8 @@ class TestTerminationEvent:
             "content": {
                 "uuid": uuid,
                 "termination_reason": termination_reason,
+                "sender": "sender",
+                "recipient": "recipient",
             },
         }
         assert actual.model_dump() == expected_model_dump
@@ -1169,12 +1173,16 @@ class TestTerminationEvent:
         ]
         assert mock.call_args_list == expected_call_args_list
 
-    def test_serialization_and_deserialization(self, uuid: UUID) -> None:
+    def test_serialization_and_deserialization(
+        self, uuid: UUID, sender: ConversableAgent, recipient: ConversableAgent
+    ) -> None:
         termination_reason = "User requested to end the conversation."
 
         actual = TerminationEvent(
             uuid=uuid,
             termination_reason=termination_reason,
+            sender=sender,
+            recipient=recipient,
         )
         assert isinstance(actual, TerminationEvent)
 
@@ -1183,6 +1191,8 @@ class TestTerminationEvent:
             "content": {
                 "uuid": uuid,
                 "termination_reason": termination_reason,
+                "sender": "sender",
+                "recipient": "recipient",
             },
         }
         assert actual.model_dump() == expected_model_dump
@@ -1190,6 +1200,31 @@ class TestTerminationEvent:
         # Test serialization
         d = actual.model_dump()
         assert actual == EVENT_CLASSES[d["type"]].model_validate(d)
+
+    def test_with_string_sender_recipient(self, uuid: UUID) -> None:
+        termination_reason = "User requested to end the conversation."
+
+        actual = TerminationEvent(
+            uuid=uuid,
+            termination_reason=termination_reason,
+            sender="agent1",
+            recipient="agent2",
+        )
+        assert isinstance(actual, TerminationEvent)
+        assert actual.content.sender == "agent1"
+        assert actual.content.recipient == "agent2"
+
+    def test_with_optional_recipient(self, uuid: UUID, sender: ConversableAgent) -> None:
+        termination_reason = "Maximum turns reached."
+
+        actual = TerminationEvent(
+            uuid=uuid,
+            termination_reason=termination_reason,
+            sender=sender,
+        )
+        assert isinstance(actual, TerminationEvent)
+        assert actual.content.sender == "sender"
+        assert actual.content.recipient is None
 
 
 class TestUsingAutoReplyEvent:
@@ -1391,6 +1426,7 @@ class TestExecutedFunctionEvent:
             "content": {
                 "uuid": uuid,
                 "func_name": func_name,
+                "is_exec_success": True,
                 "call_id": call_id,
                 "arguments": arguments,
                 "content": content,
@@ -1426,6 +1462,7 @@ class TestExecutedFunctionEvent:
             "content": {
                 "uuid": uuid,
                 "func_name": func_name,
+                "is_exec_success": True,
                 "call_id": call_id,
                 "arguments": arguments,
                 "content": content,

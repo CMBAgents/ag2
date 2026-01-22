@@ -2,7 +2,6 @@
 import argparse
 import os
 from pathlib import Path
-from typing import List
 
 from mcp.server.fastmcp import FastMCP
 
@@ -14,7 +13,7 @@ CONTEXT_PATH = None
 
 
 @mcp.tool()
-def list_files(relative_path: str = "") -> List[str]:
+def list_files(relative_path: str = "") -> list[str]:
     """
     List files and directories under CONTEXT_PATH/relative_path. Pass empty string to list root.
     """
@@ -43,8 +42,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MCP Filesystem Server")
     parser.add_argument(
         "transport",
-        choices=["stdio", "sse"],
-        help="Transport mode (stdio or sse)",
+        choices=["stdio", "sse", "streamable-http"],
+        help="Transport mode (stdio, sse or streamable-http)",
     )
     parser.add_argument("--context-path", required=True, help="Path to context docs")
     args = parser.parse_args()

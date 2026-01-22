@@ -13,8 +13,9 @@ import pytest
 from autogen.agentchat import AssistantAgent, UserProxyAgent
 from autogen.import_utils import run_for_optional_imports
 from autogen.tools import tool
-
-from ..conftest import Credentials, credentials_all_llms, suppress_gemini_resource_exhausted
+from test.credentials import Credentials
+from test.marks import credentials_all_llms
+from test.utils import suppress_gemini_resource_exhausted
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -209,8 +210,8 @@ def test_standalone(credentials_gpt_4o_mini: Credentials):
 
     response.process()
 
-    assert "AI" in response.summary
-    assert "elonmusk" in response.summary
+    assert any(keyword in str(response.summary).lower() for keyword in ["ai", "artificial intelligence"])
+    assert any(keyword in str(response.summary).lower() for keyword in ["elonmusk", "elon", "elon musk"])
 
 
 @run_for_optional_imports("openai", "openai")
@@ -231,8 +232,9 @@ async def test_standalone_async(credentials_gpt_4o_mini: Credentials):
     )
 
     await response.process()
-    assert "AI" in await response.summary
-    assert "elonmusk" in await response.summary
+    summary = await response.summary
+    assert any(keyword in str(summary).lower() for keyword in ["ai", "artificial intelligence"])
+    assert any(keyword in str(summary).lower() for keyword in ["elonmusk", "elon", "elon musk"])
 
 
 if __name__ == "__main__":

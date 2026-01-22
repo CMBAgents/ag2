@@ -11,7 +11,7 @@ import setuptools
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-with open("README.md", "r", encoding="UTF-8") as fh:
+with open("README.md", encoding="UTF-8") as fh:
     long_description = fh.read()
 
 # Get the code version
@@ -28,6 +28,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     install_requires=["ag2==" + __version__],
     extras_require={
+        "a2a": ["ag2[a2a]==" + __version__],
         "flaml": ["ag2[flaml]==" + __version__],
         "openai": ["ag2[openai]==" + __version__],
         "openai-realtime": ["ag2[openai-realtime]==" + __version__],
@@ -48,6 +49,7 @@ setuptools.setup(
         "neo4j": ["ag2[neo4j]==" + __version__],
         "twilio": ["ag2[twilio]==" + __version__],
         "mcp": ["ag2[mcp]==" + __version__],
+        "mcp-proxy-gen": ["ag2[mcp-proxy-gen]==" + __version__],
         "interop-crewai": ["ag2[interop-crewai]==" + __version__],
         "interop-langchain": ["ag2[interop-langchain]==" + __version__],
         "interop-pydantic-ai": ["ag2[interop-pydantic-ai]==" + __version__],
@@ -69,6 +71,8 @@ setuptools.setup(
         "long-context": ["ag2[long-context]==" + __version__],
         "anthropic": ["ag2[anthropic]==" + __version__],
         "cerebras": ["ag2[cerebras]==" + __version__],
+        "yepcode": ["ag2[yepcode]==" + __version__],
+        "remyx": ["ag2[remyx]==" + __version__],
         "mistral": ["ag2[mistral]==" + __version__],
         "groq": ["ag2[groq]==" + __version__],
         "cohere": ["ag2[cohere]==" + __version__],
@@ -78,6 +82,8 @@ setuptools.setup(
         "commsagent-discord": ["ag2[commsagent-discord]==" + __version__],
         "commsagent-slack": ["ag2[commsagent-slack]==" + __version__],
         "commsagent-telegram": ["ag2[commsagent-telegram]==" + __version__],
+        "duckduckgo": ["ag2[duckduckgo]==" + __version__],
+        "tavily": ["ag2[tavily]==" + __version__],
         "test": ["ag2[test]==" + __version__],
         "docs": ["ag2[docs]==" + __version__],
         "types": ["ag2[types]==" + __version__],
@@ -94,5 +100,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     license="Apache Software License 2.0",
-    python_requires=">=3.9,<3.14",
+    python_requires=">=3.10,<3.14",
 )

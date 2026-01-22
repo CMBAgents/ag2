@@ -15,6 +15,7 @@ While two-agent chats work well for straightforward interactions and sequential 
 - **Specialized expertise**: Each agent can focus on what it does best, creating a team of specialists
 - **Dynamic collaboration**: Agents can interact with each other and respond to new information as it emerges
 - **Flexible handoffs**: Control can move between agents based on context, conversation state, or explicit directions
+- **Safety guardrails**: Built-in oversight mechanisms ensure agents stay within defined boundaries
 - **Shared context**: All agents work within the same conversation context, maintaining continuity
 - **Scalable complexity**: Easily add new capabilities by introducing specialized agents rather than making existing agents more complex
 
@@ -25,6 +26,7 @@ The below are the core components of a Group Chat orchestration:
 - **Agents**: Conversable agents that perform specific tasks in the workflow
 - **Patterns**: Define how agents take turns in the conversation and how they interact with each other.
 - **Handoffs**: Control how agents pass control to each other
+- **Guardrails**: Safety mechanisms that monitor agent behavior and enforce operational boundaries
 - **Context Variables**:  Shared state information accessible to all agents throughout the conversation
 
 ## Step-by-Step Guide: Creating a Simple Group Chat
@@ -41,8 +43,11 @@ We start by importing necessary modules and setting up the language model config
 from autogen import ConversableAgent, LLMConfig
 from autogen.agentchat import initiate_group_chat
 from autogen.agentchat.group.patterns import AutoPattern
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
-llm_config = LLMConfig(api_type="openai", model="gpt-4o-mini")
+llm_config = LLMConfig(config_list={"api_type": "openai", "model": "gpt-5-nano","api_key":os.getenv("OPENAI_API_KEY")})
 ```
 
 ### 2. Create Specialized Agents
@@ -50,25 +55,27 @@ llm_config = LLMConfig(api_type="openai", model="gpt-4o-mini")
 Each agent has a focused responsibility. We configure their roles using system messages.
 
 ```python
-with llm_config:
-    triage_agent = ConversableAgent(
-        name="triage_agent",
-        system_message="""You are a triage agent. For each user query,
-        identify whether it is a technical issue or a general question. Route
-        technical issues to the tech agent and general questions to the general agent.
-        Do not provide suggestions or answers, only route the query."""
-    )
+triage_agent = ConversableAgent(
+    name="triage_agent",
+    system_message="""You are a triage agent. For each user query,
+    identify whether it is a technical issue or a general question. Route
+    technical issues to the tech agent and general questions to the general agent.
+    Do not provide suggestions or answers, only route the query.""",
+    llm_config=llm_config
+)
 
-    tech_agent = ConversableAgent(
-        name="tech_agent",
-        system_message="""You solve technical problems like software bugs
-        and hardware issues."""
-    )
+tech_agent = ConversableAgent(
+    name="tech_agent",
+    system_message="""You solve technical problems like software bugs
+    and hardware issues.""",
+    llm_config=llm_config
+)
 
-    general_agent = ConversableAgent(
-        name="general_agent",
-        system_message="You handle general, non-technical support questions."
-    )
+general_agent = ConversableAgent(
+    name="general_agent",
+    system_message="You handle general, non-technical support questions.",
+    llm_config=llm_config
+)
 ```
 ### 3. Create a User Agent
 
@@ -109,26 +116,8 @@ The following diagram illustrates how the triage example unfolds. The user submi
 
 We are using the `AutoPattern` in this example, where the next speaker is automatically selected for based on the context of the conversation.
 
-```mermaid
-flowchart TD
-    User([User]) --> GroupManager[Group Manager]
+![groupchat_manager](../assets/groupchat_manager.png)
 
-    GroupManager -->  Triage[Triage Agent]
-    Triage -->  GroupManager
-
-    GroupManager -->  Tech[Tech Agent]
-    Tech -->  GroupManager
-
-    GroupManager -->  General[General Agent]
-    General -->  GroupManager
-
-    GroupManager -->  User
-
-    style GroupManager fill:#ffebee,stroke:#f44336
-    style Triage fill:#e1f5fe,stroke:#0288d1
-    style Tech fill:#f1f8e9,stroke:#689f38
-    style General fill:#fce4ec,stroke:#d81b60
-```
 
 ### Complete Code Example
 
@@ -140,28 +129,33 @@ Here's the complete, ready-to-run code for our enhanced financial compliance sys
     from autogen import ConversableAgent, LLMConfig
     from autogen.agentchat import initiate_group_chat
     from autogen.agentchat.group.patterns import AutoPattern
+    from dotenv import load_dotenv
+    import os
+    load_dotenv()
 
-    llm_config = LLMConfig(api_type="openai", model="gpt-4o-mini")
+    llm_config = LLMConfig(config_list={"api_type": "openai", "model": "gpt-5-nano","api_key":os.getenv("OPENAI_API_KEY")})
 
-    with llm_config:
-        triage_agent = ConversableAgent(
-            name="triage_agent",
-            system_message="""You are a triage agent. For each user query,
-            identify whether it is a technical issue or a general question. Route
-            technical issues to the tech agent and general questions to the general agent.
-            Do not provide suggestions or answers, only route the query."""
-        )
+    triage_agent = ConversableAgent(
+        name="triage_agent",
+        system_message="""You are a triage agent. For each user query,
+        identify whether it is a technical issue or a general question. Route
+        technical issues to the tech agent and general questions to the general agent.
+        Do not provide suggestions or answers, only route the query.""",
+        llm_config=llm_config
+    )
 
-        tech_agent = ConversableAgent(
-            name="tech_agent",
-            system_message="""You solve technical problems like software bugs
-            and hardware issues."""
-        )
+    tech_agent = ConversableAgent(
+        name="tech_agent",
+        system_message="""You solve technical problems like software bugs
+        and hardware issues.""",
+        llm_config=llm_config
+    )
 
-        general_agent = ConversableAgent(
-            name="general_agent",
-            system_message="You handle general, non-technical support questions."
-        )
+    general_agent = ConversableAgent(
+        name="general_agent",
+        system_message="You handle general, non-technical support questions.",
+        llm_config=llm_config
+    )
 
     user = ConversableAgent(name="user", human_input_mode="ALWAYS")
 
@@ -271,6 +265,7 @@ Now that you understand the basics of Group Chat, the following sections will di
 - **Tools and Functions** – Understand how agents use functions to perform actions and return results, a foundation for creating interactive workflows
 - **Context Variables** – Learn how to share and maintain state across agents during conversations, providing a shared memory for your agent team
 - **Handoffs and Transitions** – Master how to control and customize transitions between agents, both implicitly (via context) and explicitly (via handoff mechanisms)
+- **Guardrails** - Implement safety controls and monitoring systems that keep agents within defined operational boundaries and escalate issues when necessary
 - **Patterns** – Explore various orchestration patterns available (AutoPattern, RoundRobinPattern, RandomPattern, ManualPattern) and how they influence agent behavior
 
 This sequence allows users to first understand how agents can perform actions through tools, then how they can share state with context variables, before moving on to how they can transition between each other with handoffs.

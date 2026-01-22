@@ -11,7 +11,9 @@ import subprocess
 
 import pytest
 
-from .conftest import Credentials, Secrets, credentials_all_llms, suppress_gemini_resource_exhausted
+from test.credentials import Credentials, Secrets
+from test.marks import credentials_all_llms
+from test.utils import suppress_gemini_resource_exhausted
 
 
 @pytest.mark.parametrize("credentials_from_test_param", credentials_all_llms, indirect=True)
@@ -62,8 +64,7 @@ class TestSecrets:
                 "test/test_conftest.py::TestSecrets::test_raise_exception_with_secret",
             ],
             env={**os.environ, "RUN_SANITIZATION_TEST": "1"},
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
         )
 

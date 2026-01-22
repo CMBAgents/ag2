@@ -2,15 +2,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
 
 from autogen.import_utils import optional_import_block, run_for_optional_imports
 from autogen.tools.experimental.crawl4ai import Crawl4AITool
-
-from ....conftest import Credentials
+from test.credentials import Credentials
 
 with optional_import_block():
     from crawl4ai import CrawlerRunConfig
@@ -126,7 +125,7 @@ class TestCrawl4AITool:
         ],
     )
     def test_validate_llm_strategy_kwargs(
-        self, llm_strategy_kwargs: Optional[dict[str, Any]], llm_config_provided: bool, expected_error: Optional[str]
+        self, llm_strategy_kwargs: dict[str, Any] | None, llm_config_provided: bool, expected_error: str | None
     ) -> None:
         if expected_error is None:
             Crawl4AITool._validate_llm_strategy_kwargs(

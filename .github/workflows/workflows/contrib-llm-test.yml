@@ -5,7 +5,7 @@ name: Contrib tests with LLMs
 
 on:
   schedule:
-    - cron: "0 0 * * *" # daily at midnight UTC
+    - cron: "0 0 * * 0" # weekly on Sunday at midnight UTC
   workflow_dispatch: # allows manual triggering of the workflow
   # pull_request_target:
   #   branches: ["main"]
@@ -47,14 +47,14 @@ jobs:
           exit 1
       # checkout to pr branch
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           version: "latest"
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install packages and dependencies
@@ -105,20 +105,26 @@ jobs:
           exit 1
       # checkout to pr branch
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           version: "latest"
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install packages and dependencies
         run: |
           docker --version
-          uv pip install --system -e ".[test,openai,autobuild,captainagent]"
+          uv pip install --system -e ".[test,openai,autobuild,captainagent,gemini]"
+      - name: Create OAI_CONFIG_LIST from Secret
+        run: |
+          cat > OAI_CONFIG_LIST << 'EOF'
+          ${{ secrets.OAI_CONFIG_LIST }}
+          EOF
+        shell: bash
       - name: Run tests
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -163,14 +169,14 @@ jobs:
           exit 1
       # checkout to pr branch
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           version: "latest"
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install packages and dependencies

@@ -37,22 +37,7 @@ Here are the different ways to create an LLM configuration in AG2:
 
 The simplest approach is to directly specify the model provider, model name, and authentication:
 
-```python hl_lines="4-8"
-import os
-from autogen import LLMConfig
-
-llm_config = LLMConfig(
-    api_type="openai",                      # The provider
-    model="gpt-4o-mini",                    # The specific model
-    api_key=os.environ["OPENAI_API_KEY"],   # Authentication
-)
-```
-
-### Method 2: Using the `config_list` Parameter
-
-For more advanced scenarios, especially when you want to set up fallback models, use the `config_list` parameter.
-
-```python hl_lines="4-17"
+```python hl_lines="4-13"
 import os
 from autogen import LLMConfig
 
@@ -60,16 +45,33 @@ llm_config = LLMConfig(
     config_list=[
         {
             "api_type": "openai",
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-nano",
             "api_key": os.environ["OPENAI_API_KEY"]
         },
         {
             "api_type": "openai",
-            "model": "gpt-4o",
+            "model": "gpt-5",
             "api_key": os.environ["OPENAI_API_KEY"]
         }
-    ],
+    ]
 )
+```
+
+### Method 2: Using the `config_list` Parameter
+
+For more advanced scenarios, especially when you want to set up fallback models, use the `config_list` parameter.
+
+```python hl_lines="4-8"
+import os
+from autogen import LLMConfig
+
+llm_config = LLMConfig(config_list=[
+    {
+        "api_type": "openai",                     # The provider
+        "model": "gpt-5-nano",                   # The specific model
+        "api_key": os.environ["OPENAI_API_KEY"]  # Authentication
+    }
+])
 ```
 
 AG2's LLM configuration offers additional methods to create an LLM configuration, allowing you to specify multiple LLMs for fallback support and filtering them per agent. See the [LLM Configuration deep-dive](/docs/user-guide/advanced-concepts/llm-configuration-deep-dive) for more details.
@@ -114,16 +116,17 @@ The context manager approach applies the LLM configuration to all agents created
 ```python hl_lines="3-12"
 from autogen import ConversableAgent
 
-with llm_config:
-    finance_bot = ConversableAgent(
-        name="finance_bot",
-        system_message="You are a financial compliance assistant",
-    )
+finance_bot = ConversableAgent(
+    name="finance_bot",
+    system_message="You are a financial compliance assistant",
+    llm_config=llm_config,
+)
 
-    analysis_bot = ConversableAgent(
-        name="analysis_bot",
-        system_message="You analyze financial data for anomalies",
-    )
+analysis_bot = ConversableAgent(
+    name="analysis_bot",
+    system_message="You analyze financial data for anomalies",
+    llm_config=llm_config,
+)
 ```
 
 ## Financial Compliance Example: LLM Configuration
@@ -135,17 +138,19 @@ from autogen import LLMConfig
 import os
 
 # Basic configuration using environment variable
-llm_config = LLMConfig(
-    api_type="openai",
-    model="gpt-4o-mini",
-    api_key=os.environ["OPENAI_API_KEY"],
-    temperature=0.2  # Lower temperature for more consistent financial analysis
-)
+llm_config = LLMConfig(config_list=[
+    {
+        "api_type": "openai",
+        "model": "gpt-5-nano",
+        "api_key": os.environ["OPENAI_API_KEY"],
+        "temperature": 0.2  # Lower temperature for more consistent financial analysis
+    }
+])
 ```
 
 **Code walkthrough**:
 
-- We're using OpenAI's `GPT-4o-mini` model because our financial bot needs smarts without breaking the bank. You can use a different model if you prefer.
+- We're using OpenAI's `gpt-5-nano` model because our financial bot needs smarts without breaking the bank. You can use a different model if you prefer.
 - We've set temperature to 0.2 because when it comes to financial compliance, creativity is NOT what we want (sorry, creative accountants!)
 - We're keeping our API key in an environment variable because security first, folks!
 

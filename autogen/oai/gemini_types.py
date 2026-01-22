@@ -1,10 +1,22 @@
 # Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
+"""Local fallback types for Google Gemini SDK.
+
+These types are used when google-genai SDK is not installed. They are designed
+for forward compatibility - local types may include fields from newer SDK versions.
+
+Compatibility testing (test/oai/test_gemini_types.py) verifies that:
+- All fields in the installed SDK exist in local types (subset compatibility)
+- Descriptions are ignored since they may vary across SDK versions
+
+When updating these types, prefer adding new fields rather than removing existing
+ones to maintain forward compatibility with newer SDK versions.
+"""
 
 import enum
 import warnings
-from typing import Any, Optional, Type, TypeVar, Union, get_args, get_origin
+from typing import Any, Optional, TypeVar, Union, get_args, get_origin
 
 from pydantic import BaseModel as BaseModel
 from pydantic import ConfigDict, Field, alias_generators
@@ -15,7 +27,6 @@ def _remove_extra_fields(model: Any, response: dict[str, object]) -> None:
 
     Mutates the response in place.
     """
-
     key_values = list(response.items())
 
     for key, value in key_values:
@@ -64,7 +75,7 @@ class CommonBaseModel(BaseModel):
     )
 
     @classmethod
-    def _from_response(cls: Type[T], *, response: dict[str, object], kwargs: dict[str, object]) -> T:
+    def _from_response(cls: type[T], *, response: dict[str, object], kwargs: dict[str, object]) -> T:
         # To maintain forward compatibility, we need to remove extra fields from
         # the response.
         # We will provide another mechanism to allow users to access these fields.
@@ -106,16 +117,47 @@ class FunctionCallingConfigMode(CaseInSensitiveEnum):
     AUTO = "AUTO"
     ANY = "ANY"
     NONE = "NONE"
+    VALIDATED = "VALIDATED"
+
+
+class LatLng(CommonBaseModel):
+    """An object that represents a latitude/longitude pair.
+
+    This is expressed as a pair of doubles to represent degrees latitude and
+    degrees longitude. Unless specified otherwise, this object must conform to the
+    <a href="https://en.wikipedia.org/wiki/World_Geodetic_System#1984_version">
+    WGS84 standard</a>. Values must be within normalized ranges.
+    """
+
+    latitude: float | None = Field(
+        default=None,
+        description="""The latitude in degrees. It must be in the range [-90.0, +90.0].""",
+    )
+    longitude: float | None = Field(
+        default=None,
+        description="""The longitude in degrees. It must be in the range [-180.0, +180.0]""",
+    )
 
 
 class FunctionCallingConfig(CommonBaseModel):
     """Function calling config."""
 
-    mode: Optional[FunctionCallingConfigMode] = Field(default=None, description="""Optional. Function calling mode.""")
-    allowed_function_names: Optional[list[str]] = Field(
+    mode: FunctionCallingConfigMode | None = Field(default=None, description="""Optional. Function calling mode.""")
+    allowed_function_names: list[str] | None = Field(
         default=None,
         description="""Optional. Function names to call. Only set when the Mode is ANY. Function names should match [FunctionDeclaration.name]. With mode set to ANY, model will predict a function call from the set of function names provided.""",
     )
+    stream_function_call_arguments: bool | None = Field(
+        default=None,
+        description="""Optional. When set to true, arguments of a single function call will be streamed out in multiple parts/contents/responses. Partial parameter results will be returned in the [FunctionCall.partial_args] field. This field is not supported in Gemini API.""",
+    )
+
+
+class RetrievalConfig(CommonBaseModel):
+    """Retrieval config."""
+
+    lat_lng: LatLng | None = Field(default=None, description="""Optional. The location of the user.""")
+    language_code: str | None = Field(default=None, description="""The language code of the user.""")
 
 
 class ToolConfig(CommonBaseModel):
@@ -124,6 +166,7 @@ class ToolConfig(CommonBaseModel):
     This config is shared for all tools provided in the request.
     """
 
-    function_calling_config: Optional[FunctionCallingConfig] = Field(
+    function_calling_config: FunctionCallingConfig | None = Field(
         default=None, description="""Optional. Function calling config."""
     )
+    retrieval_config: RetrievalConfig | None = Field(default=None, description="""Optional. Retrieval config.""")

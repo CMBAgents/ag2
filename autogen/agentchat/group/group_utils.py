@@ -3,9 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+from collections.abc import Callable
 from functools import partial
 from types import MethodType
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
+
+from autogen.agentchat.group.events.transition_events import (
+    AfterWorksTransitionEvent,
+    OnContextConditionTransitionEvent,
+)
+from autogen.io.base import IOStream
 
 from ..agent import Agent
 from ..groupchat import GroupChat, GroupChatManager
@@ -82,28 +89,72 @@ def link_agents_to_group_manager(agents: list[Agent], group_chat_manager: Agent)
         agent._group_manager = group_chat_manager  # type: ignore[attr-defined]
 
 
+def _evaluate_after_works_conditions(
+    agent: "ConversableAgent",
+    groupchat: GroupChat,
+    user_agent: Optional["ConversableAgent"],
+) -> Agent | str | None:
+    """Evaluate after_works context conditions for an agent.
+
+    Args:
+        agent: The agent to evaluate after_works conditions for
+        groupchat: The current group chat
+        user_agent: Optional user proxy agent
+
+    Returns:
+        The resolved speaker selection result if a condition matches, None otherwise
+    """
+    if not hasattr(agent, "handoffs") or not agent.handoffs.after_works:  # type: ignore[attr-defined]
+        return None
+
+    for after_work_condition in agent.handoffs.after_works:  # type: ignore[attr-defined]
+        # Check if condition is available
+        is_available = (
+            after_work_condition.available.is_available(agent, groupchat.messages)
+            if after_work_condition.available
+            else True
+        )
+
+        # Evaluate the condition (None condition means always true)
+        if is_available and (
+            after_work_condition.condition is None or after_work_condition.condition.evaluate(agent.context_variables)
+        ):
+            # Condition matched, resolve and return
+            after_works_speaker = after_work_condition.target.resolve(
+                groupchat,
+                agent,
+                user_agent,
+            ).get_speaker_selection_result(groupchat)
+
+            iostream = IOStream.get_default()
+            iostream.send(AfterWorksTransitionEvent(source_agent=agent, transition_target=after_work_condition.target))
+
+            return after_works_speaker
+
+    return None
+
+
 def _run_oncontextconditions(
     agent: "ConversableAgent",
-    messages: Optional[list[dict[str, Any]]] = None,
-    sender: Optional[Agent] = None,
-    config: Optional[Any] = None,
-) -> tuple[bool, Optional[Union[str, dict[str, Any]]]]:
+    messages: list[dict[str, Any]] | None = None,
+    sender: Agent | None = None,
+    config: Any | None = None,
+) -> tuple[bool, str | dict[str, Any] | None]:
     """Run OnContextConditions for an agent before any other reply function."""
     for on_condition in agent.handoffs.context_conditions:  # type: ignore[attr-defined]
         is_available = (
             on_condition.available.is_available(agent, messages if messages else []) if on_condition.available else True
         )
 
-        if is_available and on_condition.condition.evaluate(agent.context_variables):
-            # Condition has been met, we'll set the Tool Executor's next target
-            # attribute and that will be picked up on the next iteration when
-            # _determine_next_agent is called
-            for agent in agent._group_manager.groupchat.agents:  # type: ignore[attr-defined]
-                if isinstance(agent, GroupToolExecutor):
-                    agent.set_next_target(on_condition.target)
-                    break
+        if is_available and (
+            on_condition.condition is None or on_condition.condition.evaluate(agent.context_variables)
+        ):
+            on_condition.target.activate_target(agent._group_manager.groupchat)  # type: ignore[attr-defined]
 
             transfer_name = on_condition.target.display_name()
+
+            iostream = IOStream.get_default()
+            iostream.send(OnContextConditionTransitionEvent(source_agent=agent, transition_target=on_condition.target))
 
             return True, "[Handing off to " + transfer_name + "]"
 
@@ -161,12 +212,25 @@ def ensure_handoff_agents_in_group(agents: list["ConversableAgent"]) -> None:
                 and context_conditions.target.agent_name not in agent_names
             ):
                 raise ValueError("Agent in OnContextCondition Hand-offs must be in the agents list")
-        if (
-            agent.handoffs.after_work is not None
-            and isinstance(agent.handoffs.after_work, (AgentTarget, AgentNameTarget))
-            and agent.handoffs.after_work.agent_name not in agent_names
-        ):
-            raise ValueError("Agent in after work target Hand-offs must be in the agents list")
+        # Check after_works targets
+        for after_work_condition in agent.handoffs.after_works:
+            if (
+                isinstance(after_work_condition.target, (AgentTarget, AgentNameTarget))
+                and after_work_condition.target.agent_name not in agent_names
+            ):
+                raise ValueError("Agent in after work target Hand-offs must be in the agents list")
+
+
+def ensure_guardrail_agents_in_group(agents: list["ConversableAgent"]) -> None:
+    """Ensure the agents in handoffs are in the group chat."""
+    agent_names = [agent.name for agent in agents]
+    for agent in agents:
+        for guardrail in agent.input_guardrails + agent.output_guardrails:
+            if (
+                isinstance(guardrail.target, (AgentTarget, AgentNameTarget))
+                and guardrail.target.agent_name not in agent_names
+            ):
+                raise ValueError("Agent in guardrail's target must be in the agents list")
 
 
 def prepare_exclude_transit_messages(agents: list["ConversableAgent"]) -> None:
@@ -211,11 +275,14 @@ def prepare_group_agents(
     # Ensure all agents in hand-off after-works are in the passed in agents list
     ensure_handoff_agents_in_group(agents)
 
+    # Ensure all agents in guardrails are in the passed in agents list
+    ensure_guardrail_agents_in_group(agents)
+
     # Create Tool Executor for the group
     tool_execution = GroupToolExecutor()
 
     # Wrap handoff targets in agents that need to be wrapped
-    wrapped_chat_agents: list["ConversableAgent"] = []
+    wrapped_chat_agents: list[ConversableAgent] = []
     for agent in agents:
         wrap_agent_handoff_targets(agent, wrapped_chat_agents)
 
@@ -266,7 +333,7 @@ def wrap_agent_handoff_targets(agent: "ConversableAgent", wrapped_agent_list: li
 
 
 def process_initial_messages(
-    messages: Union[list[dict[str, Any]], str],
+    messages: list[dict[str, Any]] | str,
     user_agent: Optional["ConversableAgent"],
     agents: list["ConversableAgent"],
     wrapped_agents: list["ConversableAgent"],
@@ -294,8 +361,8 @@ def process_initial_messages(
 
     # If there's only one message and there's no identified group agent
     # Start with a user proxy agent, creating one if they haven't passed one in
-    last_agent: Optional[ConversableAgent]
-    temp_user_proxy: Optional[ConversableAgent] = None
+    last_agent: ConversableAgent | None
+    temp_user_proxy: ConversableAgent | None = None
     temp_user_list: list[Agent] = []
     if len(messages) == 1 and "name" not in messages[0] and not user_agent:
         temp_user_proxy = ConversableAgent(name="_User", code_execution_config=False, human_input_mode="ALWAYS")
@@ -320,17 +387,19 @@ def setup_context_variables(
     tool_execution: "ConversableAgent",
     agents: list["ConversableAgent"],
     manager: GroupChatManager,
+    user_agent: Optional["ConversableAgent"],
     context_variables: ContextVariables,
 ) -> None:
-    """Assign a common context_variables reference to all agents in the group, including the tool executor and group chat manager.
+    """Assign a common context_variables reference to all agents in the group, including the tool executor, group chat manager, and user proxy agent.
 
     Args:
         tool_execution: The tool execution agent.
         agents: List of all agents in the conversation.
         manager: GroupChatManager instance.
+        user_agent: Optional user proxy agent.
         context_variables: Context variables to assign to all agents.
     """
-    for agent in agents + [tool_execution] + [manager]:
+    for agent in agents + [tool_execution] + [manager] + ([user_agent] if user_agent else []):
         agent.context_variables = context_variables
 
 
@@ -371,7 +440,7 @@ def determine_next_agent(
     group_agent_names: list[str],
     user_agent: Optional["ConversableAgent"],
     group_after_work: TransitionTarget,
-) -> Optional[Union[Agent, str]]:
+) -> Agent | str | None:
     """Determine the next agent in the conversation.
 
     Args:
@@ -387,7 +456,6 @@ def determine_next_agent(
     Returns:
         Optional[Union[Agent, str]]: The next agent or speaker selection method.
     """
-
     # Logic for determining the next target (anything based on Transition Target: an agent, wrapped agent, TerminateTarget, StayTarget, RevertToUserTarget, GroupManagerTarget, etc.
     # 1. If it's the first response -> initial agent
     # 2. If the last message is a tool call -> tool execution agent
@@ -426,22 +494,25 @@ def determine_next_agent(
 
     # If the user last spoke, return to the agent prior to them (if they don't have an after work, otherwise it's treated like any other agent)
     if user_agent and last_speaker == user_agent:
-        if user_agent.handoffs.after_work is None:
+        if not user_agent.handoffs.after_works:
             return last_agent_speaker
         else:
             last_agent_speaker = user_agent
 
     # AFTER WORK:
 
-    # Get the appropriate After Work condition (from the agent if they have one, otherwise the group level one)
-    after_work_condition = (
-        last_agent_speaker.handoffs.after_work  # type: ignore[attr-defined]
-        if last_agent_speaker.handoffs.after_work is not None  # type: ignore[attr-defined]
-        else group_after_work
+    # First, try to evaluate after_works context conditions
+    after_works_result = _evaluate_after_works_conditions(
+        last_agent_speaker,  # type: ignore[arg-type]
+        groupchat,
+        user_agent,
     )
+    if after_works_result is not None:
+        return after_works_result
 
+    # If no after_works conditions matched, use the group-level after_work
     # Resolve the next agent, termination, or speaker selection method
-    resolved_speaker_selection_result = after_work_condition.resolve(
+    resolved_speaker_selection_result = group_after_work.resolve(
         groupchat,
         last_agent_speaker,  # type: ignore[arg-type]
         user_agent,
@@ -456,7 +527,7 @@ def create_group_transition(
     group_agent_names: list[str],
     user_agent: Optional["ConversableAgent"],
     group_after_work: TransitionTarget,
-) -> Callable[["ConversableAgent", GroupChat], Optional[Union[Agent, str]]]:
+) -> Callable[["ConversableAgent", GroupChat], Agent | str | None]:
     """Creates a transition function for group chat with enclosed state for the use_initial_agent.
 
     Args:
@@ -473,7 +544,7 @@ def create_group_transition(
     # of group_transition
     state = {"use_initial_agent": True}
 
-    def group_transition(last_speaker: "ConversableAgent", groupchat: GroupChat) -> Optional[Union[Agent, str]]:
+    def group_transition(last_speaker: "ConversableAgent", groupchat: GroupChat) -> Agent | str | None:
         result = determine_next_agent(
             last_speaker=last_speaker,
             groupchat=groupchat,
@@ -492,7 +563,7 @@ def create_group_transition(
 
 def create_group_manager(
     groupchat: GroupChat,
-    group_manager_args: Optional[dict[str, Any]],
+    group_manager_args: dict[str, Any] | None,
     agents: list["ConversableAgent"],
     group_after_work: TransitionTarget,
 ) -> GroupChatManager:
@@ -525,10 +596,7 @@ def create_group_manager(
                 if (
                     len(agent.handoffs.get_context_conditions_by_target_type(GroupManagerTarget)) > 0
                     or len(agent.handoffs.get_llm_conditions_by_target_type(GroupManagerTarget)) > 0
-                    or (
-                        agent.handoffs.after_work is not None
-                        and isinstance(agent.handoffs.after_work, GroupManagerTarget)
-                    )
+                    or any(isinstance(aw.target, GroupManagerTarget) for aw in agent.handoffs.after_works)
                 ):
                     has_group_manager_target = True
                     break

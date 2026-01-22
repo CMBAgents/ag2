@@ -43,5 +43,25 @@ class CodeExecutorFactory:
             from .local_commandline_code_executor import LocalCommandLineCodeExecutor
 
             return LocalCommandLineCodeExecutor(**code_execution_config.get("commandline-local", {}))
+        elif executor == "yepcode":
+            try:
+                from .yepcode_code_executor import YepCodeCodeExecutor
+            except ImportError as e:
+                raise ImportError(
+                    "Missing dependencies for YepCodeCodeExecutor. Please install with: pip install ag2[yepcode]"
+                ) from e
+
+            return YepCodeCodeExecutor(**code_execution_config.get("yepcode", {}))
+
+        elif executor == "remyx":
+            try:
+                from .remyx_code_executor import RemyxCodeExecutor
+            except ImportError as e:
+                raise ImportError(
+                    "Missing dependencies for RemyxCodeExecutor. Please install with: pip install ag2[remyx]"
+                ) from e
+
+            return RemyxCodeExecutor(**code_execution_config.get("remyx", {}))
+
         else:
             raise ValueError(f"Unknown code executor {executor}")

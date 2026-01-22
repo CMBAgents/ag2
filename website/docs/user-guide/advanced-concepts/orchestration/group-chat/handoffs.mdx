@@ -51,6 +51,7 @@ When defining a handoff, you specify a transition target - the destination where
 
 - [`AgentNameTarget`](/docs/api-reference/autogen/agentchat/group/targets/transition_target/AgentNameTarget): Transfer control to an agent by name
 - [`AgentTarget`](/docs/api-reference/autogen/agentchat/group/targets/transition_target/AgentTarget): Transfer control to a specific agent instance
+- [`FunctionTarget`](/docs.ag2.ai/latest/docs/api-reference/autogen/agentchat/group/targets/function_target/FunctionTarget/): Transfer control to a custom function that can run logic before determining the next transition
 - [`AskUserTarget`](/docs/api-reference/autogen/agentchat/group/targets/transition_target/AskUserTarget): Ask the user to select the next speaker
 - [`NestedChatTarget`](/docs/api-reference/autogen/agentchat/group/targets/transition_target/NestedChatTarget): Target that represents a nested chat configuration
 - [`GroupManagerTarget`](/docs/api-reference/autogen/agentchat/group/targets/group_manager_target/GroupManagerTarget): Transfer control to the group manager who will select the next speaker
@@ -74,6 +75,34 @@ target = RevertToUserTarget()
 # End the conversation
 target = TerminateTarget()
 ```
+
+### Function Targets
+
+A `FunctionTarget` allows you to hand off from an agent to a custom Python function, pausing the workflow so you can run arbitrary logic before deciding what happens next.
+
+The function receives:
+
+- The most recent agent output (as a string)
+- The shared `ContextVariables`
+- Optionally extra arguments
+
+It can perform any custom logic, and then returns a [`FunctionTargetResult`](/docs.ag2.ai/latest/docs/api-reference/autogen/agentchat/group/targets/function_target/FunctionTargetResult/) that specifies the next transition target and includes a message for the next agent.
+
+Some common use cases for `FunctionTarget` include:
+
+#### Complex validation and handoff behavior
+
+It is often important to validate an agent’s output, particularly when its task is complex or has a reasonable chance of failure. While you can create validation agents, they often struggle to determine handoffs correctly and can clutter the group chat message history.
+Function Targets offer a cleaner solution: you can write custom validation logic and dynamically decide how to proceed.
+
+#### Custom Data Flow Handling
+
+AG2 handles agent context automatically, but it is often important for agents to have access to specific information stored in context variables or elsewhere.
+Function Targets allow you to fetch that information and include it explicitly as a message sent to the next agent.
+
+#### Example
+
+Refer to this [example](https://github.com/ag2ai/ag2/blob/main/notebook/function_target_example.ipynb), demonstrating a `FunctionTarget` being used to inspect and validate agent output.
 
 ### ReplyResults and Transitions
 
@@ -206,6 +235,9 @@ from autogen.agentchat.group import (
     OnContextCondition, ExpressionContextCondition, ContextExpression,
     RevertToUserTarget
 )
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 # Initialize context variables for our support system
 support_context = ContextVariables(data={
@@ -217,79 +249,84 @@ support_context = ContextVariables(data={
 })
 
 # Configure the LLM
-llm_config = LLMConfig(api_type="openai", model="gpt-4o-mini")
+llm_config = LLMConfig(config_list={"api_type": "openai", "model": "gpt-5-nano","api_key":os.getenv("OPENAI_API_KEY")})
 
 # Create all our support agents
-with llm_config:
-    # Main triage agent - the starting point for all user queries
-    triage_agent = ConversableAgent(
-        name="triage_agent",
-        system_message="""You are a support triage agent. Your role is to:
-        1. Determine if a query is technical or general
-        2. Use the classify_query function to route appropriately
+# Main triage agent - the starting point for all user queries
+triage_agent = ConversableAgent(
+    name="triage_agent",
+    system_message="""You are a support triage agent. Your role is to:
+    1. Determine if a query is technical or general
+    2. Use the classify_query function to route appropriately
 
-        Do not attempt to solve issues yourself - your job is proper routing."""
-    )
+    Do not attempt to solve issues yourself - your job is proper routing.""",
+    llm_config=llm_config
+)
 
-    # General support for non-technical questions
-    general_agent = ConversableAgent(
-        name="general_agent",
-        system_message="""You are a general support agent who handles non-technical questions.
-        If the user is a premium customer (check account_tier context variable),
-        you should transfer them directly to the premium support agent.
-        Otherwise, provide helpful responses to general inquiries."""
-    )
+# General support for non-technical questions
+general_agent = ConversableAgent(
+    name="general_agent",
+    system_message="""You are a general support agent who handles non-technical questions.
+    If the user is a premium customer (check account_tier context variable),
+    you should transfer them directly to the premium support agent.
+    Otherwise, provide helpful responses to general inquiries.""",
+    llm_config=llm_config
+)
 
-    # Tech agent for initial technical assessment
-    tech_agent = ConversableAgent(
-        name="tech_agent",
-        system_message="""You are a technical support agent who handles the initial assessment
-        of all technical issues.
+# Tech agent for initial technical assessment
+tech_agent = ConversableAgent(
+    name="tech_agent",
+    system_message="""You are a technical support agent who handles the initial assessment
+    of all technical issues.
 
-        If the user is a premium customer (check account_tier context variable),
-        you should transfer them directly to the premium support agent.
+    If the user is a premium customer (check account_tier context variable),
+    you should transfer them directly to the premium support agent.
 
-        Otherwise, determine if the issue is related to:
-        - Computer issues (laptops, desktops, PCs, Macs)
-        - Smartphone issues (iPhones, Android phones, tablets)
+    Otherwise, determine if the issue is related to:
+    - Computer issues (laptops, desktops, PCs, Macs)
+    - Smartphone issues (iPhones, Android phones, tablets)
 
-        And route to the appropriate specialist."""
-    )
+    And route to the appropriate specialist.""",
+    llm_config=llm_config
+)
 
-    # Device-specific agents
-    computer_agent = ConversableAgent(
-        name="computer_agent",
-        system_message="""You are a computer specialist who handles issues with laptops, desktops,
-        PCs, and Macs. You provide troubleshooting for hardware and software issues specific to
-        computers. You're knowledgeable about Windows, macOS, Linux, and common computer peripherals.
+# Device-specific agents
+computer_agent = ConversableAgent(
+    name="computer_agent",
+    system_message="""You are a computer specialist who handles issues with laptops, desktops,
+    PCs, and Macs. You provide troubleshooting for hardware and software issues specific to
+    computers. You're knowledgeable about Windows, macOS, Linux, and common computer peripherals.
 
-        For first-time issues, provide a solution directly.
+    For first-time issues, provide a solution directly.
 
-        If a user returns and says they tried your solution but are still having the issue,
-        use the check_repeat_issue function to escalate to advanced troubleshooting. Do not provide a solution
-        yourself for returning users, simply route it to advanced troubleshooting."""
-    )
+    If a user returns and says they tried your solution but are still having the issue,
+    use the check_repeat_issue function to escalate to advanced troubleshooting. Do not provide a solution
+    yourself for returning users, simply route it to advanced troubleshooting.""",
+    llm_config=llm_config
+)
 
-    smartphone_agent = ConversableAgent(
-        name="smartphone_agent",
-        system_message="""You are a smartphone specialist who handles issues with mobile devices
-        including iPhones, Android phones, and tablets. You're knowledgeable about iOS, Android,
-        mobile apps, battery issues, screen problems, and connectivity troubleshooting.
+smartphone_agent = ConversableAgent(
+    name="smartphone_agent",
+    system_message="""You are a smartphone specialist who handles issues with mobile devices
+    including iPhones, Android phones, and tablets. You're knowledgeable about iOS, Android,
+    mobile apps, battery issues, screen problems, and connectivity troubleshooting.
 
-        For first-time issues, provide a solution directly.
+    For first-time issues, provide a solution directly.
 
-        If a user returns and says they tried your solution but are still having the issue,
-        use the check_repeat_issue function to escalate to advanced troubleshooting. Do not provide a solution
-        yourself for returning users, simply route it to advanced troubleshooting"""
-    )
+    If a user returns and says they tried your solution but are still having the issue,
+    use the check_repeat_issue function to escalate to advanced troubleshooting. Do not provide a solution
+    yourself for returning users, simply route it to advanced troubleshooting""",
+    llm_config=llm_config
+)
 
-    # Advanced troubleshooting for complex issues
-    advanced_troubleshooting_agent = ConversableAgent(
-        name="advanced_troubleshooting_agent",
-        system_message="""You are an advanced troubleshooting specialist who handles complex,
-        persistent issues that weren't resolved by initial solutions. You provide deeper
-        diagnostic approaches and more comprehensive solutions for difficult technical problems."""
-    )
+# Advanced troubleshooting for complex issues
+advanced_troubleshooting_agent = ConversableAgent(
+    name="advanced_troubleshooting_agent",
+    system_message="""You are an advanced troubleshooting specialist who handles complex,
+    persistent issues that weren't resolved by initial solutions. You provide deeper
+    diagnostic approaches and more comprehensive solutions for difficult technical problems.""",
+    llm_config=llm_config
+)
 ```
 
 ### Creating Tool Functions
@@ -364,17 +401,8 @@ tech_agent.handoffs.add_llm_conditions([
 
 With these LLM-based handoffs, the tech agent analyzes the user's message to identify if they're discussing a computer or smartphone issue, then routes accordingly. The LLM evaluates the prompt against the conversation content to make this decision.
 
-```mermaid
-flowchart TD
-    Tech[Tech Agent] -->|"LLM analyzes: Computer issue?"| Computer[Computer Agent]
-    Tech -->|"LLM analyzes: Smartphone issue?"| Smartphone[Smartphone Agent]
-    Tech -->|"Neither condition met"| User([User])
+![llm_based_handoff](../assets/llm_based_handoff.png)
 
-    style Tech fill:#e8f5e9,stroke:#4caf50
-    style Computer fill:#d1c4e9,stroke:#673ab7
-    style Smartphone fill:#bbdefb,stroke:#2196f3
-    style User fill:#f9f9f9,stroke:#333
-```
 
 ### Configuring Context-Based Handoffs
 
@@ -404,22 +432,16 @@ smartphone_agent.handoffs.add_context_conditions([
 
 These context-based handoffs check if `repeat_issue` is set to `True` in the context variables. When a user says their issue wasn't solved, the `check_repeat_issue` tool sets this flag, and the handoff condition triggers a transfer to advanced troubleshooting.
 
-```mermaid
-flowchart TD
-    Computer[Computer Agent] -->|"Context check: repeat_issue == True"| Advanced[Advanced Troubleshooting]
-    Computer ---->|"First-time issue"| User([User])
-    Smartphone[Smartphone Agent] ---->|"Context check: repeat_issue == True"| Advanced
-    Smartphone ---->|"First-time issue"| User
+![context_based_handoff](../assets/context_based_handoff.png)
 
-    style Computer fill:#d1c4e9,stroke:#673ab7
-    style Smartphone fill:#bbdefb,stroke:#2196f3
-    style Advanced fill:#ffccbc,stroke:#e64a19
-    style User fill:#f9f9f9,stroke:#333
-```
 
 ### Setting Default After-Work Behavior
 
-Finally, we set the default behavior for when agents complete their work without a specific handoff triggering:
+After-work behavior defines what happens when an agent completes its work and no specific LLM or context-based handoff conditions are triggered. AG2 provides two levels of control for setting after-work behavior: **agent-level** and **pattern-level**.
+
+#### Agent-Level After-Work Behavior
+
+You can set the after-work behavior for an agent using the `set_after_work` method. This method takes a `Target` object as an argument, which defines what happens when the agent completes its work.
 
 ```python
 # Configure handoffs for advanced troubleshooting agent
@@ -429,7 +451,59 @@ advanced_troubleshooting_agent.handoffs.set_after_work(RevertToUserTarget())
 general_agent.handoffs.set_after_work(RevertToUserTarget())
 ```
 
-This ensures that after these agents finish helping a customer, control returns to the user, who can ask another question or end the conversation.
+This approach is ideal when different agents in your system need different behaviors after completing their tasks.
+
+#### Pattern-Level After-Work Behavior
+
+Pattern-level after-work behavior sets a default behavior for all agents in the group chat using the `group_after_work` parameter:
+
+```python
+# Set pattern-level after-work behavior that applies to all agents
+pattern = DefaultPattern(
+    initial_agent=triage_agent,
+    agents=[triage_agent, tech_agent, general_agent],
+    user_agent=user,
+    group_manager_args={"llm_config": llm_config},
+    group_after_work=RevertToUserTarget()  # All agents revert to user when done
+)
+```
+
+This approach is useful when you want consistent behavior across all agents in your system, reducing the need to configure each agent individually.
+
+#### Precedence and Override Behavior
+
+When both agent-level and pattern-level after-work behaviors are set, agent-level settings take precedence:
+
+```python
+# Pattern-level setting applies to all agents
+pattern = AutoPattern(
+    initial_agent=triage_agent,
+    agents=[triage_agent, tech_agent, general_agent],
+    user_agent=user,
+    group_after_work=RevertToUserTarget()  # Default for all agents
+)
+
+# Agent-level setting overrides pattern-level for this specific agent
+tech_agent.handoffs.set_after_work(TerminateTarget())  # This overrides the pattern setting
+```
+
+In this example, `triage_agent` and `general_agent` will revert to the user after completing their work, while `tech_agent` will terminate the conversation.
+
+The `group_after_work` parameter accepts any of the [transition targets](/docs/user-guide/advanced-concepts/orchestration/group-chat/handoffs/#transition-targets) available in AG2.
+
+#### Choosing the Right Approach
+
+Use `agent-level` after-work behavior when:
+
+- Different agents need different behaviors after completing their tasks
+- You want fine-grained control over conversation flow
+- Some agents should terminate while others should continue the conversation
+
+Use `pattern-level` after-work behavior when:
+
+- You want consistent behavior across all agents
+- You're setting up a simple workflow where all agents should behave similarly
+- You want to minimize configuration overhead
 
 ### Putting It All Together
 
@@ -486,6 +560,9 @@ By combining different handoff types, we've created a support system that can:
         OnContextCondition, ExpressionContextCondition, ContextExpression,
         RevertToUserTarget
     )
+    from dotenv import load_dotenv
+    import os
+    load_dotenv()
 
     # Initialize context variables for our support system
     support_context = ContextVariables(data={
@@ -497,77 +574,82 @@ By combining different handoff types, we've created a support system that can:
     })
 
     # Configure the LLM
-    llm_config = LLMConfig(api_type="openai", model="gpt-4o-mini")
+    llm_config = LLMConfig(config_list={"api_type": "openai", "model": "gpt-5-nano","api_key":os.getenv("OPENAI_API_KEY")})
 
     # Create all our support agents
-    with llm_config:
-        # Main triage agent - the starting point for all user queries
-        triage_agent = ConversableAgent(
-            name="triage_agent",
-            system_message="""You are a support triage agent. Your role is to:
-            1. Determine if a query is technical or general
-            2. Use the classify_query function to route appropriately
+    # Main triage agent - the starting point for all user queries
+    triage_agent = ConversableAgent(
+        name="triage_agent",
+        system_message="""You are a support triage agent. Your role is to:
+        1. Determine if a query is technical or general
+        2. Use the classify_query function to route appropriately
 
-            Do not attempt to solve issues yourself - your job is proper routing."""
-        )
+        Do not attempt to solve issues yourself - your job is proper routing.""",
+        llm_config=llm_config
+    )
 
-        # General support for non-technical questions
-        general_agent = ConversableAgent(
-            name="general_agent",
-            system_message="""You are a general support agent who handles non-technical questions.
-            If the user is a premium customer (check account_tier context variable),
-            you should transfer them directly to the premium support agent.
-            Otherwise, provide helpful responses to general inquiries."""
-        )
+    # General support for non-technical questions
+    general_agent = ConversableAgent(
+        name="general_agent",
+        system_message="""You are a general support agent who handles non-technical questions.
+        If the user is a premium customer (check account_tier context variable),
+        you should transfer them directly to the premium support agent.
+        Otherwise, provide helpful responses to general inquiries.""",
+        llm_config=llm_config
+    )
 
-        # Tech agent for initial technical assessment
-        tech_agent = ConversableAgent(
-            name="tech_agent",
-            system_message="""You are a technical support agent who handles the initial assessment
-            of all technical issues.
+    # Tech agent for initial technical assessment
+    tech_agent = ConversableAgent(
+        name="tech_agent",
+        system_message="""You are a technical support agent who handles the initial assessment
+        of all technical issues.
 
-            If the user is a premium customer (check account_tier context variable),
-            you should transfer them directly to the premium support agent.
+        If the user is a premium customer (check account_tier context variable),
+        you should transfer them directly to the premium support agent.
 
-            Otherwise, determine if the issue is related to:
-            - Computer issues (laptops, desktops, PCs, Macs)
-            - Smartphone issues (iPhones, Android phones, tablets)
+        Otherwise, determine if the issue is related to:
+        - Computer issues (laptops, desktops, PCs, Macs)
+        - Smartphone issues (iPhones, Android phones, tablets)
 
-            And route to the appropriate specialist."""
-        )
+        And route to the appropriate specialist.""",
+        llm_config=llm_config
+    )
 
-        # Device-specific agents
-        computer_agent = ConversableAgent(
-            name="computer_agent",
-            system_message="""You are a computer specialist who handles issues with laptops, desktops,
-            PCs, and Macs. You provide troubleshooting for hardware and software issues specific to
-            computers. You're knowledgeable about Windows, macOS, Linux, and common computer peripherals.
+    # Device-specific agents
+    computer_agent = ConversableAgent(
+        name="computer_agent",
+        system_message="""You are a computer specialist who handles issues with laptops, desktops,
+        PCs, and Macs. You provide troubleshooting for hardware and software issues specific to
+        computers. You're knowledgeable about Windows, macOS, Linux, and common computer peripherals.
 
-            For first-time issues, provide a solution directly.
+        For first-time issues, provide a solution directly.
 
-            If a user returns and says they tried your solution but are still having the issue,
-            use the check_repeat_issue function to escalate to advanced troubleshooting. Do not provide a solution yourself for returning users, simply route it to advanced troubleshooting."""
-        )
+        If a user returns and says they tried your solution but are still having the issue,
+        use the check_repeat_issue function to escalate to advanced troubleshooting. Do not provide a solution yourself for returning users, simply route it to advanced troubleshooting.""",
+        llm_config=llm_config
+    )
 
-        smartphone_agent = ConversableAgent(
-            name="smartphone_agent",
-            system_message="""You are a smartphone specialist who handles issues with mobile devices
-            including iPhones, Android phones, and tablets. You're knowledgeable about iOS, Android,
-            mobile apps, battery issues, screen problems, and connectivity troubleshooting.
+    smartphone_agent = ConversableAgent(
+        name="smartphone_agent",
+        system_message="""You are a smartphone specialist who handles issues with mobile devices
+        including iPhones, Android phones, and tablets. You're knowledgeable about iOS, Android,
+        mobile apps, battery issues, screen problems, and connectivity troubleshooting.
 
-            For first-time issues, provide a solution directly.
+        For first-time issues, provide a solution directly.
 
-            If a user returns and says they tried your solution but are still having the issue,
-            use the check_repeat_issue function to escalate to advanced troubleshooting. Do not provide a solution yourself for returning users, simply route it to advanced troubleshooting"""
-        )
+        If a user returns and says they tried your solution but are still having the issue,
+        use the check_repeat_issue function to escalate to advanced troubleshooting. Do not provide a solution yourself for returning users, simply route it to advanced troubleshooting""",
+        llm_config=llm_config
+    )
 
-        # Advanced troubleshooting for complex issues
-        advanced_troubleshooting_agent = ConversableAgent(
-            name="advanced_troubleshooting_agent",
-            system_message="""You are an advanced troubleshooting specialist who handles complex,
-            persistent issues that weren't resolved by initial solutions. You provide deeper
-            diagnostic approaches and more comprehensive solutions for difficult technical problems."""
-        )
+    # Advanced troubleshooting for complex issues
+    advanced_troubleshooting_agent = ConversableAgent(
+        name="advanced_troubleshooting_agent",
+        system_message="""You are an advanced troubleshooting specialist who handles complex,
+        persistent issues that weren't resolved by initial solutions. You provide deeper
+        diagnostic approaches and more comprehensive solutions for difficult technical problems.""",
+        llm_config=llm_config
+    )
 
     # Define tool functions
     def classify_query(

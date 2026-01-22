@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC
+from collections.abc import Callable
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Union
 from uuid import UUID
 
 from pydantic import BaseModel, field_validator, model_serializer
@@ -16,8 +17,9 @@ from ..agentchat.agent import LLMMessageType
 from ..code_utils import content_str
 from ..import_utils import optional_import_block, require_optional_import
 from ..oai.client import OpenAIWrapper
-from .base_event import BaseEvent, wrap_event
 from ..cmbagent_utils import cmbagent_gui_mode
+from .base_event import BaseEvent, resolve_print_callable, wrap_event
+
 with optional_import_block() as result:
     from PIL.Image import Image
 
@@ -56,24 +58,28 @@ EventRole = Literal["assistant", "function", "tool"]
 
 
 class BasePrintReceivedEvent(BaseEvent, ABC):
-    content: Union[str, int, float, bool]
+    content: str | int | float | bool
     sender: str
     recipient: str
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
-        if not cmbagent_gui_mode:
-            f(f"{colored(self.sender, 'yellow')} (to {self.recipient}):\n", flush=True)
+    # Cmbagent_v1: for reference...
+    # def print(self, f: Optional[Callable[..., Any]] = None) -> None:
+    #     f = f or print
+    #     if not cmbagent_gui_mode:
+    #         f(f"{colored(self.sender, 'yellow')} (to {self.recipient}):\n", flush=True)
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
+        f(f"{colored(self.sender, 'yellow')} (to {self.recipient}):\n", flush=True)
 
 
 @wrap_event
 class FunctionResponseEvent(BasePrintReceivedEvent):
-    name: Optional[str] = None
+    name: str | None = None
     role: EventRole = "function"
-    content: Union[str, int, float, bool]
+    content: str | int | float | bool
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
         super().print(f)
 
         id = self.name or "No id found"
@@ -89,13 +95,12 @@ class FunctionResponseEvent(BasePrintReceivedEvent):
 
 
 class ToolResponse(BaseModel):
-    tool_call_id: Optional[str] = None
+    tool_call_id: str | None = None
     role: EventRole = "tool"
-    content: Union[str, int, float, bool]
+    content: str | int | float | bool
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        # if not cmbagent_gui_mode:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
         id = self.tool_call_id or "No id found"
         if not cmbagent_gui_mode:
             tool_print = f"***** Response from calling Tool {self.role} ({id}) *****"
@@ -109,10 +114,10 @@ class ToolResponse(BaseModel):
 class ToolResponseEvent(BasePrintReceivedEvent):
     role: EventRole = "tool"
     tool_responses: list[ToolResponse]
-    content: Union[str, int, float, bool]
+    content: str | int | float | bool
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
         super().print(f)
 
         for tool_response in self.tool_responses:
@@ -121,11 +126,11 @@ class ToolResponseEvent(BasePrintReceivedEvent):
 
 
 class FunctionCall(BaseModel):
-    name: Optional[str] = None
-    arguments: Optional[str] = None
+    name: str | None = None
+    arguments: str | None = None
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         name = self.name or "(No function name found)"
         arguments = self.arguments or "(No arguments found)"
@@ -143,11 +148,11 @@ class FunctionCall(BaseModel):
 
 @wrap_event
 class FunctionCallEvent(BasePrintReceivedEvent):
-    content: Optional[Union[str, int, float, bool]] = None  # type: ignore [assignment]
+    content: str | int | float | bool | None = None  # type: ignore [assignment]
     function_call: FunctionCall
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
         super().print(f)
 
         if self.content is not None:
@@ -159,12 +164,12 @@ class FunctionCallEvent(BasePrintReceivedEvent):
 
 
 class ToolCall(BaseModel):
-    id: Optional[str] = None
+    id: str | None = None
     function: FunctionCall
     type: str
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         id = self.id or "No tool call id found"
 
@@ -184,15 +189,15 @@ class ToolCall(BaseModel):
 
 @wrap_event
 class ToolCallEvent(BasePrintReceivedEvent):
-    content: Optional[Union[str, int, float, bool]] = None  # type: ignore [assignment]
-    refusal: Optional[str] = None
-    role: Optional[EventRole] = None
-    audio: Optional[str] = None
-    function_call: Optional[FunctionCall] = None
+    content: str | int | float | bool | None = None  # type: ignore [assignment]
+    refusal: str | None = None
+    role: EventRole | None = None
+    audio: str | None = None
+    function_call: FunctionCall | None = None
     tool_calls: list[ToolCall]
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
         super().print(f)
 
         if self.content is not None:
@@ -206,7 +211,7 @@ class ToolCallEvent(BasePrintReceivedEvent):
 
 @wrap_event
 class TextEvent(BasePrintReceivedEvent):
-    content: Optional[Union[str, int, float, bool, list[dict[str, Union[str, dict[str, Any]]]]]] = None  # type: ignore [assignment]
+    content: str | int | float | bool | list[dict[str, str | dict[str, Any]]] | None = None  # type: ignore [assignment]
 
     @classmethod
     @require_optional_import("PIL", "unknown")
@@ -217,8 +222,8 @@ class TextEvent(BasePrintReceivedEvent):
     @field_validator("content", mode="before")
     @classmethod
     def validate_and_encode_content(
-        cls, content: Optional[Union[str, int, float, bool, list[dict[str, Union[str, dict[str, Any]]]]]]
-    ) -> Optional[Union[str, int, float, bool, list[dict[str, Union[str, dict[str, Any]]]]]]:
+        cls, content: str | int | float | bool | list[dict[str, str | dict[str, Any]]] | None
+    ) -> str | int | float | bool | list[dict[str, str | dict[str, Any]]] | None:
         if not IS_PIL_AVAILABLE:
             return content
 
@@ -231,8 +236,8 @@ class TextEvent(BasePrintReceivedEvent):
 
         return content
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
         super().print(f)
 
         if self.content is not None:
@@ -242,8 +247,8 @@ class TextEvent(BasePrintReceivedEvent):
 
 
 def create_received_event_model(
-    *, uuid: Optional[UUID] = None, event: dict[str, Any], sender: "Agent", recipient: "Agent"
-) -> Union[FunctionResponseEvent, ToolResponseEvent, FunctionCallEvent, ToolCallEvent, TextEvent]:
+    *, uuid: UUID | None = None, event: dict[str, Any], sender: "Agent", recipient: "Agent"
+) -> FunctionResponseEvent | ToolResponseEvent | FunctionCallEvent | ToolCallEvent | TextEvent:
     role = event.get("role")
     if role == "function":
         return FunctionResponseEvent(**event, sender=sender.name, recipient=recipient.name, uuid=uuid)
@@ -290,17 +295,17 @@ def create_received_event_model(
 
 @wrap_event
 class PostCarryoverProcessingEvent(BaseEvent):
-    carryover: Union[str, list[Union[str, dict[str, Any], Any]]]
+    carryover: str | list[str | dict[str, Any] | Any]
     message: str
     verbose: bool = False
 
     sender: str
     recipient: str
     summary_method: str
-    summary_args: Optional[dict[str, Any]] = None
-    max_turns: Optional[int] = None
+    summary_args: dict[str, Any] | None = None
+    max_turns: int | None = None
 
-    def __init__(self, *, uuid: Optional[UUID] = None, chat_info: dict[str, Any]):
+    def __init__(self, *, uuid: UUID | None = None, chat_info: dict[str, Any]):
         carryover = chat_info.get("carryover", "")
         message = chat_info.get("message")
         verbose = chat_info.get("verbose", False)
@@ -368,8 +373,8 @@ class PostCarryoverProcessingEvent(BaseEvent):
 
         return ("\n").join(print_carryover)
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         print_carryover = self._process_carryover()
 
@@ -391,15 +396,15 @@ class PostCarryoverProcessingEvent(BaseEvent):
 
 @wrap_event
 class ClearAgentsHistoryEvent(BaseEvent):
-    agent: Optional[str] = None
-    nr_events_to_preserve: Optional[int] = None
+    agent: str | None = None
+    nr_events_to_preserve: int | None = None
 
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
-        agent: Optional[Union["Agent", str]] = None,
-        nr_events_to_preserve: Optional[int] = None,
+        uuid: UUID | None = None,
+        agent: Union["Agent", str] | None = None,
+        nr_events_to_preserve: int | None = None,
     ):
         return super().__init__(
             uuid=uuid,
@@ -407,8 +412,8 @@ class ClearAgentsHistoryEvent(BaseEvent):
             nr_events_to_preserve=nr_events_to_preserve,
         )
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         if self.agent:
             if self.nr_events_to_preserve:
@@ -428,16 +433,16 @@ class SpeakerAttemptSuccessfulEvent(BaseEvent):
     mentions: dict[str, int]
     attempt: int
     attempts_left: int
-    verbose: Optional[bool] = False
+    verbose: bool | None = False
 
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
+        uuid: UUID | None = None,
         mentions: dict[str, int],
         attempt: int,
         attempts_left: int,
-        select_speaker_auto_verbose: Optional[bool] = False,
+        select_speaker_auto_verbose: bool | None = False,
     ):
         super().__init__(
             uuid=uuid,
@@ -457,8 +462,8 @@ class SpeakerAttemptSuccessfulEvent(BaseEvent):
             "select_speaker_auto_verbose": self.verbose,
         }
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         selected_agent_name = next(iter(self.mentions))
         f(
@@ -475,16 +480,16 @@ class SpeakerAttemptFailedMultipleAgentsEvent(BaseEvent):
     mentions: dict[str, int]
     attempt: int
     attempts_left: int
-    verbose: Optional[bool] = False
+    verbose: bool | None = False
 
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
+        uuid: UUID | None = None,
         mentions: dict[str, int],
         attempt: int,
         attempts_left: int,
-        select_speaker_auto_verbose: Optional[bool] = False,
+        select_speaker_auto_verbose: bool | None = False,
     ):
         super().__init__(
             uuid=uuid,
@@ -504,8 +509,8 @@ class SpeakerAttemptFailedMultipleAgentsEvent(BaseEvent):
             "select_speaker_auto_verbose": self.verbose,
         }
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         f(
             colored(
@@ -521,16 +526,16 @@ class SpeakerAttemptFailedNoAgentsEvent(BaseEvent):
     mentions: dict[str, int]
     attempt: int
     attempts_left: int
-    verbose: Optional[bool] = False
+    verbose: bool | None = False
 
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
+        uuid: UUID | None = None,
         mentions: dict[str, int],
         attempt: int,
         attempts_left: int,
-        select_speaker_auto_verbose: Optional[bool] = False,
+        select_speaker_auto_verbose: bool | None = False,
     ):
         super().__init__(
             uuid=uuid,
@@ -550,8 +555,8 @@ class SpeakerAttemptFailedNoAgentsEvent(BaseEvent):
             "select_speaker_auto_verbose": self.verbose,
         }
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         f(
             colored(
@@ -566,15 +571,15 @@ class SpeakerAttemptFailedNoAgentsEvent(BaseEvent):
 class GroupChatResumeEvent(BaseEvent):
     last_speaker_name: str
     events: list[LLMMessageType]
-    verbose: Optional[bool] = False
+    verbose: bool | None = False
 
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
+        uuid: UUID | None = None,
         last_speaker_name: str,
         events: list["LLMMessageType"],
-        silent: Optional[bool] = False,
+        silent: bool | None = False,
     ):
         super().__init__(uuid=uuid, last_speaker_name=last_speaker_name, events=events, verbose=not silent)
 
@@ -587,8 +592,8 @@ class GroupChatResumeEvent(BaseEvent):
             "silent": not self.verbose,
         }
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         f(
             f"Prepared group chat with {len(self.events)} events, the last speaker is",
@@ -600,17 +605,17 @@ class GroupChatResumeEvent(BaseEvent):
 @wrap_event
 class GroupChatRunChatEvent(BaseEvent):
     speaker: str
-    verbose: Optional[bool] = False
+    verbose: bool | None = False
 
-    def __init__(self, *, uuid: Optional[UUID] = None, speaker: Union["Agent", str], silent: Optional[bool] = False):
+    def __init__(self, *, uuid: UUID | None = None, speaker: Union["Agent", str], silent: bool | None = False):
         super().__init__(uuid=uuid, speaker=speaker.name if hasattr(speaker, "name") else speaker, verbose=not silent)
 
     @model_serializer
     def serialize_model(self) -> dict[str, Any]:
         return {"uuid": self.uuid, "speaker": self.speaker, "silent": not self.verbose}
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
         if not cmbagent_gui_mode:
             f(colored(f"\nNext speaker: {self.speaker}\n", "green"), flush=True)
         else:
@@ -652,9 +657,9 @@ class TerminationAndHumanReplyNoInputEvent(BaseEvent):
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
+        uuid: UUID | None = None,
         no_human_input_msg: str,
-        sender: Optional[Union["Agent", str]] = None,
+        sender: Union["Agent", str] | None = None,
         recipient: Union["Agent", str],
     ):
         sender = sender or "No sender"
@@ -665,8 +670,8 @@ class TerminationAndHumanReplyNoInputEvent(BaseEvent):
             recipient=recipient.name if hasattr(recipient, "name") else recipient,
         )
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         f(colored(f"\n>>>>>>>> {self.no_human_input_msg}", "red"), flush=True)
 
@@ -680,9 +685,9 @@ class UsingAutoReplyEvent(BaseEvent):
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
+        uuid: UUID | None = None,
         human_input_mode: str,
-        sender: Optional[Union["Agent", str]] = None,
+        sender: Union["Agent", str] | None = None,
         recipient: Union["Agent", str],
     ):
         sender = sender or "No sender"
@@ -693,33 +698,38 @@ class UsingAutoReplyEvent(BaseEvent):
             recipient=recipient.name if hasattr(recipient, "name") else recipient,
         )
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
         if not cmbagent_gui_mode:
             f(colored("\n>>>>>>>> USING AUTO REPLY...", "red"), flush=True)
         else:
             pass
-
 
 @wrap_event
 class TerminationEvent(BaseEvent):
     """When a workflow termination condition is met"""
 
     termination_reason: str
+    sender: str
+    recipient: str | None = None
 
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
+        uuid: UUID | None = None,
+        sender: Union["Agent", str],
+        recipient: Union["Agent", str] | None = None,
         termination_reason: str,
     ):
         super().__init__(
             uuid=uuid,
             termination_reason=termination_reason,
+            sender=sender.name if hasattr(sender, "name") else sender,
+            recipient=recipient.name if hasattr(recipient, "name") else recipient if recipient else None,
         )
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
         if not cmbagent_gui_mode:   
             f(colored(f"\n>>>>>>>> TERMINATING RUN ({str(self.uuid)}): {self.termination_reason}", "red"), flush=True)
         else:
@@ -736,7 +746,7 @@ class ExecuteCodeBlockEvent(BaseEvent):
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
+        uuid: UUID | None = None,
         code: str,
         language: str,
         code_block_count: int,
@@ -750,8 +760,8 @@ class ExecuteCodeBlockEvent(BaseEvent):
             recipient=recipient.name if hasattr(recipient, "name") else recipient,
         )
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
         if not cmbagent_gui_mode:
             f(
             colored(
@@ -767,16 +777,16 @@ class ExecuteCodeBlockEvent(BaseEvent):
 @wrap_event
 class ExecuteFunctionEvent(BaseEvent):
     func_name: str
-    call_id: Optional[str] = None
+    call_id: str | None = None
     arguments: dict[str, Any]
     recipient: str
 
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
+        uuid: UUID | None = None,
         func_name: str,
-        call_id: Optional[str] = None,
+        call_id: str | None = None,
         arguments: dict[str, Any],
         recipient: Union["Agent", str],
     ):
@@ -788,8 +798,8 @@ class ExecuteFunctionEvent(BaseEvent):
             recipient=recipient.name if hasattr(recipient, "name") else recipient,
         )
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
         if not cmbagent_gui_mode:
             f(
                 colored(
@@ -803,20 +813,22 @@ class ExecuteFunctionEvent(BaseEvent):
 @wrap_event
 class ExecutedFunctionEvent(BaseEvent):
     func_name: str
-    call_id: Optional[str] = None
-    arguments: dict[str, Any]
-    content: str
+    call_id: str | None = None
+    arguments: dict[str, Any] | None
+    content: Any
     recipient: str
+    is_exec_success: bool = True
 
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
+        uuid: UUID | None = None,
         func_name: str,
-        call_id: Optional[str] = None,
-        arguments: dict[str, Any],
-        content: str,
+        call_id: str | None = None,
+        arguments: dict[str, Any] | None,
+        content: Any,
         recipient: Union["Agent", str],
+        is_exec_success: bool = True,
     ):
         super().__init__(
             uuid=uuid,
@@ -826,9 +838,10 @@ class ExecutedFunctionEvent(BaseEvent):
             content=content,
             recipient=recipient.name if hasattr(recipient, "name") else recipient,
         )
+        self.is_exec_success = is_exec_success
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         f(
             colored(
@@ -841,14 +854,14 @@ class ExecutedFunctionEvent(BaseEvent):
 
 @wrap_event
 class SelectSpeakerEvent(BaseEvent):
-    agents: Optional[list[str]] = None
+    agents: list[str] | None = None
 
-    def __init__(self, *, uuid: Optional[UUID] = None, agents: Optional[list[Union["Agent", str]]] = None):
+    def __init__(self, *, uuid: UUID | None = None, agents: list[Union["Agent", str]] | None = None):
         agents = [agent.name if hasattr(agent, "name") else agent for agent in agents] if agents else None
         super().__init__(uuid=uuid, agents=agents)
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         f("Please select the next speaker from the following list:")
         agents = self.agents or []
@@ -859,30 +872,28 @@ class SelectSpeakerEvent(BaseEvent):
 @wrap_event
 class SelectSpeakerTryCountExceededEvent(BaseEvent):
     try_count: int
-    agents: Optional[list[str]] = None
+    agents: list[str] | None = None
 
-    def __init__(
-        self, *, uuid: Optional[UUID] = None, try_count: int, agents: Optional[list[Union["Agent", str]]] = None
-    ):
+    def __init__(self, *, uuid: UUID | None = None, try_count: int, agents: list[Union["Agent", str]] | None = None):
         agents = [agent.name if hasattr(agent, "name") else agent for agent in agents] if agents else None
         super().__init__(uuid=uuid, try_count=try_count, agents=agents)
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         f(f"You have tried {self.try_count} times. The next speaker will be selected automatically.")
 
 
 @wrap_event
 class SelectSpeakerInvalidInputEvent(BaseEvent):
-    agents: Optional[list[str]] = None
+    agents: list[str] | None = None
 
-    def __init__(self, *, uuid: Optional[UUID] = None, agents: Optional[list[Union["Agent", str]]] = None):
+    def __init__(self, *, uuid: UUID | None = None, agents: list[Union["Agent", str]] | None = None):
         agents = [agent.name if hasattr(agent, "name") else agent for agent in agents] if agents else None
         super().__init__(uuid=uuid, agents=agents)
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         f(f"Invalid input. Please enter a number between 1 and {len(self.agents or [])}.")
 
@@ -893,9 +904,7 @@ class ClearConversableAgentHistoryEvent(BaseEvent):
     recipient: str
     no_events_preserved: int
 
-    def __init__(
-        self, *, uuid: Optional[UUID] = None, agent: Union["Agent", str], no_events_preserved: Optional[int] = None
-    ):
+    def __init__(self, *, uuid: UUID | None = None, agent: Union["Agent", str], no_events_preserved: int | None = None):
         super().__init__(
             uuid=uuid,
             agent=agent.name if hasattr(agent, "name") else agent,
@@ -911,8 +920,8 @@ class ClearConversableAgentHistoryEvent(BaseEvent):
             "no_events_preserved": self.no_events_preserved,
         }
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         for _ in range(self.no_events_preserved):
             f(f"Preserving one more event for {self.agent} to not divide history between tool call and tool response.")
@@ -922,14 +931,14 @@ class ClearConversableAgentHistoryEvent(BaseEvent):
 class ClearConversableAgentHistoryWarningEvent(BaseEvent):
     recipient: str
 
-    def __init__(self, *, uuid: Optional[UUID] = None, recipient: Union["Agent", str]):
+    def __init__(self, *, uuid: UUID | None = None, recipient: Union["Agent", str]):
         super().__init__(
             uuid=uuid,
             recipient=recipient.name if hasattr(recipient, "name") else recipient,
         )
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         f(
             colored(
@@ -949,9 +958,9 @@ class GenerateCodeExecutionReplyEvent(BaseEvent):
     def __init__(
         self,
         *,
-        uuid: Optional[UUID] = None,
+        uuid: UUID | None = None,
         code_blocks: list[Union["CodeBlock", str]],
-        sender: Optional[Union["Agent", str]] = None,
+        sender: Union["Agent", str] | None = None,
         recipient: Union["Agent", str],
     ):
         code_blocks = [
@@ -966,8 +975,8 @@ class GenerateCodeExecutionReplyEvent(BaseEvent):
             recipient=recipient.name if hasattr(recipient, "name") else recipient,
         )
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         num_code_blocks = len(self.code_blocks)
         if not cmbagent_gui_mode:
@@ -993,11 +1002,11 @@ class GenerateCodeExecutionReplyEvent(BaseEvent):
 class ConversableAgentUsageSummaryNoCostIncurredEvent(BaseEvent):
     recipient: str
 
-    def __init__(self, *, uuid: Optional[UUID] = None, recipient: Union["Agent", str]):
+    def __init__(self, *, uuid: UUID | None = None, recipient: Union["Agent", str]):
         super().__init__(uuid=uuid, recipient=recipient.name if hasattr(recipient, "name") else recipient)
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         f(f"No cost incurred from agent '{self.recipient}'.")
 
@@ -1006,11 +1015,11 @@ class ConversableAgentUsageSummaryNoCostIncurredEvent(BaseEvent):
 class ConversableAgentUsageSummaryEvent(BaseEvent):
     recipient: str
 
-    def __init__(self, *, uuid: Optional[UUID] = None, recipient: Union["Agent", str]):
+    def __init__(self, *, uuid: UUID | None = None, recipient: Union["Agent", str]):
         super().__init__(uuid=uuid, recipient=recipient.name if hasattr(recipient, "name") else recipient)
 
-    def print(self, f: Optional[Callable[..., Any]] = None) -> None:
-        f = f or print
+    def print(self, f: Callable[..., Any] | None = None) -> None:
+        f = resolve_print_callable(f)
 
         f(f"Agent '{self.recipient}':")
 
@@ -1019,7 +1028,7 @@ class ConversableAgentUsageSummaryEvent(BaseEvent):
 class InputRequestEvent(BaseEvent):
     prompt: str
     password: bool = False
-    respond: Optional[Callable[[str], None]] = None
+    respond: Callable[[str], None] | None = None
 
     type: str = "input_request"
 
@@ -1048,5 +1057,5 @@ class RunCompletionEvent(BaseEvent):
     summary: str
     history: list[LLMMessageType]
     cost: dict[str, Any]
-    last_speaker: Optional[str]
-    context_variables: Optional[ContextVariables] = None
+    last_speaker: str | None
+    context_variables: ContextVariables | None = None

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Annotated, Any, Callable, Optional
+from collections.abc import Callable
+from typing import Annotated, Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,8 +11,9 @@ from pydantic import BaseModel
 
 from autogen.agentchat import ConversableAgent, UserProxyAgent
 from autogen.tools import BaseContext, ChatContext, Depends
-
-from ..conftest import Credentials, credentials_all_llms, suppress_gemini_resource_exhausted
+from test.credentials import Credentials
+from test.marks import credentials_all_llms
+from test.utils import suppress_gemini_resource_exhausted
 
 
 class MyContext(BaseContext, BaseModel):
@@ -23,7 +25,7 @@ def f_with_annotated(
     ctx: Annotated[MyContext, Depends(MyContext(b=2))],
     chat_ctx: Annotated[ChatContext, "Chat context"],
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     assert isinstance(chat_ctx, ChatContext)
     return a + ctx.b + c
@@ -34,7 +36,7 @@ async def f_with_annotated_async(
     ctx: Annotated[MyContext, Depends(MyContext(b=2))],
     chat_ctx: ChatContext,
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     assert isinstance(chat_ctx, ChatContext)
     return a + ctx.b + c
@@ -45,7 +47,7 @@ def f_without_annotated(
     chat_ctx: ChatContext,
     ctx: MyContext = Depends(MyContext(b=3)),
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     return a + ctx.b + c
 
@@ -54,7 +56,7 @@ async def f_without_annotated_async(
     a: int,
     ctx: MyContext = Depends(MyContext(b=3)),
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     return a + ctx.b + c
 
@@ -63,7 +65,7 @@ def f_with_annotated_and_depends(
     a: int,
     ctx: MyContext = MyContext(b=4),
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     return a + ctx.b + c
 
@@ -72,7 +74,7 @@ async def f_with_annotated_and_depends_async(
     a: int,
     ctx: MyContext = MyContext(b=4),
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     return a + ctx.b + c
 
@@ -82,7 +84,7 @@ def f_with_multiple_depends(
     ctx: Annotated[MyContext, Depends(MyContext(b=2))],
     ctx2: Annotated[MyContext, Depends(MyContext(b=3))],
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     return a + ctx.b + ctx2.b + c
 
@@ -92,7 +94,7 @@ async def f_with_multiple_depends_async(
     ctx: Annotated[MyContext, Depends(MyContext(b=2))],
     ctx2: Annotated[MyContext, Depends(MyContext(b=3))],
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     return a + ctx.b + ctx2.b + c
 
@@ -101,7 +103,7 @@ def f_wihout_base_context(
     a: int,
     ctx: Annotated[int, Depends(lambda a: a + 2)],
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     return a + ctx + c
 
@@ -110,7 +112,7 @@ async def f_wihout_base_context_async(
     a: int,
     ctx: Annotated[int, Depends(lambda a: a + 2)],
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     return a + ctx + c
 
@@ -119,7 +121,7 @@ def f_with_default_depends(
     a: int,
     ctx: int = Depends(lambda a: a + 2),
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     return a + ctx + c
 
@@ -128,7 +130,7 @@ async def f_with_default_depends_async(
     a: int,
     ctx: int = Depends(lambda a: a + 2),
     c: Annotated[int, "c description"] = 3,
-    d: Annotated[Optional[int], "d description"] = None,
+    d: Annotated[int | None, "d description"] = None,
 ) -> int:
     return a + ctx + c
 

@@ -6,7 +6,8 @@
 # Uses the group chat or the agents' handoffs to create a pattern
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, Union
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Optional
 
 from ..context_variables import ContextVariables
 from ..group_utils import (
@@ -43,11 +44,11 @@ class Pattern(ABC):
         initial_agent: "ConversableAgent",
         agents: list["ConversableAgent"],
         user_agent: Optional["ConversableAgent"] = None,
-        group_manager_args: Optional[dict[str, Any]] = None,
-        context_variables: Optional[ContextVariables] = None,
-        group_after_work: Optional[TransitionTarget] = None,
+        group_manager_args: dict[str, Any] | None = None,
+        context_variables: ContextVariables | None = None,
+        group_after_work: TransitionTarget | None = None,
         exclude_transit_message: bool = True,
-        summary_method: Optional[Union[str, Callable[..., Any]]] = "last_msg",
+        summary_method: str | Callable[..., Any] | None = "last_msg",
     ):
         """Initialize the pattern with the required components.
 
@@ -74,8 +75,8 @@ class Pattern(ABC):
     def prepare_group_chat(
         self,
         max_rounds: int,
-        messages: Union[list[dict[str, Any]], str],
-    ) -> Tuple[
+        messages: list[dict[str, Any]] | str,
+    ) -> tuple[
         list["ConversableAgent"],
         list["ConversableAgent"],
         Optional["ConversableAgent"],
@@ -152,7 +153,13 @@ class Pattern(ABC):
         manager = create_group_manager(groupchat, self.group_manager_args, self.agents, self.group_after_work)
 
         # Point all agent's context variables to this function's context_variables
-        setup_context_variables(tool_executor, self.agents, manager, self.context_variables)
+        setup_context_variables(
+            tool_execution=tool_executor,
+            agents=self.agents,
+            manager=manager,
+            user_agent=self.user_agent,
+            context_variables=self.context_variables,
+        )
 
         # Link all agents with the GroupChatManager to allow access to the group chat
         link_agents_to_group_manager(groupchat.agents, manager)
@@ -179,10 +186,10 @@ class Pattern(ABC):
         initial_agent: "ConversableAgent",
         agents: list["ConversableAgent"],
         user_agent: Optional["ConversableAgent"] = None,
-        group_manager_args: Optional[dict[str, Any]] = None,
-        context_variables: Optional[ContextVariables] = None,
+        group_manager_args: dict[str, Any] | None = None,
+        context_variables: ContextVariables | None = None,
         exclude_transit_message: bool = True,
-        summary_method: Optional[Union[str, Callable[..., Any]]] = "last_msg",
+        summary_method: str | Callable[..., Any] | None = "last_msg",
     ) -> "DefaultPattern":
         """Create a default pattern with minimal configuration.
 
@@ -222,8 +229,8 @@ class DefaultPattern(Pattern):
     def prepare_group_chat(
         self,
         max_rounds: int,
-        messages: Union[list[dict[str, Any]], str],
-    ) -> Tuple[
+        messages: list[dict[str, Any]] | str,
+    ) -> tuple[
         list["ConversableAgent"],
         list["ConversableAgent"],
         Optional["ConversableAgent"],

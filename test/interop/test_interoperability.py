@@ -9,8 +9,7 @@ import pytest
 
 from autogen.import_utils import optional_import_block, run_for_optional_imports
 from autogen.interop import Interoperability
-
-from ..conftest import MOCK_OPEN_AI_API_KEY
+from test.const import MOCK_OPEN_AI_API_KEY
 
 with optional_import_block():
     from crewai_tools import FileReadTool
@@ -20,9 +19,6 @@ with optional_import_block():
 class TestInteroperability:
     def test_supported_types(self) -> None:
         actual = Interoperability.get_supported_types()
-
-        if sys.version_info < (3, 9):
-            assert actual == []
 
         if sys.version_info >= (3, 9) and sys.version_info < (3, 10):
             assert actual == ["langchain", "pydanticai"]

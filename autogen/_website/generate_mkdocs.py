@@ -8,7 +8,6 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import Optional, Union
 
 from ..import_utils import optional_import_block, require_optional_import
 from .notebook_processor import (
@@ -107,7 +106,7 @@ def transform_tab_component(content: str) -> str:
 
             # Find minimum common indentation for non-empty lines
             non_empty_lines = [line for line in lines if line.strip()]
-            min_indent = min([len(line) - len(line.lstrip()) for line in non_empty_lines]) if non_empty_lines else 0
+            min_indent = min(len(line) - len(line.lstrip()) for line in non_empty_lines) if non_empty_lines else 0
 
             # Remove common indentation and add 4-space indent
             processed_lines = []
@@ -188,7 +187,7 @@ def fix_internal_references(abs_file_url: str, mkdocs_docs_dir: Path = mkdocs_do
         return abs_file_url
 
     # Find the first .md file in the directory
-    md_files = sorted(list(full_path.glob("*.md")))
+    md_files = sorted(full_path.glob("*.md"))
     return f"{abs_file_url}/{md_files[0].stem}"
 
 
@@ -231,7 +230,6 @@ def fix_internal_links(source_path: str, content: str) -> str:
     Returns:
         Content with internal links converted to relative paths
     """
-
     # Define regex patterns for HTML and Markdown links
     html_link_pattern = r'href="(/docs/[^"]*)"'
     html_img_src_pattern = r'src="(/snippets/[^"]+)"'
@@ -307,7 +305,7 @@ def transform_content_for_mkdocs(content: str, rel_file_path: str) -> str:
             lines = inner_content.split("\n")
 
             non_empty_lines = [line for line in lines if line.strip()]
-            min_indent = min([len(line) - len(line.lstrip()) for line in non_empty_lines]) if non_empty_lines else 0
+            min_indent = min(len(line) - len(line.lstrip()) for line in non_empty_lines) if non_empty_lines else 0
 
             # Process each line
             processed_lines = []
@@ -427,7 +425,7 @@ def format_navigation(
     nav: list[NavigationGroup],
     mkdocs_docs_dir: Path = mkdocs_docs_dir,
     depth: int = 0,
-    keywords: Optional[dict[str, str]] = None,
+    keywords: dict[str, str] | None = None,
 ) -> str:
     """Recursively format navigation structure into markdown-style nested list.
 
@@ -514,8 +512,8 @@ def copy_assets(website_dir: Path) -> None:
     src_dir = website_dir / "static" / "img"
     dest_dir = website_dir / "mkdocs" / "docs" / "assets" / "img"
 
-    git_tracket_img_files = get_git_tracked_and_untracked_files_in_directory(website_dir / "static" / "img")
-    copy_files(src_dir, dest_dir, git_tracket_img_files)
+    git_tracked_img_files = get_git_tracked_and_untracked_files_in_directory(website_dir / "static" / "img")
+    copy_files(src_dir, dest_dir, git_tracked_img_files)
 
 
 def add_excerpt_marker(content: str) -> str:
@@ -527,7 +525,6 @@ def add_excerpt_marker(content: str) -> str:
     Returns:
         str: Modified body content with <!-- more --> added
     """
-
     if "<!-- more -->" in content:
         return content.replace(r"\<!-- more -->", "<!-- more -->")
 
@@ -625,7 +622,7 @@ def fix_snippet_imports(content: str, snippets_dir: Path = mkdocs_output_dir.par
         file_path = snippets_dir / relative_path
 
         # Read the file content
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             file_content = f.read()
 
         # Replace the import statement with the file content
@@ -675,7 +672,7 @@ _is_first_notebook = True
 
 
 def add_front_matter_to_metadata_yml(
-    front_matter: dict[str, Union[str, list[str], None]], website_build_directory: Path, rendered_mdx: Path
+    front_matter: dict[str, str | list[str] | None], website_build_directory: Path, rendered_mdx: Path
 ) -> None:
     """Add notebook metadata to a YAML file containing metadata for all notebooks."""
     global _is_first_notebook
@@ -749,7 +746,6 @@ def transform_admonition_blocks(content: str) -> str:
     Returns:
         String with Material for MkDocs admonition blocks
     """
-
     tag_mappings = {
         "Tip": "tip",
         "Warning": "warning",
@@ -871,7 +867,6 @@ def remove_mdx_code_blocks(content: str) -> str:
     Returns:
         String with mdx-code-block markers removed
     """
-
     # Pattern to match mdx-code-block sections
     # Captures everything between ````mdx-code-block and ````
     pattern = re.compile(r"````mdx-code-block\n(.*?)\n````", re.DOTALL)
@@ -882,11 +877,56 @@ def remove_mdx_code_blocks(content: str) -> str:
     return result
 
 
+def remove_quarto_raw_html_wrappers(content: str) -> str:
+    """Remove Quarto JavaScript wrappers around raw HTML content.
+
+    Quarto wraps raw HTML in JavaScript like:
+        export const quartoRawHtml = [`<table>...</table>`];
+    And then references it with:
+        <div dangerouslySetInnerHTML={{ __html: quartoRawHtml[0] }} />
+
+    This function extracts the raw HTML and removes the JavaScript wrapper.
+
+    Args:
+        content: String containing Quarto raw HTML wrappers
+
+    Returns:
+        String with raw HTML extracted and JavaScript wrappers removed
+    """
+    # Pattern to match the quartoRawHtml declaration and extract the HTML content
+    # Matches: export const quartoRawHtml\s*=\s*\[\s*`(.*?)`\s*\];
+    declaration_pattern = re.compile(r"export\s+const\s+quartoRawHtml\s*=\s*\[\s*`(.*?)`\s*\];", re.DOTALL)
+
+    # Find all quartoRawHtml declarations and store the HTML content
+    html_blocks = []
+    for match in declaration_pattern.finditer(content):
+        html_blocks.append(match.group(1))
+
+    # Remove the declarations
+    content = declaration_pattern.sub("", content)
+
+    # Pattern to match the dangerouslySetInnerHTML usage
+    # Matches: <div dangerouslySetInnerHTML={{ __html: quartoRawHtml[0] }} />
+    # Or: <div dangerouslySetInnerHTML={{ __html: quartoRawHtml[N] }} />
+    usage_pattern = re.compile(r"<div\s+dangerouslySetInnerHTML=\{\{\s*__html:\s*quartoRawHtml\[(\d+)\]\s*\}\}\s*/>")
+
+    # Replace usage with the actual HTML content
+    def replace_usage(match: re.Match[str]) -> str:
+        index = int(match.group(1))
+        if index < len(html_blocks):
+            return html_blocks[index]
+        return match.group(0)  # Return original if index out of bounds
+
+    content = usage_pattern.sub(replace_usage, content)
+
+    return content
+
+
 @require_optional_import("yaml", "docs")
 def post_process_func(
     rendered_mdx: Path,
     source_notebooks: Path,
-    front_matter: dict[str, Union[str, list[str], None]],
+    front_matter: dict[str, str | list[str] | None],
     website_build_directory: Path,
 ) -> None:
     with open(rendered_mdx, encoding="utf-8") as f:
@@ -940,7 +980,7 @@ def post_process_func(
     rel_path = f"/{rendered_mdx.relative_to(website_build_directory.parents[0])}"
     content = transform_content_for_mkdocs(content, rel_path)
 
-    # Convert mdx image syntax to mintly image syntax
+    # Convert mdx image syntax to mintlify image syntax
     # content = convert_mdx_image_blocks(content, rendered_mdx, website_build_directory)
 
     # ensure editUrl is present
@@ -951,6 +991,9 @@ def post_process_func(
 
     # Remove mdx-code-block markers
     content = remove_mdx_code_blocks(content)
+
+    # Remove Quarto raw HTML JavaScript wrappers
+    content = remove_quarto_raw_html_wrappers(content)
 
     # Generate the page title
     page_header = front_matter.get("title")
@@ -999,7 +1042,7 @@ def add_notebooks_nav(mkdocs_nav_path: Path, metadata_yml_path: Path) -> None:
         metadata_yml_path: Path to the notebooks metadata YAML file
     """
     # Read the metadata file to get notebook items
-    with open(metadata_yml_path, "r") as file:
+    with open(metadata_yml_path) as file:
         items = yaml.safe_load(file)
 
     # Create navigation list entries for each notebook
@@ -1009,7 +1052,7 @@ def add_notebooks_nav(mkdocs_nav_path: Path, metadata_yml_path: Path) -> None:
         nav_list.append(f"        - [{item['title']}]({_link})\n")
 
     # Read the summary file
-    with open(mkdocs_nav_path, "r") as file:
+    with open(mkdocs_nav_path) as file:
         lines = file.readlines()
 
     # Find where to insert the notebook entries
@@ -1036,7 +1079,6 @@ def _generate_navigation_entries(dir_path: Path, mkdocs_output_dir: Path) -> lis
     Returns:
         str: Formatted navigation entries.
     """
-
     # Read all user story files and sort them by date (newest first)
     files = sorted(dir_path.glob("**/*.md"), key=sort_files_by_date, reverse=True)
 

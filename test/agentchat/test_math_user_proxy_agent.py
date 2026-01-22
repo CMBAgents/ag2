@@ -6,7 +6,9 @@
 # SPDX-License-Identifier: MIT
 # !/usr/bin/env python3 -m pytest
 
+import importlib
 import sys
+import warnings
 
 import pytest
 
@@ -16,8 +18,7 @@ from autogen.agentchat.contrib.math_user_proxy_agent import (
     _remove_print,
 )
 from autogen.import_utils import run_for_optional_imports
-
-from ..conftest import Credentials
+from test.credentials import Credentials
 
 
 @run_for_optional_imports("openai", "openai")
@@ -63,6 +64,21 @@ def test_add_remove_print():
     assert _remove_print(code) == code
 
 
+def test_math_user_proxy_agent_no_pydantic_deprecation_warning():
+    try:
+        from pydantic.warnings import PydanticDeprecatedSince20
+    except Exception:
+        pytest.skip("PydanticDeprecatedSince20 not available")
+
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always", PydanticDeprecatedSince20)
+        import autogen.agentchat.contrib.math_user_proxy_agent as module
+
+        importlib.reload(module)
+
+    assert not any(issubclass(item.category, PydanticDeprecatedSince20) for item in record)
+
+
 @pytest.mark.skipif(
     sys.platform in ["darwin", "win32"],
     reason="do not run on MacOS or windows",
@@ -100,8 +116,10 @@ def test_execute_one_wolfram_query():
 
     try:
         mathproxyagent.execute_one_wolfram_query(code)[0]
-    except ValueError:
-        print("Wolfram API key not found. Skip test.")
+    except (ValueError, ImportError):
+        # ValueError: Wolfram API key not found
+        # ImportError: wolframalpha package not installed
+        print("Wolfram API key not found or wolframalpha not installed. Skip test.")
 
 
 def test_generate_prompt():

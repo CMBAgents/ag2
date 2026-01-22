@@ -6,15 +6,14 @@
 # SPDX-License-Identifier: MIT
 # !/usr/bin/env python3 -m pytest
 
-from typing import Any, Optional, Union
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from autogen import OpenAIWrapper
 from autogen.import_utils import optional_import_block, run_for_optional_imports
-
-from ..conftest import Credentials
+from test.credentials import Credentials
 
 with optional_import_block() as result:
     # raises exception if openai>=1 is installed and something is wrong with imports
@@ -29,9 +28,10 @@ with optional_import_block() as result:
 
 @run_for_optional_imports("openai", "openai")
 @run_for_optional_imports(["openai"], "openai")
-def test_aoai_chat_completion_stream(credentials_gpt_4o_mini: Credentials) -> None:
-    client = OpenAIWrapper(config_list=credentials_gpt_4o_mini.config_list)
-    response = client.create(messages=[{"role": "user", "content": "2+2="}], stream=True)
+def test_completion_stream(credentials_azure_gpt_4_1_mini: Credentials) -> None:
+    """Updated to use gpt-4.1-mini (gpt-35-turbo-instruct retired Nov 11, 2025)"""
+    client = OpenAIWrapper(config_list=credentials_azure_gpt_4_1_mini.config_list)
+    response = client.create(messages=[{"role": "user", "content": "1+1="}], stream=True)
     print(response)
     print(client.extract_text_or_completion_object(response))
 
@@ -49,7 +49,7 @@ def test_chat_completion_stream(credentials_gpt_4o_mini: Credentials) -> None:
 def test__update_dict_from_chunk() -> None:
     # dictionaries and lists are not supported
     mock = MagicMock()
-    empty_collections: list[Union[list[Any], dict[str, Any]]] = [{}, []]
+    empty_collections: list[list[Any] | dict[str, Any]] = [{}, []]
     for c in empty_collections:
         mock.c = c
         with pytest.raises(NotImplementedError):
@@ -169,7 +169,7 @@ def test__update_tool_calls_from_chunk() -> None:
         ),
     ]
 
-    full_tool_calls: list[Optional[dict[str, Any]]] = [None, None]
+    full_tool_calls: list[dict[str, Any] | None] = [None, None]
     completion_tokens = 0
     for tool_calls_chunk in tool_calls_chunks:
         index = tool_calls_chunk.index
@@ -260,15 +260,6 @@ def test_chat_tools_stream(credentials_gpt_4o_mini: Credentials) -> None:
     tool_calls = message.tool_calls
     assert isinstance(tool_calls, list)
     assert len(tool_calls) > 0
-
-
-@run_for_optional_imports("openai", "openai")
-@run_for_optional_imports(["openai"], "openai")
-def test_completion_stream(credentials_azure_gpt_35_turbo_instruct: Credentials) -> None:
-    client = OpenAIWrapper(config_list=credentials_azure_gpt_35_turbo_instruct.config_list)
-    response = client.create(prompt="1+1=", stream=True)
-    print(response)
-    print(client.extract_text_or_completion_object(response))
 
 
 if __name__ == "__main__":

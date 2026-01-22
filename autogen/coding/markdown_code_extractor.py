@@ -5,7 +5,6 @@
 # Portions derived from https://github.com/microsoft/autogen are under the MIT License.
 # SPDX-License-Identifier: MIT
 import re
-from typing import Union
 
 from ..code_utils import CODE_BLOCK_PATTERN, MD_CODE_BLOCK_PATTERN, UNKNOWN, content_str, infer_lang, BASH_CODE_BLOCK_PATTERN
 from ..doc_utils import export_module
@@ -58,7 +57,7 @@ class MarkdownCodeExtractor(CodeExtractor):
     """
 
     def extract_code_blocks(
-        self, message: Union[str, list[Union[UserMessageTextContentPart, UserMessageImageContentPart]], None], name: str = ""
+        self, message: str | list[UserMessageTextContentPart | UserMessageImageContentPart] | None
     ) -> list[CodeBlock]:
         """Extract code blocks from a message. First, if the message is valid JSON and contains
         a "python_code" field, extract that code. Otherwise, fall back to the Markdown regex extraction.

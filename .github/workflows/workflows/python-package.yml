@@ -23,12 +23,12 @@ jobs:
     environment: package
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+        uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v6
         with:
           version: "latest"
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install from source
@@ -53,15 +53,15 @@ jobs:
         shell: pwsh
         run: |
           python setup_autogen.py sdist bdist_wheel
-      - name: Publish autogen to PyPI
-        env:
-          TWINE_USERNAME: ${{ secrets.AUTOGEN_PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.AUTOGEN_PYPI_PASSWORD }}
-        shell: pwsh
-        run: twine upload dist/autogen*
       - name: Publish ag2 to PyPI
         env:
           TWINE_USERNAME: ${{ secrets.AUTOGEN_PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.AUTOGEN_PYPI_PASSWORD }}
         shell: pwsh
         run: twine upload dist/ag2*
+      - name: Publish autogen to PyPI
+        env:
+          TWINE_USERNAME: ${{ secrets.AUTOGEN_PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.AUTOGEN_PYPI_PASSWORD }}
+        shell: pwsh
+        run: twine upload dist/autogen*

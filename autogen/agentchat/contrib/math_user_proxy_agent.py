@@ -6,10 +6,17 @@
 # SPDX-License-Identifier: MIT
 import os
 import re
+from collections.abc import Callable
 from time import sleep
-from typing import Any, Callable, Dict, Literal, Optional, Union
+from typing import Any, Literal
 
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel
+from pydantic.version import VERSION as PYDANTIC_VERSION
+
+if PYDANTIC_VERSION.startswith("2."):
+    from pydantic import model_validator
+else:
+    from pydantic import root_validator
 
 from ...code_utils import UNKNOWN, execute_code, extract_code, infer_lang
 from ...import_utils import optional_import_block, require_optional_import
@@ -141,12 +148,11 @@ class MathUserProxyAgent(UserProxyAgent):
 
     def __init__(
         self,
-        name: Optional[str] = "MathChatAgent",  # default set to MathChatAgent
-        is_termination_msg: Optional[
-            Callable[[Dict[str, Any]], bool]
-        ] = _is_termination_msg_mathchat,  # terminate if \boxed{} in message
+        name: str | None = "MathChatAgent",  # default set to MathChatAgent
+        is_termination_msg: Callable[[dict[str, Any]], bool]
+        | None = _is_termination_msg_mathchat,  # terminate if \boxed{} in message
         human_input_mode: Literal["ALWAYS", "NEVER", "TERMINATE"] = "NEVER",  # Fully automated
-        default_auto_reply: Optional[Union[str, dict[str, Any]]] = DEFAULT_REPLY,
+        default_auto_reply: str | dict[str, Any] | None = DEFAULT_REPLY,
         max_invalid_q_per_step=3,  # a parameter needed in MathChat
         **kwargs: Any,
     ):
@@ -294,9 +300,9 @@ class MathUserProxyAgent(UserProxyAgent):
 
     def _generate_math_reply(
         self,
-        messages: Optional[list[dict]] = None,
-        sender: Optional[Agent] = None,
-        config: Optional[Any] = None,
+        messages: list[dict] | None = None,
+        sender: Agent | None = None,
+        config: Any | None = None,
     ):
         """Generate an auto reply."""
         if messages is None:
@@ -366,7 +372,7 @@ class MathUserProxyAgent(UserProxyAgent):
 # THE SOFTWARE.
 
 
-def get_from_dict_or_env(data: dict[str, Any], key: str, env_key: str, default: Optional[str] = None) -> str:
+def get_from_dict_or_env(data: dict[str, Any], key: str, env_key: str, default: str | None = None) -> str:
     """Get a value from a dictionary or an environment variable."""
     if data.get(key):
         return data[key]
@@ -395,20 +401,37 @@ class WolframAlphaAPIWrapper(BaseModel):
     """
 
     wolfram_client: Any  #: :meta private:
-    wolfram_alpha_appid: Optional[str] = None
+    wolfram_alpha_appid: str | None = None
 
-    @root_validator(skip_on_failure=True)
-    @classmethod
-    @require_optional_import("wolframalpha", "mathchat")
-    def validate_environment(cls, values: dict) -> dict:
-        """Validate that api key and python package exists in environment."""
-        wolfram_alpha_appid = get_from_dict_or_env(values, "wolfram_alpha_appid", "WOLFRAM_ALPHA_APPID")
-        values["wolfram_alpha_appid"] = wolfram_alpha_appid
+    if PYDANTIC_VERSION.startswith("2."):
 
-        client = wolframalpha.Client(wolfram_alpha_appid)
-        values["wolfram_client"] = client
+        @model_validator(mode="before")  # type: ignore[misc]
+        @classmethod
+        @require_optional_import("wolframalpha", "mathchat")
+        def validate_environment(cls, values: dict) -> dict:
+            """Validate that api key and python package exists in environment."""
+            wolfram_alpha_appid = get_from_dict_or_env(values, "wolfram_alpha_appid", "WOLFRAM_ALPHA_APPID")
+            values["wolfram_alpha_appid"] = wolfram_alpha_appid
 
-        return values
+            client = wolframalpha.Client(wolfram_alpha_appid)
+            values["wolfram_client"] = client
+
+            return values
+
+    else:
+
+        @root_validator(skip_on_failure=True)
+        @classmethod
+        @require_optional_import("wolframalpha", "mathchat")
+        def validate_environment(cls, values: dict) -> dict:
+            """Validate that api key and python package exists in environment."""
+            wolfram_alpha_appid = get_from_dict_or_env(values, "wolfram_alpha_appid", "WOLFRAM_ALPHA_APPID")
+            values["wolfram_alpha_appid"] = wolfram_alpha_appid
+
+            client = wolframalpha.Client(wolfram_alpha_appid)
+            values["wolfram_client"] = client
+
+            return values
 
     def run(self, query: str) -> tuple[str, bool]:
         """Run query through WolframAlpha and parse result."""
