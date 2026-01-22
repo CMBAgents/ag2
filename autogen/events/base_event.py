@@ -40,7 +40,8 @@ class BaseEvent(BaseModel, ABC):
 
 
 def resolve_print_callable(f: Callable[..., Any] | None = None) -> Callable[..., Any]:
-    return f or event_print
+    # Use regular print instead of event_print (logger) for terminal output
+    return f or print
 
 
 def camel2snake(name: str) -> str:
