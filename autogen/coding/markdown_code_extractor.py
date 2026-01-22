@@ -74,19 +74,21 @@ class MarkdownCodeExtractor(CodeExtractor):
         if cmbagent_debug:
             print('in markdown_code_extractor.py extract_code_blocks text: ', text)
 
-        if name == "researcher_response_formatter":
-            if cmbagent_debug:
-                print('in markdown_code_extractor.py name: ', name)
-                print('in markdown_code_extractor.py text: ', text)
-            match = re.findall(MD_CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
-            if cmbagent_debug:
-                print('in markdown_code_extractor.py match: ', match)
-            if not match:
-                return []
-            code_blocks = []
-            for code in match:
-                code_blocks.append(CodeBlock(code=code, language="markdown"))
-            return code_blocks
+        # Special handling for researcher_response_formatter has been disabled
+        # since name parameter was removed to fix compatibility issues
+        # if name == "researcher_response_formatter":
+        #     if cmbagent_debug:
+        #         print('in markdown_code_extractor.py name: ', name)
+        #         print('in markdown_code_extractor.py text: ', text)
+        #     match = re.findall(MD_CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
+        #     if cmbagent_debug:
+        #         print('in markdown_code_extractor.py match: ', match)
+        #     if not match:
+        #         return []
+        #     code_blocks = []
+        #     for code in match:
+        #         code_blocks.append(CodeBlock(code=code, language="markdown"))
+        #     return code_blocks
 
         # Attempt to parse the message as JSON and extract "python_code"
         try:
@@ -109,10 +111,11 @@ class MarkdownCodeExtractor(CodeExtractor):
         if cmbagent_debug:
             print('in markdown_code_extractor.py match: ', match)
             print('in markdown_code_extractor.py match: ', match)
-            print('in markdown_code_extractor.py name: ', name)
-        if name=="installer":
-            # print('in markdown_code_extractor.py bash in name')
-            match = re.findall(BASH_CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
+            # print('in markdown_code_extractor.py name: ', name)  # Disabled: name parameter removed
+        # Special handling for installer disabled since name parameter was removed
+        # if name=="installer":
+        #     # print('in markdown_code_extractor.py bash in name')
+        #     match = re.findall(BASH_CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
             # code_blocks = []
             # # code_blocks.append(CodeBlock(code=match, language="sh"))
             # # return code_blocks

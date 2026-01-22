@@ -12,7 +12,7 @@ import re
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from ..code_utils import content_str
 from ..doc_utils import export_module

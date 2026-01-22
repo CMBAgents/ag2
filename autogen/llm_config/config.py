@@ -9,7 +9,7 @@ import warnings
 from collections.abc import Iterable
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Any, Literal, Optional, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Self, deprecated
@@ -456,3 +456,7 @@ class _LLMConfig(ApplicationConfig):
 
     # Following field is configuration for pydantic to disallow extra fields
     model_config = ConfigDict(extra="forbid")
+
+
+# Rebuild the model to resolve forward references
+_LLMConfig.model_rebuild()

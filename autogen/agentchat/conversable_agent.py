@@ -2862,7 +2862,7 @@ class ConversableAgent(LLMAgent):
                     print('extracting markdown code blocks from message["content"]')
                 # import sys; sys.exit()
 
-            code_blocks = self._code_executor.code_extractor.extract_code_blocks(message["content"],name=message["name"])
+            code_blocks = self._code_executor.code_extractor.extract_code_blocks(message["content"])
             if cmbagent_debug:
                 print('\n\nin conversable_agent.py code_blocks: ', code_blocks)
             # If no code blocks are found in "content", look in "tool_calls".

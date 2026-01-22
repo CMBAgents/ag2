@@ -34,7 +34,6 @@ if TYPE_CHECKING:
 
 from ..doc_utils import export_module
 from ..cmbagent_utils import cmbagent_debug
-from ..llm_config import LLMConfig
 
 NON_CACHE_KEY = [
     "api_key",

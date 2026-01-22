@@ -15,7 +15,7 @@ import warnings
 from collections import deque
 from collections.abc import Callable
 from functools import lru_cache
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 from pydantic.type_adapter import TypeAdapter
