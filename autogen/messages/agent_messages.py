@@ -292,17 +292,7 @@ class ToolCallMessage(BasePrintReceivedMessage):
                                     "reviewer_response_formatter",
                                     "planner_response_formatter",
                                     "engineer_response_formatter", 
-                                    "control",
-                                    "camels_agent",
-                                    # "admin",
-                                    "camels_response_formatter",
-                                    "classy_sz_response_formatter",
-                                    "joke_critique_response_formatter",
-                                    "joker_response_formatter",
-                                    "lecturer_response_formatter",
-                                    "course_director_response_formatter",
-                                    "course_material_provider",
-                                    # "perplexity"
+                                    "controller",
                                     ]:
                 if not cmbagent_disable_display:
                     display(Markdown(self.content)) # it doesnt work all the time
@@ -369,21 +359,8 @@ class TextMessage(BasePrintReceivedMessage):
                                     "engineer_response_formatter", 
                                     "idea_maker_response_formatter",
                                     "idea_hater_response_formatter",
-                                    "control",
-                                    "camels_agent",
-                                    # "admin",
-                                    "camels_response_formatter",
-                                    # "researcher_response_formatter",
-                                    "classy_sz_response_formatter",
-                                    "camb_response_formatter",
-                                    "cobaya_response_formatter",
-                                    "joke_critique_response_formatter",
-                                    "joker_response_formatter",
-                                    "lecturer_response_formatter",
-                                    "course_director_response_formatter",
-                                    "course_material_provider",
+                                    "controller",
                                     "review_recorder",
-                                    "perplexity",
                                     # "planner",
                                     # "plan_reviewer",
                                     ]:
@@ -391,21 +368,12 @@ class TextMessage(BasePrintReceivedMessage):
                     display(Markdown(self.content)) # it doesnt work all the time
                 else:
                     f(self.content, flush=True)
-            elif self.sender_name in ["classy_sz_agent",
-                                      "camb_agent",
-                                      "cobaya_agent",
-                                      "camels_agent",
-                                      "engineer",
+            elif self.sender_name in ["engineer",
                                       "researcher",
-                                      "task_improver",
                                       "idea_maker",
                                       "idea_hater",
                                       "planner",
-                                      "plan_reviewer",
-                                      "joker",
-                                      "joke_critique",
-                                      "lecturer",
-                                      "course_director"]:
+                                      "plan_reviewer"]:
                 if not cmbagent_disable_display:
                     display(Markdown("\nForwarding content...\n"))
                 else:
