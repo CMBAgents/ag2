@@ -215,10 +215,11 @@ class GeminiClient:
         self.proxy = kwargs.get("proxy")
 
         # print("\n\n\n")
+        # self.use_vertexai = True
         print("in gemini.py, vertexai is set to ", self.use_vertexai)
         # print("\n\n\n")
 
-        # self.use_vertexai = True
+
 
         # Store the response format, if provided (for structured outputs)
         self._response_format: type[BaseModel] | None = None

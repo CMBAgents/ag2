@@ -2614,7 +2614,7 @@ class ConversableAgent(LLMAgent):
             force_tool_call = True
             tool_choice = {"type": "function", "function": {"name": "record_plan_constraints"}}
 
-        elif self.name == 'control':
+        elif self.name == 'controller':
             force_tool_call = True
             tool_choice = {"type": "function", "function": {"name": "record_status"}}
 
