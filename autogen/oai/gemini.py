@@ -434,7 +434,8 @@ class GeminiClient:
                     )
 
                     # Store thought_signature if present (required for Gemini 3 models)
-                    if hasattr(part, "thought_signature") and part.thought_signature:
+                    # Note: thought_signature can be None for 2nd+ parallel function calls
+                    if hasattr(part, "thought_signature") and part.thought_signature is not None:
                         self.tool_call_thought_signatures[tool_call_id] = part.thought_signature
 
                     prev_function_calls.append(fn_call)
@@ -536,7 +537,10 @@ class GeminiClient:
 
             return rst, "tool"
         elif "tool_calls" in message and len(message["tool_calls"]) != 0:
-            for tool_call in message["tool_calls"]:
+            # For parallel function calls, only the first call has a thought_signature
+            # For sequential calls, each has its own thought_signature
+            # We include thought_signature only where it was originally present
+            for idx, tool_call in enumerate(message["tool_calls"]):
                 function_id = tool_call["id"]
                 function_name = tool_call["function"]["name"]
                 self.tool_call_function_map[function_id] = function_name
@@ -551,17 +555,33 @@ class GeminiClient:
                         })
                     )
                 else:
-                    # Include thought_signature if available (required for Gemini 3 models)
+                    # Include thought_signature only if it was stored for this specific tool call
+                    # For parallel calls: only first call has signature
+                    # For sequential calls: each call may have its own signature
                     thought_sig = self.tool_call_thought_signatures.get(function_id)
-                    rst.append(
-                        Part(
-                            function_call=FunctionCall(
-                                name=function_name,
-                                args=json.loads(tool_call["function"]["arguments"]),
-                            ),
-                            thought_signature=thought_sig,
+
+                    if thought_sig is not None:
+                        # This function call had a thought_signature when generated
+                        rst.append(
+                            Part(
+                                function_call=FunctionCall(
+                                    name=function_name,
+                                    args=json.loads(tool_call["function"]["arguments"]),
+                                ),
+                                thought_signature=thought_sig,
+                            )
                         )
-                    )
+                    else:
+                        # This function call did not have a thought_signature
+                        # (e.g., 2nd+ call in parallel function calls)
+                        rst.append(
+                            Part(
+                                function_call=FunctionCall(
+                                    name=function_name,
+                                    args=json.loads(tool_call["function"]["arguments"]),
+                                )
+                            )
+                        )
 
             return rst, "tool_call"
 
@@ -641,6 +661,36 @@ class GeminiClient:
         """
         rst = []
         for message in messages:
+            # Skip assistant messages with tool_calls if we don't have thought_signatures for them
+            # This can happen when GeminiClient is recreated (e.g., in multi-step workflows)
+            if (not self.use_vertexai and
+                "tool_calls" in message and
+                len(message["tool_calls"]) > 0):
+                # Check if we have thought_signatures for at least the first tool call
+                # (for parallel calls, only first has signature)
+                first_tool_call_id = message["tool_calls"][0]["id"]
+                if first_tool_call_id not in self.tool_call_thought_signatures:
+                    # Skip this message - we can't replay tool calls without thought_signatures
+                    logger.warning(
+                        f"Skipping assistant message with tool_calls - no thought_signature available. "
+                        f"This can happen in multi-step workflows where GeminiClient is recreated."
+                    )
+                    continue
+
+            # Skip tool result messages if we don't have the function call mapping
+            # This happens when the assistant message with tool_calls was skipped above
+            if (not self.use_vertexai and
+                "role" in message and
+                message["role"] == "tool" and
+                "tool_call_id" in message):
+                if message["tool_call_id"] not in self.tool_call_function_map:
+                    # Skip this message - we don't have the function call it's responding to
+                    logger.warning(
+                        f"Skipping tool result message - no function call mapping available. "
+                        f"This can happen in multi-step workflows where GeminiClient is recreated."
+                    )
+                    continue
+
             parts, part_type = self._oai_content_to_gemini_content(message)
             role = "user" if message["role"] in ["user", "system"] else "model"
 
@@ -697,6 +747,17 @@ class GeminiClient:
         # 3. The messages should be interleaved between user and model.
         # We add a dummy message "start chat" if the first role is not the user.
         # We add a dummy message "continue" if the last role is not the user.
+
+        # If all messages were filtered out (e.g., all were tool_calls without thought_signatures),
+        # we still need at least one user message
+        if len(rst) == 0:
+            text_part, _ = self._oai_content_to_gemini_content({"content": "continue"})
+            rst.append(
+                VertexAIContent(parts=text_part, role="user")
+                if self.use_vertexai
+                else Content(parts=text_part, role="user")
+            )
+
         if rst[0].role != "user":
             text_part, _ = self._oai_content_to_gemini_content({"content": "start chat"})
             rst.insert(
