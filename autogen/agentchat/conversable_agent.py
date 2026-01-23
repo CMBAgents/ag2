@@ -2661,14 +2661,6 @@ class ConversableAgent(LLMAgent):
         elif self.name == 'idea_saver':
             force_tool_call = True
             tool_choice = {"type": "function", "function": {"name": "record_ideas"}}
-            
-        elif self.name == 'plot_judge':
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "call_vlm_judge"}}
-            
-        elif self.name == 'plot_debugger':
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "route_plot_judge_verdict"}}
 
 
         context = messages[-1].pop("context", None)
