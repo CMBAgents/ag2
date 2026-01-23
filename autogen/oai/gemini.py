@@ -225,9 +225,27 @@ class GeminiClient:
         self._response_format: type[BaseModel] | None = None
 
         # Maps the function call ids to function names so we can inject it into FunctionResponse messages
-        self.tool_call_function_map: dict[str, str] = {}
+        # Use class-level shared state to persist across instances (fixes nested chat issues with Gemini 3)
+        if not hasattr(GeminiClient, '_shared_tool_call_function_map'):
+            GeminiClient._shared_tool_call_function_map: dict[str, str] = {}
+        if not hasattr(GeminiClient, '_shared_tool_call_thought_signatures'):
+            GeminiClient._shared_tool_call_thought_signatures: dict[str, bytes] = {}
+
+        self.tool_call_function_map: dict[str, str] = GeminiClient._shared_tool_call_function_map
         # Maps function call ids to thought signatures (required for Gemini 3 models)
-        self.tool_call_thought_signatures: dict[str, bytes] = {}
+        self.tool_call_thought_signatures: dict[str, bytes] = GeminiClient._shared_tool_call_thought_signatures
+
+    @classmethod
+    def clear_shared_state(cls):
+        """Clear shared state across all GeminiClient instances.
+
+        This should be called between different conversations to avoid
+        polluting new conversations with old tool call state.
+        """
+        if hasattr(cls, '_shared_tool_call_function_map'):
+            cls._shared_tool_call_function_map.clear()
+        if hasattr(cls, '_shared_tool_call_thought_signatures'):
+            cls._shared_tool_call_thought_signatures.clear()
 
     def message_retrieval(self, response: ChatCompletion) -> list[ChatCompletionMessage]:
         """Retrieve and return a list of strings or a list of Choice.Message from the response.
