@@ -2608,59 +2608,25 @@ class ConversableAgent(LLMAgent):
                 all_messages.append(message)
 
 
+        # Map agent names to their required function names
+        agent_function_map = {
+            'plan_setter': 'record_plan_constraints',
+            'controller': 'record_status',
+            'control_starter': 'record_status_starter',
+            'executor_response_formatter': 'post_execution_transfer',
+            'plan_recorder': 'record_plan',
+            'review_recorder': 'record_review',
+            'terminator': 'terminate_session',
+            'task_recorder': 'record_improved_task',
+            'aas_keyword_finder': 'record_aas_keywords',
+            'idea_saver': 'record_ideas',
+        }
+
         force_tool_call = False
-
-        if self.name == 'plan_setter':
+        function_name = agent_function_map.get(self.name)
+        if function_name:
             force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "record_plan_constraints"}}
-
-        elif self.name == 'controller':
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "record_status"}}
-
-        elif self.name == 'control_starter':
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "record_status_starter"}}
-
-        elif self.name == 'executor_response_formatter':
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "post_execution_transfer"}}
-
-        elif self.name == 'plan_recorder':
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "record_plan"}}
-
-        elif self.name == 'review_recorder':
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "record_review"}}
-
-        elif self.name == "answer_recorder":
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "record_answer"}}
-
-        elif self.name == "question_recorder":
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "record_question"}}
-
-        elif self.name == 'terminator':
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "terminate_session"}}
-
-        elif self.name == 'classy_sz_agent': # this is not used for the gptassistant agent, see in run = self._openai_client.beta.threads.runs.create( for that
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "file_search"}}
-
-        elif self.name == 'task_recorder':
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "record_improved_task"}}
-
-        elif self.name == 'aas_keyword_finder':
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "record_aas_keywords"}}
-
-        elif self.name == 'idea_saver':
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": "record_ideas"}}
+            tool_choice = {"type": "function", "function": {"name": function_name}}
 
 
         context = messages[-1].pop("context", None)
