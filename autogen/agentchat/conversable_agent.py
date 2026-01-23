@@ -1235,7 +1235,7 @@ class ConversableAgent(LLMAgent):
         message = message_to_dict(message)
         message_model = create_received_event_model(event=message, sender=sender, recipient=self)
         iostream = IOStream.get_default()
-        message_model.print(iostream.print)
+        # message_model.print(iostream.print)  # Removed: duplicate print (iostream.send already prints)
         ## cmbagent debug print:
         # print("\n sending message model")
         # try:
