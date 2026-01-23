@@ -87,17 +87,18 @@ with optional_import_block():
         Type,
     )
     from jsonschema import ValidationError
-    from vertexai.generative_models import Content as VertexAIContent
-    from vertexai.generative_models import FunctionDeclaration as vaiFunctionDeclaration
-    from vertexai.generative_models import GenerationConfig, GenerativeModel
-    from vertexai.generative_models import (
+    # Updated to use preview API to avoid deprecation warnings
+    from vertexai.preview.generative_models import Content as VertexAIContent
+    from vertexai.preview.generative_models import FunctionDeclaration as vaiFunctionDeclaration
+    from vertexai.preview.generative_models import GenerationConfig, GenerativeModel
+    from vertexai.preview.generative_models import (
         GenerationResponse as VertexAIGenerationResponse,
     )
-    from vertexai.generative_models import HarmBlockThreshold as VertexAIHarmBlockThreshold
-    from vertexai.generative_models import HarmCategory as VertexAIHarmCategory
-    from vertexai.generative_models import Part as VertexAIPart
-    from vertexai.generative_models import SafetySetting as VertexAISafetySetting
-    from vertexai.generative_models import (
+    from vertexai.preview.generative_models import HarmBlockThreshold as VertexAIHarmBlockThreshold
+    from vertexai.preview.generative_models import HarmCategory as VertexAIHarmCategory
+    from vertexai.preview.generative_models import Part as VertexAIPart
+    from vertexai.preview.generative_models import SafetySetting as VertexAISafetySetting
+    from vertexai.preview.generative_models import (
         Tool as vaiTool,
     )
 
@@ -214,10 +215,10 @@ class GeminiClient:
         self.proxy = kwargs.get("proxy")
 
         # print("\n\n\n")
-        # print("in gemini.py, vertexai is set to ", self.use_vertexai)
+        print("in gemini.py, vertexai is set to ", self.use_vertexai)
         # print("\n\n\n")
 
-        self.use_vertexai = True
+        # self.use_vertexai = True
 
         # Store the response format, if provided (for structured outputs)
         self._response_format: type[BaseModel] | None = None
