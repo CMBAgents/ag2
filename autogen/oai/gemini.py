@@ -215,7 +215,7 @@ class GeminiClient:
         self.proxy = kwargs.get("proxy")
 
         # print("\n\n\n")
-        # self.use_vertexai = True
+        self.use_vertexai = True
         print("in gemini.py, vertexai is set to ", self.use_vertexai)
         # print("\n\n\n")
 
