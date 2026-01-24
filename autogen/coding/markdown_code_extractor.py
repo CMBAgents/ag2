@@ -54,7 +54,19 @@ __all__ = ("MarkdownCodeExtractor",)
 class MarkdownCodeExtractor(CodeExtractor):
     """(Experimental) A class that extracts code blocks from a message using Markdown syntax,
     and also supports extraction from JSON messages that contain a 'python_code' field.
+
+    Supports different code extraction patterns based on execution policies.
     """
+
+    def __init__(self, execution_policies: dict[str, bool] | None = None):
+        """Initialize the MarkdownCodeExtractor.
+
+        Args:
+            execution_policies: Optional dictionary mapping language types to execution policy.
+                               Used to determine which code block patterns to prioritize.
+                               Example: {'bash': True, 'python': False} will prioritize bash extraction.
+        """
+        self.execution_policies = execution_policies or {}
 
     def extract_code_blocks(
         self, message: str | list[UserMessageTextContentPart | UserMessageImageContentPart] | None
@@ -116,18 +128,48 @@ class MarkdownCodeExtractor(CodeExtractor):
                 code_blocks.append(CodeBlock(code=code, language="markdown"))
             return code_blocks
 
-        # Fall back to regular code block extraction using the regex pattern
-        match = re.findall(CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
-        if cmbagent_debug:
-            print('in markdown_code_extractor.py match: ', match)
+        # Determine which pattern(s) to try based on execution policies
+        patterns_to_try = []
 
-        if not match:
-            return []
-        code_blocks = []
-        for lang, code in match:
-            if lang == "":
-                lang = infer_lang(code)
-            if lang == UNKNOWN:
-                lang = ""
-            code_blocks.append(CodeBlock(code=code, language=lang))
-        return code_blocks
+        # Check if bash execution is enabled
+        bash_enabled = self.execution_policies.get('bash', False) or \
+                      self.execution_policies.get('sh', False) or \
+                      self.execution_policies.get('shell', False)
+
+        # Check if python execution is enabled
+        python_enabled = self.execution_policies.get('python', False)
+
+        # Prioritize bash pattern if bash is enabled
+        if bash_enabled:
+            patterns_to_try.append(('bash', BASH_CODE_BLOCK_PATTERN))
+
+        # Add python pattern if python is enabled
+        if python_enabled:
+            patterns_to_try.append(('python', CODE_BLOCK_PATTERN))
+
+        # If no specific policies are set, try both patterns
+        if not patterns_to_try:
+            patterns_to_try.append(('bash', BASH_CODE_BLOCK_PATTERN))
+            patterns_to_try.append(('python', CODE_BLOCK_PATTERN))
+
+        if cmbagent_debug:
+            print(f'in markdown_code_extractor.py trying patterns for: {[p[0] for p in patterns_to_try]}')
+
+        # Try each pattern in order
+        for pattern_name, pattern in patterns_to_try:
+            match = re.findall(pattern, text, flags=re.DOTALL)
+            if cmbagent_debug:
+                print(f'in markdown_code_extractor.py {pattern_name} pattern match: {match}')
+
+            if match:
+                code_blocks = []
+                for lang, code in match:
+                    # If lang is empty or None, use the pattern name as fallback
+                    if not lang:
+                        lang = pattern_name
+                    if lang == UNKNOWN:
+                        lang = ""
+                    code_blocks.append(CodeBlock(code=code, language=lang))
+                return code_blocks
+
+        return []

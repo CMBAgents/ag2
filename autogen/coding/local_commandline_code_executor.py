@@ -191,7 +191,7 @@ $functions"""
     @property
     def code_extractor(self) -> CodeExtractor:
         """(Experimental) Export a code extractor that can be used by an agent."""
-        return MarkdownCodeExtractor()
+        return MarkdownCodeExtractor(execution_policies=self.execution_policies)
 
     @staticmethod
     def sanitize_command(lang: str, code: str) -> None:
