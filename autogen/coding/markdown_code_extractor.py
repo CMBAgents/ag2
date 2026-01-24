@@ -106,20 +106,21 @@ class MarkdownCodeExtractor(CodeExtractor):
             # print('in markdown_code_extractor.py message is not valid JSON, fall back to Markdown extraction')
             pass
 
-        # Fall back to Markdown extraction using the regex pattern
+        # First try to extract markdown code blocks
+        md_match = re.findall(MD_CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
+        if md_match:
+            if cmbagent_debug:
+                print('in markdown_code_extractor.py found markdown blocks: ', len(md_match))
+            code_blocks = []
+            for code in md_match:
+                code_blocks.append(CodeBlock(code=code, language="markdown"))
+            return code_blocks
+
+        # Fall back to regular code block extraction using the regex pattern
         match = re.findall(CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
         if cmbagent_debug:
             print('in markdown_code_extractor.py match: ', match)
-            print('in markdown_code_extractor.py match: ', match)
-            # print('in markdown_code_extractor.py name: ', name)  # Disabled: name parameter removed
-        # Special handling for installer disabled since name parameter was removed
-        # if name=="installer":
-        #     # print('in markdown_code_extractor.py bash in name')
-        #     match = re.findall(BASH_CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
-            # code_blocks = []
-            # # code_blocks.append(CodeBlock(code=match, language="sh"))
-            # # return code_blocks
-        # print('in markdown_code_extractor.py bash match: ', match)
+
         if not match:
             return []
         code_blocks = []

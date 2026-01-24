@@ -384,6 +384,29 @@ $functions"""
                 logs_all += f"\nException: {e}\n"
                 exitcode = 1  # or another appropriate code
 
+        # Rename failed Python files to step_N_failure.py
+        if exitcode != 0 and len(file_names) > 0:
+            for i, written_file in enumerate(file_names):
+                # Only rename Python files that match step_N.py pattern
+                if str(written_file).endswith('.py'):
+                    filename = written_file.name
+                    # Check if it's a step_N.py file
+                    if filename.startswith('step_') and not filename.endswith('_failure.py'):
+                        # Extract step number and create failure filename
+                        try:
+                            step_part = filename.replace('step_', '').replace('.py', '')
+                            if step_part.isdigit():
+                                new_filename = f"step_{step_part}_failure.py"
+                                new_path = written_file.parent / new_filename
+
+                                # Rename the file
+                                written_file.rename(new_path)
+                                file_names[i] = new_path
+                                if cmbagent_debug:
+                                    print(f'\n\n[DEBUG] Renamed failed execution: {written_file} -> {new_path}\n\n')
+                        except Exception as e:
+                            if cmbagent_debug:
+                                print(f'\n\n[DEBUG] Failed to rename {written_file}: {e}\n\n')
 
         code_file = str(file_names[0]) if len(file_names) > 0 else None
         return CommandLineCodeResult(exit_code=exitcode, output=logs_all, code_file=code_file)
