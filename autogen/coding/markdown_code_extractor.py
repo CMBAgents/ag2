@@ -107,7 +107,19 @@ class MarkdownCodeExtractor(CodeExtractor):
             data = json.loads(text)
             if "python_code" in data:
                 python_code = data["python_code"]
-                # Optionally, you could further process python_code here if needed
+                # Prepend filename comment if filename is provided in JSON
+                if "filename" in data:
+                    import os
+                    filename = data["filename"]
+                    if not filename.endswith(".py"):
+                        filename = filename + ".py"
+                    # Use only the basename - strip any path components like "codebase/"
+                    # The executor already knows to save files in the codebase folder
+                    filename = os.path.basename(filename)
+                    comment_line = f"# filename: {filename}"
+                    # Only add if not already present
+                    if not python_code.strip().startswith("# filename:"):
+                        python_code = comment_line + "\n" + python_code
                 return [CodeBlock(code=python_code, language="python")]
             elif "structured_code" in data:  # Added support for structured_code.
                 structured_code = data["structured_code"]
