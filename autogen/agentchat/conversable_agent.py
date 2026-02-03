@@ -50,7 +50,8 @@ from ..code_utils import (
     infer_lang,
     # cmbagent_debug
 )
-from ..cmbagent_utils import cmbagent_debug, cmbagent_disable_display, streamlit_on
+from ..cmbagent_utils import cmbagent_debug as _cmbagent_debug, cmbagent_disable_display, streamlit_on
+cmbagent_debug = False  # TODO:revert to _cmbagent_debug after debugging
 
 from ..coding.base import CodeExecutor
 from ..coding.factory import CodeExecutorFactory
@@ -2652,6 +2653,17 @@ class ConversableAgent(LLMAgent):
                             agent=self,
                             tool_choice=tool_choice ## cmbagent added this to force tool call
                         )
+                else:
+                    print(f"\n===== BadRequestError in {self.name} =====")
+                    print(f"Error: {e}")
+                    print(f"Number of messages: {len(all_messages)}")
+                    for i, m in enumerate(all_messages):
+                        role = m.get('role', '?')
+                        name = m.get('name', '')
+                        content = str(m.get('content', ''))[:200]
+                        print(f"  [{i}] role={role} name={name}: {content}")
+                    print("=" * 50)
+                    raise
 
 
         else:
@@ -2964,6 +2976,8 @@ class ConversableAgent(LLMAgent):
             config = self
         if messages is None:
             messages = self._oai_messages[sender]
+        if not messages:
+            return False, None
         message = messages[-1]
         if message.get("function_call"):
             call_id = message.get("id", None)
@@ -2992,6 +3006,8 @@ class ConversableAgent(LLMAgent):
             config = self
         if messages is None:
             messages = self._oai_messages[sender]
+        if not messages:
+            return False, None
         message = messages[-1]
         if message.get("function_call"):
             call_id = message.get("id", None)
@@ -3020,6 +3036,8 @@ class ConversableAgent(LLMAgent):
             config = self
         if messages is None:
             messages = self._oai_messages[sender]
+        if not messages:
+            return False, None
         message = messages[-1]
         tool_returns = []
         for tool_call in message.get("tool_calls", []):
@@ -3096,6 +3114,8 @@ class ConversableAgent(LLMAgent):
             config = self
         if messages is None:
             messages = self._oai_messages[sender]
+        if not messages:
+            return False, None
         message = messages[-1]
         async_tool_calls = []
         for tool_call in message.get("tool_calls", []):
@@ -3459,7 +3479,17 @@ class ConversableAgent(LLMAgent):
         # Message modifications do not affect the incoming messages or self._oai_messages.
         # print("\n in conversable_agent.py generate_reply messages before process_all_messages_before_reply: ", messages)
         messages = self.process_all_messages_before_reply(messages)
-        # print("\n in conversable_agent.py generate_reply messages after process_all_messages_before_reply: ", messages)
+
+        if cmbagent_debug and self.name == "controller":
+            print(f"\n===== CONTROLLER SYSTEM MESSAGE =====")
+            print(self._oai_system_message[0]["content"])
+            print(f"\n===== CONTROLLER SEES {len(messages)} MESSAGES =====")
+            for i, m in enumerate(messages):
+                role = m.get('role', '?')
+                name = m.get('name', '')
+                content = str(m.get('content', ''))[:200]
+                print(f"  [{i}] role={role} name={name}: {content}")
+            print("=" * 50)
 
         # Iterate through all registered reply functions
         # print("\n in conversable_agent.py generate_reply self._reply_func_list: ", self._reply_func_list)
