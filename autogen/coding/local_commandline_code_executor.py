@@ -285,6 +285,7 @@ $functions"""
         """Rename newly created files to include step number prefix.
 
         This applies to all output files (images, CSVs, data files, etc.) except code files.
+        Markdown reports are moved to a 'reports/' subfolder.
 
         Args:
             before_files: File snapshot taken before step execution
@@ -318,12 +319,18 @@ $functions"""
                     else:
                         new_filename = f"step_{step_number}_{name_without_ext}{ext}"
 
-                    new_path = filepath.parent / new_filename
+                    # Markdown reports go to reports/ folder
+                    if ext == '.md':
+                        reports_dir = self._work_dir / 'reports'
+                        reports_dir.mkdir(parents=True, exist_ok=True)
+                        new_path = reports_dir / new_filename
+                    else:
+                        new_path = filepath.parent / new_filename
 
                     try:
                         filepath.rename(new_path)
                         if cmbagent_debug:
-                            print(f'\n\n[DEBUG] Renamed file: {filename} -> {new_filename}\n\n')
+                            print(f'\n\n[DEBUG] Renamed file: {filename} -> {new_path}\n\n')
                     except Exception as e:
                         if cmbagent_debug:
                             print(f'\n\n[DEBUG] Failed to rename file {filename}: {e}\n\n')
