@@ -68,6 +68,8 @@ else:
     # OpenAI = object
     # AzureOpenAI = object
 
+# cmbagent_debug = True
+
 with optional_import_block() as cerebras_result:
     from cerebras.cloud.sdk import (  # noqa
         AuthenticationError as cerebras_AuthenticationError,
@@ -387,7 +389,8 @@ class OpenAIClient:
             return [  # type: ignore [return-value]
                 (
                     choice.message  # type: ignore [union-attr]
-                    if choice.message.function_call is not None or choice.message.tool_calls is not None  # type: ignore [union-attr]
+                    # Check for non-empty tool_calls (OSS models may return empty list [] instead of None)
+                    if choice.message.function_call is not None or (choice.message.tool_calls is not None and len(choice.message.tool_calls) > 0)  # type: ignore [union-attr]
                     else _format_content(choice.message.content)
                 )  # type: ignore [union-attr]
                 for choice in choices
@@ -1715,7 +1718,23 @@ class OpenAIWrapper:
         # Option 3: Fallback - try to extract from response structure directly
         # This handles cases where response is not in buffer
         if hasattr(response, "choices"):
-            # OpenAI-style response
+            # Debug: log when Option 3 fallback is triggered (helps diagnose OSS model issues)
+            if cmbagent_debug:
+                print(f"[extract_text_or_completion_object] Option 3 fallback triggered. response.id={getattr(response, 'id', 'N/A')}")
+                print(f"[extract_text_or_completion_object] Metadata keys: {list(self._response_metadata.keys())}")
+
+            # Try to find a client with FormatterProtocol response_format
+            # This ensures .format() is called even when metadata lookup fails
+            for client in self._clients:
+                if hasattr(client, "response_format") and isinstance(client.response_format, FormatterProtocol):
+                    try:
+                        return client.message_retrieval(response)
+                    except Exception:
+                        # If message_retrieval fails, fall through to direct extraction
+                        pass
+                    break
+
+            # OpenAI-style response - direct extraction without formatting
             return [
                 choice.message
                 if hasattr(choice.message, "tool_calls") and choice.message.tool_calls
