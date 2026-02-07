@@ -389,6 +389,30 @@ $functions"""
             file_names.append(written_file)
 
             if not execute_code:
+                # For markdown files, move to reports/ folder with step prefix
+                if lang == 'markdown' or written_file.suffix.lower() == '.md':
+                    step_number += 1
+                    reports_dir = self._work_dir / 'reports'
+                    reports_dir.mkdir(parents=True, exist_ok=True)
+
+                    name_without_ext = written_file.stem
+                    # Add step prefix if not already present
+                    if not name_without_ext.startswith('step_'):
+                        new_filename = f"step_{step_number}_{name_without_ext}.md"
+                    else:
+                        new_filename = written_file.name
+
+                    new_path = reports_dir / new_filename
+                    try:
+                        written_file.rename(new_path)
+                        file_names[-1] = new_path  # Update the file_names list
+                        written_file = new_path
+                        if cmbagent_debug:
+                            print(f'\n\n[DEBUG] Moved report to: {new_path}\n\n')
+                    except Exception as e:
+                        if cmbagent_debug:
+                            print(f'\n\n[DEBUG] Failed to move report: {e}\n\n')
+
                 # Just return a message that the file is saved.
                 logs_all += f"Content saved to {written_file!s}\n"
                 exitcode = 0
