@@ -39,6 +39,9 @@ A = ParamSpec("A")
 
 @export_module("autogen.coding")
 class LocalCommandLineCodeExecutor(CodeExecutor):
+    # Image file extensions that should be renamed on failure
+    IMAGE_EXTENSIONS: ClassVar[tuple[str, ...]] = ('.png', '.jpg', '.jpeg', '.gif', '.svg', '.pdf', '.eps', '.webp')
+
     SUPPORTED_LANGUAGES: ClassVar[list[str]] = [
         "bash",
         "shell",
@@ -261,9 +264,65 @@ $functions"""
         # print('in local_commandline_code_executor.py: code_blocks: ', code_blocks)
         return self._execute_code_dont_check_setup(code_blocks)
 
+    def _scan_files_with_mtime(self) -> dict[Path, float]:
+        """Scan work directory for files and their modification times."""
+        files = {}
+        try:
+            for root, dirs, filenames in os.walk(self._work_dir):
+                # Skip common non-output directories
+                dirs[:] = [d for d in dirs if d not in {'.venv', '__pycache__', '.git', 'node_modules'}]
+                for filename in filenames:
+                    filepath = Path(root) / filename
+                    try:
+                        files[filepath] = filepath.stat().st_mtime
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+        return files
+
+    def _rename_failed_images(self, before_files: dict[Path, float]) -> None:
+        """Rename newly created image files to include _failure suffix."""
+        try:
+            after_files = self._scan_files_with_mtime()
+
+            for filepath, mtime in after_files.items():
+                before_mtime = before_files.get(filepath)
+
+                # File is new or modified during execution
+                if before_mtime is None or before_mtime < mtime:
+                    ext = filepath.suffix.lower()
+
+                    # Check if it's an image file
+                    if ext in self.IMAGE_EXTENSIONS:
+                        filename = filepath.name
+                        name_without_ext = filepath.stem
+
+                        # Don't rename if already has _failure suffix
+                        if name_without_ext.endswith('_failure'):
+                            continue
+
+                        # Rename to include _failure before extension
+                        new_filename = f"{name_without_ext}_failure{ext}"
+                        new_path = filepath.parent / new_filename
+
+                        try:
+                            filepath.rename(new_path)
+                            if cmbagent_debug:
+                                print(f'\n\n[DEBUG] Renamed failed image: {filename} -> {new_filename}\n\n')
+                        except Exception as e:
+                            if cmbagent_debug:
+                                print(f'\n\n[DEBUG] Failed to rename image {filename}: {e}\n\n')
+        except Exception as e:
+            if cmbagent_debug:
+                print(f'\n\n[DEBUG] Error renaming failed images: {e}\n\n')
+
     def _execute_code_dont_check_setup(self, code_blocks: list[CodeBlock]) -> CommandLineCodeResult:
         logs_all = ""
         file_names = []
+        # Track files before each step to only rename images from the failing step
+        before_files_for_step = {}
+
         for code_block in code_blocks:
             lang, code = code_block.language, code_block.code
             lang = lang.lower()
@@ -356,6 +415,9 @@ $functions"""
                 env = os.environ.copy()
                 env["PYTHONWARNINGS"] = "ignore"
 
+                # Snapshot files before THIS step to only rename images from failing step
+                before_files_for_step = self._scan_files_with_mtime()
+
                 ## run the command
                 
                 process = subprocess.Popen(
@@ -407,6 +469,10 @@ $functions"""
                         except Exception as e:
                             if cmbagent_debug:
                                 print(f'\n\n[DEBUG] Failed to rename {written_file}: {e}\n\n')
+
+        # Rename failed image files (plots created during the failing step only)
+        if exitcode != 0 and before_files_for_step:
+            self._rename_failed_images(before_files_for_step)
 
         code_file = str(file_names[0]) if len(file_names) > 0 else None
         return CommandLineCodeResult(exit_code=exitcode, output=logs_all, code_file=code_file)
