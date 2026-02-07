@@ -39,8 +39,11 @@ A = ParamSpec("A")
 
 @export_module("autogen.coding")
 class LocalCommandLineCodeExecutor(CodeExecutor):
-    # File extensions to exclude from step renaming (code files are already named step_N.py)
-    EXCLUDE_FROM_STEP_RENAME: ClassVar[tuple[str, ...]] = ('.py', '.sh', '.bash', '.ps1', '.js', '.html', '.css')
+    # Only these file extensions get step_ prefix (final outputs for display)
+    # Data files (.csv, .npy, etc.) are NOT renamed so subsequent steps can load them
+    INCLUDE_FOR_STEP_RENAME: ClassVar[tuple[str, ...]] = (
+        '.png', '.jpg', '.jpeg', '.gif', '.svg', '.pdf', '.eps', '.tiff', '.bmp', '.webp'
+    )
 
     SUPPORTED_LANGUAGES: ClassVar[list[str]] = [
         "bash",
@@ -149,6 +152,23 @@ $functions"""
         self.execution_policies = self.DEFAULT_EXECUTION_POLICY.copy()
         if execution_policies is not None:
             self.execution_policies.update(execution_policies)
+
+        # Plan step number for file renaming (must be set by caller before execution)
+        self._plan_step_number: int = 1  # Default to 1
+
+    @property
+    def plan_step_number(self) -> int:
+        """Get the current plan step number for file renaming."""
+        return self._plan_step_number
+
+    @plan_step_number.setter
+    def plan_step_number(self, value: int) -> None:
+        """Set the plan step number for file renaming.
+
+        This value is used for the step_ prefix on output files (images, reports).
+        Must be set before each execution to match the current plan step.
+        """
+        self._plan_step_number = value
 
     def format_functions_for_prompt(self, prompt_template: str = FUNCTION_PROMPT_TEMPLATE) -> str:
         """(Experimental) Format the functions for a prompt.
@@ -282,9 +302,10 @@ $functions"""
         return files
 
     def _rename_step_files(self, before_files: dict[Path, float], step_number: int, failed: bool = False) -> None:
-        """Rename newly created files to include step number prefix.
+        """Rename newly created image/plot files to include step number prefix.
 
-        This applies to all output files (images, CSVs, data files, etc.) except code files.
+        Only applies to image files (png, jpg, pdf, etc.) which are final outputs.
+        Data files (.csv, .npy, etc.) are NOT renamed so subsequent steps can load them.
         Markdown reports are moved to a 'reports/' subfolder.
 
         Args:
@@ -302,8 +323,9 @@ $functions"""
                 if before_mtime is None or before_mtime < mtime:
                     ext = filepath.suffix.lower()
 
-                    # Skip code files (they already have step_N naming)
-                    if ext in self.EXCLUDE_FROM_STEP_RENAME:
+                    # Only rename image/plot files (final outputs for display)
+                    # Skip data files so subsequent steps can load them
+                    if ext not in self.INCLUDE_FOR_STEP_RENAME and ext != '.md':
                         continue
 
                     filename = filepath.name
@@ -343,8 +365,8 @@ $functions"""
         file_names = []
         # Track files before each step to rename images with step number
         before_files_for_step = {}
-        # Counter for executable steps (to number images)
-        step_number = 0
+        # Use plan_step_number set by caller (from context_variables)
+        step_number = self._plan_step_number
 
         for code_block in code_blocks:
             lang, code = code_block.language, code_block.code
@@ -391,7 +413,6 @@ $functions"""
             if not execute_code:
                 # For markdown files, move to reports/ folder with step prefix
                 if lang == 'markdown' or written_file.suffix.lower() == '.md':
-                    step_number += 1
                     reports_dir = self._work_dir / 'reports'
                     reports_dir.mkdir(parents=True, exist_ok=True)
 
@@ -461,9 +482,6 @@ $functions"""
                 ## disable warnings
                 env = os.environ.copy()
                 env["PYTHONWARNINGS"] = "ignore"
-
-                # Increment step number for this executable code block
-                step_number += 1
 
                 # Snapshot files before THIS step to rename images with step number
                 before_files_for_step = self._scan_files_with_mtime()

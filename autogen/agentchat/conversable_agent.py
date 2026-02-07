@@ -2877,6 +2877,15 @@ class ConversableAgent(LLMAgent):
 
             iostream.send(GenerateCodeExecutionReplyEvent(code_blocks=code_blocks, sender=sender, recipient=self))
 
+            # Set plan step number on executor if available in context
+            if hasattr(self, 'context_variables') and hasattr(self._code_executor, 'plan_step_number'):
+                plan_step = self.context_variables.get('current_plan_step_number')
+                if plan_step is not None:
+                    try:
+                        self._code_executor.plan_step_number = int(plan_step)
+                    except (ValueError, TypeError):
+                        pass  # Keep existing value if conversion fails
+
             # found code blocks, execute code.
             code_result = self._code_executor.execute_code_blocks(code_blocks)
             exitcode2str = "Execution results:\n" if code_result.exit_code == 0 else "execution results:"
