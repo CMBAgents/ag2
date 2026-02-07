@@ -40,7 +40,7 @@ A = ParamSpec("A")
 @export_module("autogen.coding")
 class LocalCommandLineCodeExecutor(CodeExecutor):
     # File extensions to exclude from step renaming (code files are already named step_N.py)
-    EXCLUDE_FROM_STEP_RENAME: ClassVar[tuple[str, ...]] = ('.py', '.sh', '.bash', '.ps1', '.js', '.html', '.css', '.md')
+    EXCLUDE_FROM_STEP_RENAME: ClassVar[tuple[str, ...]] = ('.py', '.sh', '.bash', '.ps1', '.js', '.html', '.css')
 
     SUPPORTED_LANGUAGES: ClassVar[list[str]] = [
         "bash",
