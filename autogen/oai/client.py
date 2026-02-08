@@ -354,6 +354,7 @@ class OpenAIClient:
     def __init__(self, client: OpenAI | AzureOpenAI, response_format: BaseModel | dict[str, Any] | None = None):
         self._oai_client = client
         self.response_format = response_format
+        self._last_tools: list[dict[str, Any]] | None = None  # Store tools for OSS model fallback
         if (
             not isinstance(client, openai.AzureOpenAI)
             and str(client.base_url).startswith(OPEN_API_BASE_URL_PREFIX)
@@ -379,22 +380,118 @@ class OpenAIClient:
 
         def _format_content(content: str | list[dict[str, Any]] | None) -> str:
             normalized_content = content_str(content)
+
+            # Handle empty content from OSS models
+            if not normalized_content or not normalized_content.strip():
+                if isinstance(self.response_format, FormatterProtocol):
+                    # Return an error message instead of crashing on empty structured output
+                    logger.warning("Empty content received for structured output formatting")
+                    return "[Error: Model returned empty response for structured output]"
+                return normalized_content
+
             return (
                 self.response_format.model_validate_json(normalized_content).format()
                 if isinstance(self.response_format, FormatterProtocol)
                 else normalized_content
             )
 
+        def _try_parse_json_as_tool_call(message: ChatCompletionMessage) -> ChatCompletionMessage | None:
+            """Try to parse JSON content as a tool call for OSS models that don't use tool_calls properly.
+
+            OSS models sometimes output JSON content that should be a tool call.
+            This function tries to detect such cases and create a synthetic tool call.
+            """
+            if not self._last_tools or not message.content:
+                return None
+
+            content = message.content.strip()
+            # Check if content looks like JSON
+            if not (content.startswith('{') and content.endswith('}')):
+                return None
+
+            try:
+                parsed_json = json.loads(content)
+                if not isinstance(parsed_json, dict):
+                    return None
+
+                # Try to match with a tool - if there's only one tool, use it
+                # Otherwise try to match based on parameter names
+                matched_tool_name = None
+
+                if len(self._last_tools) == 1:
+                    # Only one tool available, assume it's the target
+                    tool = self._last_tools[0]
+                    if tool.get("type") == "function":
+                        matched_tool_name = tool["function"]["name"]
+                else:
+                    # Multiple tools - try to match by parameter names
+                    for tool in self._last_tools:
+                        if tool.get("type") != "function":
+                            continue
+                        func_def = tool["function"]
+                        params = func_def.get("parameters", {}).get("properties", {})
+                        required = set(func_def.get("parameters", {}).get("required", []))
+
+                        # Check if all required params are in the JSON
+                        if required and required.issubset(set(parsed_json.keys())):
+                            matched_tool_name = func_def["name"]
+                            break
+
+                if matched_tool_name:
+                    # Create a synthetic tool call
+                    from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall, Function
+
+                    synthetic_tool_call = ChatCompletionMessageToolCall(
+                        id=f"synthetic_{response.id}",
+                        type="function",
+                        function=Function(
+                            name=matched_tool_name,
+                            arguments=content  # Use the original JSON string
+                        )
+                    )
+
+                    # Create a new message with the synthetic tool call
+                    # We need to copy the message and add the tool call
+                    new_message = ChatCompletionMessage(
+                        role=message.role,
+                        content=None,  # Clear content since it's now a tool call
+                        tool_calls=[synthetic_tool_call],
+                        function_call=message.function_call,
+                        refusal=message.refusal if hasattr(message, 'refusal') else None,
+                    )
+
+                    if cmbagent_debug:
+                        print(f"[message_retrieval] Converted JSON content to tool call: {matched_tool_name}")
+
+                    return new_message
+
+            except (json.JSONDecodeError, KeyError, TypeError):
+                pass
+
+            return None
+
         if TOOL_ENABLED:
-            return [  # type: ignore [return-value]
-                (
-                    choice.message  # type: ignore [union-attr]
-                    # Check for non-empty tool_calls (OSS models may return empty list [] instead of None)
-                    if choice.message.function_call is not None or (choice.message.tool_calls is not None and len(choice.message.tool_calls) > 0)  # type: ignore [union-attr]
-                    else _format_content(choice.message.content)
-                )  # type: ignore [union-attr]
-                for choice in choices
-            ]
+            results = []
+            for choice in choices:
+                message = choice.message
+                has_tool_calls = message.function_call is not None or (message.tool_calls is not None and len(message.tool_calls) > 0)
+
+                if cmbagent_debug:
+                    print(f"[message_retrieval] Processing message: has_tool_calls={has_tool_calls}, content_length={len(message.content) if message.content else 0}")
+                    if message.content:
+                        print(f"[message_retrieval] Content preview: {message.content[:200] if len(message.content) > 200 else message.content}")
+
+                if has_tool_calls:
+                    results.append(message)
+                else:
+                    # Try to parse JSON content as tool call (OSS model fallback)
+                    synthetic_message = _try_parse_json_as_tool_call(message)
+                    if synthetic_message is not None:
+                        results.append(synthetic_message)
+                    else:
+                        results.append(_format_content(message.content))
+
+            return results  # type: ignore [return-value]
         else:
             return [  # type: ignore [return-value]
                 choice.message if choice.message.function_call is not None else _format_content(choice.message.content)  # type: ignore [union-attr]
@@ -515,6 +612,10 @@ class OpenAIClient:
         #     if params['tools'][0]['type'] == 'function':
         #         print("setting response format to none")
         #         self.response_format = None
+
+        # Store tools for OSS model fallback (used in message_retrieval to parse JSON content as tool calls)
+        if "tools" in params and params["tools"]:
+            self._last_tools = params["tools"]
 
         is_structured_output = self.response_format is not None or "response_format" in params
 
