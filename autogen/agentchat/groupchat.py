@@ -1512,10 +1512,15 @@ The output of the executed code was:
             if self._is_termination_msg(message):
                 # The conversation is over
                 termination_reason = f"Termination message condition on the GroupChatManager '{self.name}' met"
+                # Save messages before potential reset for summary method to access
+                self._last_chat_messages = list(groupchat.messages)
                 break
             elif i == groupchat.max_round - 1:
                 # It's the last round
                 termination_reason = f"Maximum rounds ({groupchat.max_round}) reached"
+
+                # Save messages before reset for summary method to access
+                self._last_chat_messages = list(groupchat.messages)
 
                 # reset the entire groupchat
                 groupchat.reset()
@@ -1771,6 +1776,8 @@ The output of the executed code was:
             if self._is_termination_msg(message):
                 # The conversation is over
                 termination_reason = f"Termination message condition on the GroupChatManager '{self.name}' met"
+                # Save messages before potential reset for summary method to access
+                self._last_chat_messages = list(groupchat.messages)
                 break
 
             # broadcast the message to all agents except the speaker
@@ -1780,6 +1787,8 @@ The output of the executed code was:
             if i == groupchat.max_round - 1:
                 # the last round
                 termination_reason = f"Maximum rounds ({groupchat.max_round}) reached"
+                # Save messages before potential reset for summary method to access
+                self._last_chat_messages = list(groupchat.messages)
                 break
             try:
                 # select the next speaker

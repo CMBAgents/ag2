@@ -523,20 +523,26 @@ $functions"""
                     self._rename_step_files(before_files_for_step, step_number, failed=True)
                 break
 
-        # Rename failed Python files to step_N_failure.py
+        # Rename failed Python files to step_N_failure_i.py (where i is attempt number)
         if exitcode != 0 and len(file_names) > 0:
             for i, written_file in enumerate(file_names):
                 # Only rename Python files that match step_N.py pattern
                 if str(written_file).endswith('.py'):
                     filename = written_file.name
-                    # Check if it's a step_N.py file
-                    if filename.startswith('step_') and not filename.endswith('_failure.py'):
-                        # Extract step number and create failure filename
+                    # Check if it's a step_N.py file (and not already a failure file)
+                    if filename.startswith('step_') and '_failure' not in filename:
+                        # Extract step number and create failure filename with attempt counter
                         try:
                             step_part = filename.replace('step_', '').replace('.py', '')
                             if step_part.isdigit():
-                                new_filename = f"step_{step_part}_failure.py"
-                                new_path = written_file.parent / new_filename
+                                # Find next available failure number
+                                attempt = 1
+                                while True:
+                                    new_filename = f"step_{step_part}_failure_{attempt}.py"
+                                    new_path = written_file.parent / new_filename
+                                    if not new_path.exists():
+                                        break
+                                    attempt += 1
 
                                 # Rename the file
                                 written_file.rename(new_path)
