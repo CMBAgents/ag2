@@ -1311,6 +1311,13 @@ class GroupChatManager(ConversableAgent):
         silent = getattr(self, "_silent", False)
         termination_reason = None
 
+        print("\n in groupchat.py groupchat.agents: ", groupchat.agents)
+        # print("\n in groupchat.py groupchat.agents names: ", [agent.name for agent in groupchat.agents])
+        # print("\n in groupchat.py groupchat.agents descriptions: ", [agent.description for agent in groupchat.agents])
+        # print("\n in groupchat.py groupchat.agents roles: ", [agent.role for agent in groupchat.agents])
+        # print("\n in groupchat.py groupchat.agents roles: ", [agent.role for agent in groupchat.agents])
+        print("\n in groupchat.py send_introductions: ", send_introductions)
+
         if send_introductions:
             # cmbagent debug
             # print("\n in groupchat.py send_introductions: ", send_introductions)
@@ -1482,11 +1489,11 @@ The output of the executed code was:
                 # print("\n in groupchat.py generated_ideas: ", generated_ideas)
                 # import sys; sys.exit()
 
-            if speaker.name == "idea_saver":
-                for msg in messages[::-1]:
-                    if msg['name'] == "idea_maker_nest":
-                        msg['content'] = generated_ideas
-                        break
+            # if speaker.name == "idea_saver":
+            #     for msg in messages[::-1]:
+            #         if msg['name'] == "idea_maker_nest":
+            #             msg['content'] = generated_ideas
+            #             break
 
 
 
