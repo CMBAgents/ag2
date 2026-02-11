@@ -306,7 +306,6 @@ $functions"""
 
         Only applies to image files (png, jpg, pdf, etc.) which are final outputs.
         Data files (.csv, .npy, etc.) are NOT renamed so subsequent steps can load them.
-        Markdown reports are moved to a 'reports/' subfolder.
 
         Args:
             before_files: File snapshot taken before step execution
@@ -325,7 +324,7 @@ $functions"""
 
                     # Only rename image/plot files (final outputs for display)
                     # Skip data files so subsequent steps can load them
-                    if ext not in self.INCLUDE_FOR_STEP_RENAME and ext != '.md':
+                    if ext not in self.INCLUDE_FOR_STEP_RENAME:
                         continue
 
                     filename = filepath.name
@@ -341,13 +340,7 @@ $functions"""
                     else:
                         new_filename = f"step_{step_number}_{name_without_ext}{ext}"
 
-                    # Markdown reports go to reports/ folder
-                    if ext == '.md':
-                        reports_dir = self._work_dir / 'reports'
-                        reports_dir.mkdir(parents=True, exist_ok=True)
-                        new_path = reports_dir / new_filename
-                    else:
-                        new_path = filepath.parent / new_filename
+                    new_path = filepath.parent / new_filename
 
                     try:
                         filepath.rename(new_path)
@@ -406,34 +399,12 @@ $functions"""
                     print('\n\n in local_commandline_code_executor.py: code_hash: ', code_hash)
                 filename = f"tmp_code_{code_hash}.{'py' if lang.startswith('python') else lang}"
             written_file = (self._work_dir / filename).resolve()
+            written_file.parent.mkdir(parents=True, exist_ok=True)
             with written_file.open("w", encoding="utf-8") as f:
                 f.write(code)
             file_names.append(written_file)
 
             if not execute_code:
-                # For markdown files, move to reports/ folder with step prefix
-                if lang == 'markdown' or written_file.suffix.lower() == '.md':
-                    reports_dir = self._work_dir / 'reports'
-                    reports_dir.mkdir(parents=True, exist_ok=True)
-
-                    name_without_ext = written_file.stem
-                    # Add step prefix if not already present
-                    if not name_without_ext.startswith('step_'):
-                        new_filename = f"step_{step_number}_{name_without_ext}.md"
-                    else:
-                        new_filename = written_file.name
-
-                    new_path = reports_dir / new_filename
-                    try:
-                        written_file.rename(new_path)
-                        file_names[-1] = new_path  # Update the file_names list
-                        written_file = new_path
-                        if cmbagent_debug:
-                            print(f'\n\n[DEBUG] Moved report to: {new_path}\n\n')
-                    except Exception as e:
-                        if cmbagent_debug:
-                            print(f'\n\n[DEBUG] Failed to move report: {e}\n\n')
-
                 # Just return a message that the file is saved.
                 logs_all += f"Content saved to {written_file!s}\n"
                 exitcode = 0
