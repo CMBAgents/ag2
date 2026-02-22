@@ -1311,12 +1311,12 @@ class GroupChatManager(ConversableAgent):
         silent = getattr(self, "_silent", False)
         termination_reason = None
 
-        print("\n in groupchat.py groupchat.agents: ", groupchat.agents)
+        # print("\n in groupchat.py groupchat.agents: ", groupchat.agents)
         # print("\n in groupchat.py groupchat.agents names: ", [agent.name for agent in groupchat.agents])
         # print("\n in groupchat.py groupchat.agents descriptions: ", [agent.description for agent in groupchat.agents])
         # print("\n in groupchat.py groupchat.agents roles: ", [agent.role for agent in groupchat.agents])
         # print("\n in groupchat.py groupchat.agents roles: ", [agent.role for agent in groupchat.agents])
-        print("\n in groupchat.py send_introductions: ", send_introductions)
+        # print("\n in groupchat.py send_introductions: ", send_introductions)
 
         if send_introductions:
             # cmbagent debug

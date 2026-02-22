@@ -2572,9 +2572,9 @@ class ConversableAgent(LLMAgent):
         # Debug: print full prompt for specific agents
         if self.name in ("engineer",):
             all_msgs = self._oai_system_message + messages
-            print("\n" + "=" * 80)
-            print(f"[DEBUG] Messages sent to {self.name} ({len(all_msgs)} messages):")
-            print("=" * 80)
+            # print("\n" + "=" * 80)
+            # print(f"[DEBUG] Messages sent to {self.name} ({len(all_msgs)} messages):")
+            # print("=" * 80)
             for i, msg in enumerate(all_msgs):
                 role = msg.get("role", "?")
                 name = msg.get("name", "")
@@ -2587,9 +2587,9 @@ class ConversableAgent(LLMAgent):
                 if name:
                     header += f", name={name}"
                 header += f", {len(str(content))} chars) ---"
-                print(f"\n{header}")
-                print(preview)
-            print("=" * 80 + "\n")
+            #     print(f"\n{header}")
+            #     print(preview)
+            # print("=" * 80 + "\n")
 
         # Process messages before sending to LLM, hook point for llm input monitoring
         processed_messages = self._process_llm_input(self._oai_system_message + messages)
