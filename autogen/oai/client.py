@@ -1102,7 +1102,7 @@ class OpenAIWrapper:
 
     def _configure_openai_config_for_gemini(self, config: dict[str, Any], openai_config: dict[str, Any]) -> None:
         """Update openai_config with additional gemini genai configs."""
-        optional_keys = ["proxy"]
+        optional_keys = ["proxy", "model"]
         for key in optional_keys:
             if key in config:
                 openai_config[key] = config[key]

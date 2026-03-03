@@ -167,6 +167,19 @@ class GeminiClient:
         "max_output_tokens": "max_output_tokens",
     }
 
+    @staticmethod
+    def _is_google_ai_model(model_name: str) -> bool:
+        """Determine if a model should use Google AI (standard API) vs Vertex AI.
+
+        Gemini 3+ models use Google AI by default, older models use Vertex AI.
+        """
+        name = model_name.lower()
+        # Match gemini-3, gemini-4, etc. (major version >= 3)
+        if re.match(r"gemini-(\d+)", name):
+            major_version = int(re.match(r"gemini-(\d+)", name).group(1))
+            return major_version >= 3
+        return False
+
     def _initialize_vertexai(self, **params: Unpack[GeminiEntryDict]):
         if "google_application_credentials" in params:
             # Path to JSON Keyfile
@@ -199,27 +212,35 @@ class GeminiClient:
         self.api_key = kwargs.get("api_key")
         if not self.api_key:
             self.api_key = os.getenv("GOOGLE_GEMINI_API_KEY")
-            if self.api_key is None:
-                self.use_vertexai = True
-                self._initialize_vertexai(**kwargs)
-            else:
-                self.use_vertexai = False
+
+        explicit_use_vertexai = kwargs.get("use_vertexai")
+
+        if explicit_use_vertexai is not None:
+            # Explicit setting takes priority
+            self.use_vertexai = bool(explicit_use_vertexai)
         else:
-            self.use_vertexai = False
-        if not self.use_vertexai:
+            # Auto-detect from model name: gemini-3-* models use Google AI,
+            # older models (2.5, 2.0, 1.5, etc.) use Vertex AI
+            model_name = kwargs.get("model", "")
+            self.use_vertexai = not self._is_google_ai_model(model_name)
+
+        logger.info(f"GeminiClient: model={kwargs.get('model', '')}, use_vertexai={self.use_vertexai}")
+
+        if self.use_vertexai:
+            self._initialize_vertexai(**kwargs)
+        else:
+            if not self.api_key:
+                raise ValueError(
+                    f"No API key found for Google AI. Set 'api_key' in config or the "
+                    f"GOOGLE_GEMINI_API_KEY environment variable. "
+                    f"Alternatively, set use_vertexai=True to use Vertex AI with Google Cloud credentials."
+                )
             assert ("project_id" not in kwargs) and ("location" not in kwargs), (
                 "Google Cloud project and compute location cannot be set when using an API Key!"
             )
 
         self.api_version = kwargs.get("api_version")
         self.proxy = kwargs.get("proxy")
-
-        # print("\n\n\n")
-        self.use_vertexai = True
-        print("in gemini.py, vertexai is set to ", self.use_vertexai)
-        # print("\n\n\n")
-
-
 
         # Store the response format, if provided (for structured outputs)
         self._response_format: type[BaseModel] | None = None

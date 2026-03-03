@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import warnings
 from collections.abc import Callable
 from hashlib import md5
@@ -467,15 +468,38 @@ $functions"""
                     stderr=subprocess.STDOUT,
                     text=True,
                     encoding="utf-8",
+                    start_new_session=True,  # Create new process group for clean timeout kills
                 )
                 logs_all = "\n"
                 print("\n code being executed....\n")
-                for line in process.stdout:
-                    print(line, end='')   # Print live
-                    logs_all += line      # Save for later
-                print("\n")
 
-                exitcode = process.wait()
+                # Use a timer to enforce timeout while still streaming output.
+                # Kill the entire process group (not just parent) so child
+                # processes spawned by joblib/multiprocessing are also terminated.
+                timed_out = False
+                def _kill_on_timeout():
+                    nonlocal timed_out
+                    timed_out = True
+                    try:
+                        os.killpg(os.getpgid(process.pid), 9)
+                    except (ProcessLookupError, OSError):
+                        process.kill()
+
+                timer = threading.Timer(float(self._timeout), _kill_on_timeout)
+                timer.start()
+                try:
+                    for line in process.stdout:
+                        print(line, end='')   # Print live
+                        logs_all += line      # Save for later
+                    print("\n")
+
+                    exitcode = process.wait()
+                finally:
+                    timer.cancel()
+
+                if timed_out:
+                    logs_all += "\n" + TIMEOUT_MSG
+                    exitcode = 124
 
                 # Rename images created during this step with step_{N}_ prefix
                 # Add _failure suffix if step failed
