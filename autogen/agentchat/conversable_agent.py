@@ -514,8 +514,11 @@ class ConversableAgent(LLMAgent):
                         if cmbagent_debug:
                             print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message)
 
-                        # if self.name == "engineer" or self.name == "researcher" or self.name == "camb_context":
-                        #     print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
+                        if self.name == "engineer":
+                            print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
+
+                        if self.name == "researcher":
+                            print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
                         return messages
 
                     return update_system_message_wrapper
