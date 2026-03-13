@@ -477,6 +477,9 @@ class AnthropicClient:
         anthropic_params["timeout"] = validate_parameter(params, "timeout", int, True, None, (1, None), None)
         anthropic_params["top_k"] = validate_parameter(params, "top_k", int, True, None, (1, None), None)
         anthropic_params["top_p"] = validate_parameter(params, "top_p", (float, int), True, None, (0.0, 1.0), None)
+        # Anthropic doesn't allow both temperature and top_p — drop top_p if temperature is set
+        if anthropic_params.get("temperature") is not None and anthropic_params.get("top_p") is not None:
+            anthropic_params["top_p"] = None
         anthropic_params["stop_sequences"] = validate_parameter(params, "stop_sequences", list, True, None, None, None)
         anthropic_params["stream"] = validate_parameter(params, "stream", bool, False, False, None, None)
         if "thinking" in params:
@@ -489,10 +492,14 @@ class AnthropicClient:
             )
             anthropic_params["stream"] = False
 
-        # Note the Anthropic API supports "tool" for tool_choice but you must specify the tool name so we will ignore that here
         # Dictionary, see options here: https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview#controlling-claudes-output
         # type = auto, any, tool, none | name = the name of the tool if type=tool
-        anthropic_params["tool_choice"] = validate_parameter(params, "tool_choice", dict, True, None, None, None)
+        raw_tool_choice = validate_parameter(params, "tool_choice", dict, True, None, None, None)
+        # Translate OpenAI format {"type": "function", "function": {"name": "..."}}
+        # to Anthropic format {"type": "tool", "name": "..."}
+        if raw_tool_choice and raw_tool_choice.get("type") == "function" and "function" in raw_tool_choice:
+            raw_tool_choice = {"type": "tool", "name": raw_tool_choice["function"]["name"]}
+        anthropic_params["tool_choice"] = raw_tool_choice
 
         return anthropic_params
 

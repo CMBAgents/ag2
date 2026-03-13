@@ -511,14 +511,19 @@ class ConversableAgent(LLMAgent):
                         ## cmbagent debug print: 
                         # print('\n\n\n\nin conversable_agent.py sys_message before hook: ', sys_message)
                         agent.update_system_message(sys_message)
-                        if cmbagent_debug:
-                            print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message)
+                        # if cmbagent_debug:
+                        #     print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message)
 
-                        if self.name == "engineer":
-                            print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
+                        # if self.name == "engineer":
+                        #     print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
 
-                        if self.name == "researcher":
-                            print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
+                        # if self.name == "researcher":
+                        #     print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
+
+                        # if self.name == "plan_comparator":
+                        #     print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
+                        print('\n\n\n\nin conversable_agent.py sys_message after hook: ', sys_message) #hook cmbagent debug 
+
                         return messages
 
                     return update_system_message_wrapper
@@ -2646,6 +2651,9 @@ class ConversableAgent(LLMAgent):
             'task_recorder': 'record_improved_task',
             'aas_keyword_finder': 'record_aas_keywords',
             'idea_saver': 'record_ideas',
+            'plan_comparator': 'record_plan_comparator',
+            'image_review_recorder': 'record_image_review',
+            'adaptive_reviewer': 'record_adaptive_review',
         }
 
         force_tool_call = False
