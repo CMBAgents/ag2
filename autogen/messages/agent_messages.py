@@ -49,6 +49,7 @@ from ..import_utils import optional_import_block, require_optional_import
 from ..oai.client import OpenAIWrapper
 from .base_message import BaseMessage, wrap_message
 from ..cmbagent_utils import cmbagent_debug, cmbagent_color_dict, cmbagent_default_color, cmbagent_disable_display
+# cmbagent_gui_mode removed — use cmbagent_debug instead
 
 with optional_import_block() as result:
     from PIL.Image import Image
@@ -514,8 +515,7 @@ class PostCarryoverProcessingMessage(BaseMessage):
 
         print_carryover = self._process_carryover()
 
-        if not cmbagent_gui_mode:
-
+        if cmbagent_debug:
             f(colored("\n" + "*" * 80, "blue"), flush=True, sep="")
             f(
                 colored(

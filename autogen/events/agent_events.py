@@ -17,7 +17,7 @@ from ..agentchat.agent import LLMMessageType
 from ..code_utils import content_str
 from ..import_utils import optional_import_block, require_optional_import
 from ..oai.client import OpenAIWrapper
-from ..cmbagent_utils import cmbagent_gui_mode
+from ..cmbagent_utils import cmbagent_debug
 from .base_event import BaseEvent, resolve_print_callable, wrap_event
 
 with optional_import_block() as result:
@@ -65,7 +65,7 @@ class BasePrintReceivedEvent(BaseEvent, ABC):
     # Cmbagent_v1: for reference...
     # def print(self, f: Optional[Callable[..., Any]] = None) -> None:
     #     f = f or print
-    #     if not cmbagent_gui_mode:
+    #     if cmbagent_debug:
     #         f(f"{colored(self.sender, 'yellow')} (to {self.recipient}):\n", flush=True)
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = resolve_print_callable(f)
@@ -83,12 +83,12 @@ class FunctionResponseEvent(BasePrintReceivedEvent):
         super().print(f)
 
         id = self.name or "No id found"
-        # if not cmbagent_gui_mode:
-        if not cmbagent_gui_mode:
+        # if cmbagent_debug:
+        if cmbagent_debug:
             func_print = f"***** Response from calling Function {self.role} ({id}) *****"
             f(colored(func_print, "green"), flush=True)
         f(self.content, flush=True)
-        if not cmbagent_gui_mode:
+        if cmbagent_debug:
             f(colored("*" * len(func_print), "green"), flush=True)
 
         f("\n", "-" * 80, flush=True, sep="")
@@ -102,11 +102,11 @@ class ToolResponse(BaseModel):
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = resolve_print_callable(f)
         id = self.tool_call_id or "No id found"
-        if not cmbagent_gui_mode:
+        if cmbagent_debug:
             tool_print = f"***** Response from calling Tool {self.role} ({id}) *****"
             f(colored(tool_print, "green"), flush=True)
         f(self.content, flush=True)
-        if not cmbagent_gui_mode:
+        if cmbagent_debug:
             f(colored("*" * len(tool_print), "green"), flush=True)
 
 
@@ -175,7 +175,7 @@ class ToolCall(BaseModel):
 
         name = self.function.name or "(No function name found)"
         arguments = self.function.arguments or "(No arguments found)"
-        if not cmbagent_gui_mode:
+        if cmbagent_debug:
             func_print = f"***** Suggested tool call ({id}): {name} *****"
             f(colored(func_print, "green"), flush=True)
             f(
@@ -378,7 +378,7 @@ class PostCarryoverProcessingEvent(BaseEvent):
 
         print_carryover = self._process_carryover()
 
-        if not cmbagent_gui_mode:
+        if cmbagent_debug:
 
             f(colored("\n" + "*" * 80, "blue"), flush=True, sep="")
             f(
@@ -616,35 +616,33 @@ class GroupChatRunChatEvent(BaseEvent):
 
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = resolve_print_callable(f)
-        if not cmbagent_gui_mode:
-            pass
-            # f(colored(f"\nNext speaker: {self.speaker}\n", "green"), flush=True)
+        if cmbagent_debug:
+            f(colored(f"\nNext speaker: {self.speaker}\n", "green"), flush=True)
         else:
             if self.speaker.startswith('_'):
                 pass
             elif self.speaker == "plan_reviewer":
-                print("Reviewing plan...\n")
+                f("Reviewing plan...\n", flush=True)
             elif self.speaker == "plan_recorder":
-                print("Recording plan...\n")
+                f("Recording plan...\n", flush=True)
             elif self.speaker == "review_recorder":
-                print("Recording recommendations...\n")
+                f("Recording recommendations...\n", flush=True)
             elif self.speaker == "plan_setter":
-                print("Setting agents for the session...\n")
+                f("Setting agents for the session...\n", flush=True)
             elif self.speaker == "terminator":
-                print("Terminating...\n")
+                pass
             elif self.speaker == "executor":
-                print("Executing...\n")
+                f("Executing...\n", flush=True)
             elif self.speaker == "engineer_nest":
-                print("Preparing for execution...\n")
+                pass
             elif self.speaker == "executor_response_formatter":
-                print("Selecting next agent based on execution result...\n")
+                pass
             elif "_formatter" in self.speaker:
-                print("Formatting...\n")
+                pass
             elif self.speaker == "researcher_executor":
-                print("Saving report...\n")
+                f("Saving report...\n", flush=True)
             else:
                 f(colored(f"\nCalling {self.speaker}...\n", "green"), flush=True)
-                # pass
 
 
 @wrap_event
@@ -701,10 +699,8 @@ class UsingAutoReplyEvent(BaseEvent):
 
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = resolve_print_callable(f)
-        if not cmbagent_gui_mode:
+        if cmbagent_debug:
             f(colored("\n>>>>>>>> USING AUTO REPLY...", "red"), flush=True)
-        else:
-            pass
 
 @wrap_event
 class TerminationEvent(BaseEvent):
@@ -731,10 +727,8 @@ class TerminationEvent(BaseEvent):
 
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = resolve_print_callable(f)
-        if not cmbagent_gui_mode:   
+        if cmbagent_debug:
             f(colored(f"\n>>>>>>>> TERMINATING RUN ({str(self.uuid)}): {self.termination_reason}", "red"), flush=True)
-        else:
-            pass
 
 
 @wrap_event
@@ -763,7 +757,7 @@ class ExecuteCodeBlockEvent(BaseEvent):
 
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = resolve_print_callable(f)
-        if not cmbagent_gui_mode:
+        if cmbagent_debug:
             f(
             colored(
                 f"\n>>>>>>>> EXECUTING CODE BLOCK {self.code_block_count} (inferred language is {self.language})...",
@@ -801,7 +795,7 @@ class ExecuteFunctionEvent(BaseEvent):
 
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = resolve_print_callable(f)
-        if not cmbagent_gui_mode:
+        if cmbagent_debug:
             f(
                 colored(
                     f"\n>>>>>>>> EXECUTING FUNCTION {self.func_name}...\nCall ID: {self.call_id}\nInput arguments: {self.arguments}",
@@ -843,14 +837,14 @@ class ExecutedFunctionEvent(BaseEvent):
 
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = resolve_print_callable(f)
-
-        f(
-            colored(
-                f"\n>>>>>>>> EXECUTED FUNCTION {self.func_name}...\nCall ID: {self.call_id}\nInput arguments: {self.arguments}\nOutput:\n{self.content}",
-                "magenta",
-            ),
-            flush=True,
-        )
+        if cmbagent_debug:
+            f(
+                colored(
+                    f"\n>>>>>>>> EXECUTED FUNCTION {self.func_name}...\nCall ID: {self.call_id}\nInput arguments: {self.arguments}\nOutput:\n{self.content}",
+                    "magenta",
+                ),
+                flush=True,
+            )
 
 
 @wrap_event
@@ -980,7 +974,7 @@ class GenerateCodeExecutionReplyEvent(BaseEvent):
         f = resolve_print_callable(f)
 
         num_code_blocks = len(self.code_blocks)
-        if not cmbagent_gui_mode:
+        if cmbagent_debug:
             if num_code_blocks == 1:
                 f(
                     colored(

@@ -13,7 +13,7 @@ from .transforms import MessageTransform
 if TYPE_CHECKING:
     from ...conversable_agent import ConversableAgent
 
-from ....cmbagent_utils import cmbagent_gui_mode
+from ....cmbagent_utils import cmbagent_debug
 
 
 class TransformMessages:
@@ -86,7 +86,7 @@ class TransformMessages:
 
             if self._verbose:
                 logs_str, had_effect = transform.get_logs(pre_transform_messages, post_transform_messages)
-                if not cmbagent_gui_mode:
+                if cmbagent_debug:
                     if had_effect:
                         print(colored(logs_str, "yellow"))
 

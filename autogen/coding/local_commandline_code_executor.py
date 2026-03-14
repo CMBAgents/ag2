@@ -471,7 +471,8 @@ $functions"""
                     start_new_session=True,  # Create new process group for clean timeout kills
                 )
                 logs_all = "\n"
-                print("\n code being executed....\n")
+                if cmbagent_debug:
+                    print("\n code being executed....\n")
 
                 # Use a timer to enforce timeout while still streaming output.
                 # Kill the entire process group (not just parent) so child

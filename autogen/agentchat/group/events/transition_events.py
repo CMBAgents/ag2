@@ -7,6 +7,7 @@ from typing import Any
 
 from autogen.agentchat.agent import Agent
 from autogen.agentchat.group.targets.transition_target import TransitionTarget
+from autogen.cmbagent_utils import cmbagent_debug
 from autogen.events.base_event import BaseEvent, wrap_event
 from autogen.formatting_utils import colored
 
@@ -26,14 +27,14 @@ class AfterWorksTransitionEvent(BaseEvent):
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = f or print
         super().print(f)
-
-        f(
-            colored(
-                f"***** AfterWork handoff ({self.source_agent.name if hasattr(self.source_agent, 'name') else self.source_agent}): {self.transition_target.display_name()} *****",
-                "blue",
-            ),
-            flush=True,
-        )
+        if cmbagent_debug:
+            f(
+                colored(
+                    f"***** AfterWork handoff ({self.source_agent.name if hasattr(self.source_agent, 'name') else self.source_agent}): {self.transition_target.display_name()} *****",
+                    "blue",
+                ),
+                flush=True,
+            )
 
 
 @wrap_event
@@ -51,14 +52,14 @@ class OnContextConditionTransitionEvent(BaseEvent):
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = f or print
         super().print(f)
-
-        f(
-            colored(
-                f"***** OnContextCondition handoff ({self.source_agent.name if hasattr(self.source_agent, 'name') else self.source_agent}): {self.transition_target.display_name()} *****",
-                "blue",
-            ),
-            flush=True,
-        )
+        if cmbagent_debug:
+            f(
+                colored(
+                    f"***** OnContextCondition handoff ({self.source_agent.name if hasattr(self.source_agent, 'name') else self.source_agent}): {self.transition_target.display_name()} *****",
+                    "blue",
+                ),
+                flush=True,
+            )
 
 
 @wrap_event
@@ -76,14 +77,14 @@ class OnConditionLLMTransitionEvent(BaseEvent):
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = f or print
         super().print(f)
-
-        f(
-            colored(
-                f"***** LLM-based OnCondition handoff ({self.source_agent.name if hasattr(self.source_agent, 'name') else self.source_agent}): {self.transition_target.display_name()} *****",
-                "blue",
-            ),
-            flush=True,
-        )
+        if cmbagent_debug:
+            f(
+                colored(
+                    f"***** LLM-based OnCondition handoff ({self.source_agent.name if hasattr(self.source_agent, 'name') else self.source_agent}): {self.transition_target.display_name()} *****",
+                    "blue",
+                ),
+                flush=True,
+            )
 
 
 @wrap_event
@@ -101,11 +102,11 @@ class ReplyResultTransitionEvent(BaseEvent):
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = f or print
         super().print(f)
-
-        f(
-            colored(
-                f"***** ReplyResult transition ({self.source_agent.name if hasattr(self.source_agent, 'name') else self.source_agent}): {self.transition_target.display_name()} *****",
-                "blue",
-            ),
-            flush=True,
-        )
+        if cmbagent_debug:
+            f(
+                colored(
+                    f"***** ReplyResult transition ({self.source_agent.name if hasattr(self.source_agent, 'name') else self.source_agent}): {self.transition_target.display_name()} *****",
+                    "blue",
+                ),
+                flush=True,
+            )
