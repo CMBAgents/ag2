@@ -1563,9 +1563,9 @@ The output of the executed code was:
 
 
                 else:
-                    if groupchat.verbose:
-                        print("--> in groupchat.py speaker.name: ", speaker.name)
-                        print("--> in groupchat.py groupchat.agents names: ", [agent.name for agent in groupchat.agents])
+                    # if groupchat.verbose:
+                    #     print("--> in groupchat.py speaker.name: ", speaker.name)
+                    #     print("--> in groupchat.py groupchat.agents names: ", [agent.name for agent in groupchat.agents])
                     
                     if speaker.name == "admin":
                         # print("\n in groupchat.py speaker.name == admin")
@@ -1593,14 +1593,14 @@ The output of the executed code was:
                     
 
                     elif groupchat.rag_agents is not None:
-                        print("\n\n\n-----------------------------------\n")
-                        print("\n in groupchat.py groupchat.rag_agents is not None")
-                        print("\n\n\n-----------------------------------\n")
-                        if groupchat.verbose:
-                            print("--> in groupchat.py groupchat.rag_agents names: ", [agent.name for agent in groupchat.rag_agents])
+                        # print("\n\n\n-----------------------------------\n")
+                        # print("\n in groupchat.py groupchat.rag_agents is not None")
+                        # print("\n\n\n-----------------------------------\n")
+                        # if groupchat.verbose:
+                        #     print("--> in groupchat.py groupchat.rag_agents names: ", [agent.name for agent in groupchat.rag_agents])
                         if speaker.name in [agent.name for agent in groupchat.rag_agents]:
-                            if groupchat.verbose:
-                                print("switching to rag_software_formatter")
+                            # if groupchat.verbose:
+                            #     print("switching to rag_software_formatter")
                             # print("switching to rag_software_formatter, message: ", messages)
                             speaker = groupchat.agent_by_name("rag_software_formatter")
 
@@ -1613,8 +1613,8 @@ The output of the executed code was:
                     else:
                         speaker = groupchat.select_speaker(speaker, self)
 
-                    if groupchat.verbose:
-                        print("--> in groupchat.py speaker.name after select_speaker: ", speaker.name)
+                    # if groupchat.verbose:
+                    #     print("--> in groupchat.py speaker.name after select_speaker: ", speaker.name)
                 
                 if not silent:
                     iostream = IOStream.get_default()

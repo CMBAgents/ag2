@@ -617,7 +617,8 @@ class GroupChatRunChatEvent(BaseEvent):
     def print(self, f: Callable[..., Any] | None = None) -> None:
         f = resolve_print_callable(f)
         if not cmbagent_gui_mode:
-            f(colored(f"\nNext speaker: {self.speaker}\n", "green"), flush=True)
+            pass
+            # f(colored(f"\nNext speaker: {self.speaker}\n", "green"), flush=True)
         else:
             if self.speaker.startswith('_'):
                 pass
