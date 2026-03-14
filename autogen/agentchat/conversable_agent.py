@@ -1008,8 +1008,8 @@ class ConversableAgent(LLMAgent):
         Args:
             system_message (str): system message for the ChatCompletion inference.
         """
-        if cmbagent_debug:
-            print('in conversable_agent.py update_system_message: ', system_message)
+        # if cmbagent_debug:
+        #     print('in conversable_agent.py update_system_message: ', system_message)
         self._oai_system_message[0]["content"] = system_message
 
     def update_max_consecutive_auto_reply(self, value: int, sender: Agent | None = None):
@@ -3522,16 +3522,16 @@ class ConversableAgent(LLMAgent):
         # print("\n in conversable_agent.py generate_reply messages before process_all_messages_before_reply: ", messages)
         messages = self.process_all_messages_before_reply(messages)
 
-        if cmbagent_debug and self.name == "controller":
-            print(f"\n===== CONTROLLER SYSTEM MESSAGE =====")
-            print(self._oai_system_message[0]["content"])
-            print(f"\n===== CONTROLLER SEES {len(messages)} MESSAGES =====")
-            for i, m in enumerate(messages):
-                role = m.get('role', '?')
-                name = m.get('name', '')
-                content = str(m.get('content', ''))[:200]
-                print(f"  [{i}] role={role} name={name}: {content}")
-            print("=" * 50)
+        # if cmbagent_debug and self.name == "controller":
+        #     print(f"\n===== CONTROLLER SYSTEM MESSAGE =====")
+        #     print(self._oai_system_message[0]["content"])
+        #     print(f"\n===== CONTROLLER SEES {len(messages)} MESSAGES =====")
+        #     for i, m in enumerate(messages):
+        #         role = m.get('role', '?')
+        #         name = m.get('name', '')
+        #         content = str(m.get('content', ''))[:200]
+        #         print(f"  [{i}] role={role} name={name}: {content}")
+        #     print("=" * 50)
 
         # Iterate through all registered reply functions
         # print("\n in conversable_agent.py generate_reply self._reply_func_list: ", self._reply_func_list)

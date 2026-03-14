@@ -238,11 +238,10 @@ def _establish_swarm_agent(agent: ConversableAgent) -> None:
 
     def _swarm_agent_str(self: ConversableAgent) -> str:
         """Customise the __str__ method to show the agent name for transition messages."""
-        if cmbagent_debug:
-            print('in swarm_agent.py _swarm_agent_str: ', self.name)
-            return f"Swarm agent --> {self.name}"
-        else:
-            return f"Transitioning to {self.name}!"
+        # if cmbagent_debug:
+        #     print('in swarm_agent.py _swarm_agent_str: ', self.name)
+        #     return f"Swarm agent --> {self.name}"
+        return f"Transitioning to {self.name}!"
 
     agent._swarm_after_work = None  # type: ignore[attr-defined]
     agent._swarm_after_work_selection_msg = None  # type: ignore[attr-defined]
@@ -423,8 +422,8 @@ def _prepare_swarm_agents(
 
     # Update tool execution agent with all the functions from all the agents
     for agent in agents + nested_chat_agents:
-        if cmbagent_debug:
-            print('\n\n\n\nin swarm_agent.py _prepare_swarm_agents agent.name: ', agent.name)
+        # if cmbagent_debug:
+        #     print('\n\n\n\nin swarm_agent.py _prepare_swarm_agents agent.name: ', agent.name)
         tool_execution._function_map.update(agent._function_map)
 
         # Add conditional functions to the tool_execution agent
@@ -438,10 +437,8 @@ def _prepare_swarm_agents(
         # Add all tools to the Tool Executor agent
         
         for tool in agent.tools:
-            if cmbagent_debug:
-                print('\n\n\n\nin swarm_agent.py _prepare_swarm_agents tool.name: ', tool.name)
-            # import ipdb; ipdb.set_trace()
-            # import pprint; pprint.pprint(tool.model_dump())
+            # if cmbagent_debug:
+            #     print('\n\n\n\nin swarm_agent.py _prepare_swarm_agents tool.name: ', tool.name)
             tool_execution.register_for_execution(serialize=False, silent_override=True)(tool)
     # import ipdb; ipdb.set_trace()
     # import sys; sys.exit()

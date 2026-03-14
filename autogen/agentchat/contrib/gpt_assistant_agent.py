@@ -272,10 +272,10 @@ class GPTAssistantAgent(ConversableAgent):
                 role=api_role,
             )
 
-        ## cmbagent debug print: 
-        if cmbagent_debug:
-            print('in gpt_assistant_agent.py running with system message: ', self.system_message)
-            print('in gpt_assistant_agent.py tool_resources: ', self._openai_assistant.tool_resources)
+        ## cmbagent debug print:
+        # if cmbagent_debug:
+        #     print('in gpt_assistant_agent.py running with system message: ', self.system_message)
+        #     print('in gpt_assistant_agent.py tool_resources: ', self._openai_assistant.tool_resources)
         # Create a new run to get responses from the assistant
         run = self._openai_client.beta.threads.runs.create(
             thread_id=assistant_thread.id,
