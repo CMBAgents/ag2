@@ -538,9 +538,7 @@ class ConversableAgent(LLMAgent):
         cls, llm_config: LLMConfig | dict[str, Any] | Literal[False] | None
     ) -> LLMConfig | Literal[False]:
         if llm_config is None:
-            llm_config = LLMConfig.get_current_llm_config()
-            if llm_config is None:
-                return cls.DEFAULT_CONFIG
+            return cls.DEFAULT_CONFIG
 
         elif llm_config is False:
             return False
@@ -1056,13 +1054,14 @@ class ConversableAgent(LLMAgent):
                 return None
             if n_conversations == 1:
                 for conversation in self._oai_messages.values():
-                    return conversation[-1]
+                    return conversation[-1] if conversation else None
             raise ValueError("More than one conversation is found. Please specify the sender to get the last message.")
         if agent not in self._oai_messages:
             raise KeyError(
                 f"The agent '{agent.name}' is not present in any conversation. No history available for this agent."
             )
-        return self._oai_messages[agent][-1]
+        messages = self._oai_messages[agent]
+        return messages[-1] if messages else None
 
     @property
     def use_docker(self) -> bool | str | None:
@@ -3608,9 +3607,14 @@ class ConversableAgent(LLMAgent):
         # Message modifications do not affect the incoming messages or self._oai_messages.
         messages = self.process_all_messages_before_reply(messages)
 
+        # Get sync functions to skip (those with async equivalents)
+        sync_to_skip = self._get_sync_funcs_to_skip_in_async_chat()
+
         for reply_func_tuple in self._reply_func_list:
             reply_func = reply_func_tuple["reply_func"]
             if reply_func in exclude:
+                continue
+            if reply_func in sync_to_skip:
                 continue
 
             if self._match_trigger(reply_func_tuple["trigger"], sender):
@@ -3626,6 +3630,30 @@ class ConversableAgent(LLMAgent):
                 if final:
                     return reply
         return self._default_auto_reply
+
+    def _get_sync_funcs_to_skip_in_async_chat(self) -> set[Callable[..., Any]]:
+        """Get sync reply functions that should be skipped in async chat.
+
+        When an async reply function is registered with ignore_async_in_sync_chat=True,
+        it indicates that a sync equivalent exists. In async chat, we should skip the
+        sync version and use the async version instead.
+
+        Returns:
+            A set of sync reply functions that have async equivalents.
+        """
+        sync_to_skip: set[Callable[..., Any]] = set()
+        for reply_func_tuple in self._reply_func_list:
+            reply_func = reply_func_tuple["reply_func"]
+            if is_coroutine_callable(reply_func) and reply_func_tuple.get("ignore_async_in_sync_chat"):
+                func_name = reply_func.__name__
+                if func_name.startswith("a_"):
+                    sync_name = func_name[2:]  # Remove "a_" prefix
+                    for other_tuple in self._reply_func_list:
+                        other_func = other_tuple["reply_func"]
+                        if not is_coroutine_callable(other_func) and other_func.__name__ == sync_name:
+                            sync_to_skip.add(other_func)
+                            break
+        return sync_to_skip
 
     def _match_trigger(self, trigger: None | str | type | Agent | Callable | list, sender: Agent | None) -> bool:
         """Check if the sender matches the trigger.
@@ -3912,6 +3940,8 @@ class ConversableAgent(LLMAgent):
                     else:
                         # Fallback to sync function if the function is not async
                         content = func(**arguments)
+                    if inspect.isawaitable(content):
+                        content = await content
                     is_exec_success = True
                 except Exception as e:
                     content = f"Error: {e}"

@@ -3,6 +3,9 @@ title: "Agent Orchestration: Coordinating Multiple Agents"
 sidebarTitle: "Agent Orchestration: Coordinating Multiple Agents"
 ---
 
+!!! example "Try it on the AG2 Playground"
+    See group chat running live at [playground.ag2.ai](https://playground.ag2.ai){:target="_blank"} — no setup required.
+
 In our financial compliance example, we've successfully implemented a human-in-the-loop agent that processes transactions and flags suspicious ones for human approval. This works well for basic compliance checking, but what if we need to provide detailed summary reports after all transactions are processed?
 
 We could expand the system message of our `finance_bot` to include this functionality, but this approach isn't scalable as requirements grow more complex. The `finance_bot` would have multiple responsibilities, making it harder to maintain and extend.
@@ -59,9 +62,18 @@ from autogen import ConversableAgent, LLMConfig
 from autogen.agentchat import initiate_group_chat
 from autogen.agentchat.group.patterns import AutoPattern
 
+# build a Config List
+llm_config = LLMConfig(
+    config_list={
+        "api_type": "openai",
+        "model": "gpt-5-nano",
+        "api_key": os.environ.get("OPENAI_API_KEY"),
+    }
+)
+
 # Create your specialized agents
-agent_1 = ConversableAgent(name="agent_1", llm_config=llm_config, system_message="...")
-agent_2 = ConversableAgent(name="agent_2", llm_config=llm_config, system_message="...")
+agent_1 = ConversableAgent(name="agent_1", llm_config=llm_config, system_message="goto agent_2")
+agent_2 = ConversableAgent(name="agent_2", llm_config=llm_config, system_message="go back to agent_1")
 
 # Create human agent if needed
 human = ConversableAgent(name="human", human_input_mode="ALWAYS")
@@ -109,16 +121,20 @@ from autogen.agentchat.group.patterns import AutoPattern
 
 import os
 import random
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Note: Make sure to set your API key in your environment first
 
-# Configure the LLM
-llm_config = LLMConfig(config_list={
-    "api_type": "openai",
-    "model": "gpt-5-nano",
-    "api_key": os.environ.get("OPENAI_API_KEY"),
-    "temperature": 0.2,
-})
+# Build a LLM Config List
+llm_config = LLMConfig(
+    config_list={
+        "api_type": "openai",
+        "model": "gpt-5-nano",
+        "api_key": os.environ.get("OPENAI_API_KEY"),
+    }
+)
 
 # Define the system message for our finance bot
 finance_system_message = """
@@ -261,16 +277,19 @@ Here's the complete, ready-to-run code for our enhanced financial compliance sys
 
     import os
     import random
+    from dotenv import load_dotenv
 
-    # Note: Make sure to set your API key in your environment first
+    load_dotenv()
 
+    # Note: Make sure to set your API key in your environment first, i.e., .env
     # Configure the LLM
-    llm_config = LLMConfig(config_list={
-        "api_type": "openai",
-        "model": "gpt-5-nano",
-        "api_key": os.environ.get("OPENAI_API_KEY"),
-        "temperature": 0.2
-    })
+    llm_config = LLMConfig(
+        config_list={
+            "api_type": "openai",
+            "model": "gpt-5-nano",
+            "api_key": os.environ.get("OPENAI_API_KEY"),
+        }
+    )
 
     # Define the system message for our finance bot
     finance_system_message = """
@@ -539,6 +558,9 @@ Here's the updated code that incorporates automatic termination:
     from typing import Any
     import os
     import random
+    from dotenv import load_dotenv
+
+    load_dotenv()
 
     from autogen import ConversableAgent, LLMConfig
     from autogen.agentchat import initiate_group_chat
@@ -547,12 +569,13 @@ Here's the updated code that incorporates automatic termination:
     # Note: Make sure to set your API key in your environment first
 
     # Configure the LLM
-    llm_config = LLMConfig(config_list={
-        "api_type": "openai",
-        "model": "gpt-5-nano",
-        "api_key": os.environ.get("OPENAI_API_KEY"),
-        "temperature": 0.2,
-    })
+    llm_config = LLMConfig(
+        config_list={
+            "api_type": "openai",
+            "model": "gpt-5-nano",
+            "api_key": os.environ.get("OPENAI_API_KEY"),
+        }
+    )
 
     # Define the system message for our finance bot
     finance_system_message = """
