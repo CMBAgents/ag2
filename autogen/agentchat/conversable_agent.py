@@ -2637,96 +2637,15 @@ class ConversableAgent(LLMAgent):
             else:
                 all_messages.append(message)
 
-
-        # If the agent has a forced_tool_call attribute, force the LLM to call that function
-        force_tool_call = False
-        function_name = getattr(self, 'forced_tool_call', None)
-        if function_name:
-            force_tool_call = True
-            tool_choice = {"type": "function", "function": {"name": function_name}}
-
-
-        context = messages[-1].pop("context", None)
-        if force_tool_call:
-
-            try:
-                response = llm_client.create(
-                    context=context,
-                    messages=all_messages,
-                    cache=cache,
-                    agent=self,
-                    parallel_tool_calls=False, ## cmbagent added this to disable parallel tool calls
-                    tool_choice=tool_choice, ## cmbagent added this to force tool call
-                    # tool_config=tool_config,
-                )
-            except BadRequestError as e:
-                if "parallel_tool_calls" in str(e):
-                    # print("dealing with parallel_tool_calls error in conversable_agent.py")
-                    response = llm_client.create(
-                            context=context,
-                            messages=all_messages,
-                            cache=cache,
-                            agent=self,
-                            tool_choice=tool_choice ## cmbagent added this to force tool call
-                        )
-                else:
-                    print(f"\n===== BadRequestError in {self.name} =====")
-                    print(f"Error: {e}")
-                    print(f"Number of messages: {len(all_messages)}")
-                    for i, m in enumerate(all_messages):
-                        role = m.get('role', '?')
-                        name = m.get('name', '')
-                        content = str(m.get('content', ''))[:200]
-                        print(f"  [{i}] role={role} name={name}: {content}")
-                    print("=" * 50)
-                    raise
-
-
-        else:
-            response = llm_client.create(
-                context=context,
-                messages=all_messages,
-                cache=cache,
-                agent=self,
-                **kwargs,
-            )
+        # TODO: #1143 handle token limit exceeded error
+        response = llm_client.create(
+            context=messages[-1].pop("context", None),
+            messages=all_messages,
+            cache=cache,
+            agent=self,
+            **kwargs,
+        )
         extracted_response = llm_client.extract_text_or_completion_object(response)[0]
-
-
-        # llm_client.print_usage_summary(mode="actual")  # print actual usage summary, i.e., excluding cached usage
-        # Update dictionary containing all costs
-        usage_summary = llm_client.return_usage_summary(mode="actual")
-        name = None # default name
-        if usage_summary is not None:
-            cost, prompt_tokens, completion_tokens, total_tokens = usage_summary
-            # if self.name in ['planner', 'engineer', 'summarizer']:
-            #     name = self.name
-            # else:
-            #     name = 'admin (' + self.name + ')'
-        
-            # Restructure tokens_dict to create a DataFrame
-            df = pd.DataFrame([{
-                "Model": response.model,
-                "agent": self.name,
-                "Cost": f"{cost:.5f}",
-                "Prompt Tokens": prompt_tokens,
-                "Completion Tokens": completion_tokens,
-                "Total Tokens": total_tokens,
-            }])
-            if not streamlit_on:
-                if not cmbagent_disable_display:
-                    display(df.style.hide(axis="index"))
-                else:
-                    print(df.to_string(index=False))
-            
-            self.cost_dict['Model'].append(response.model)
-            self.cost_dict['Agent'].append(self.name)
-            self.cost_dict['Cost'].append(cost) 
-            self.cost_dict['Prompt Tokens'].append(prompt_tokens)
-            self.cost_dict['Completion Tokens'].append(completion_tokens)
-            self.cost_dict['Total Tokens'].append(total_tokens)
-            # import pdb; pdb.set_trace()
-            # self.cost_dict['LLMConfig'].append(llm_client.config)
 
         if extracted_response is None:
             warnings.warn(f"Extracted_response from {response} is None.", UserWarning)

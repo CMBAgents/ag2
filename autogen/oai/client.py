@@ -1461,46 +1461,8 @@ class OpenAIWrapper:
                         continue  # filter is not passed; try the next config
             
             try:
-                ## cmbagent add on. 
-                def get_function_name_if_description_true(params):
-                    if "tools" in params:
-                        for tool in params["tools"]:
-                            func = tool.get("function", {})
-                            if func.get("description") == "TRUE":
-                                return func.get("name")
-                    return None
-                required_function_name = get_function_name_if_description_true(params)
-
-                if required_function_name: ## this forces the tool call 
-                    params["tool_choice"] = {"type": "function", "function": {"name": required_function_name}}
-
-                if cmbagent_debug:
-                    print('\n\n in oai/client.py create params:')
-                    # import json 
-                    print(json.dumps(params, indent=4, default=str))
-                    # cmbagent debug
-                    if "tools" in params:
-                        # print("\n tools in params: ", params["tools"])
-                        json_tools = json.dumps(params["tools"], indent=4, default=str)
-                        print('\n\n json_tools: ')
-                        print(json_tools)
-                        print('\n\n')
-
-                    print("\n required_function_name: ", required_function_name)
-
-                    # import sys
-                    # sys.exit()
-   
-                    
                 request_ts = get_current_ts()
                 response = client.create(params)
-                # cmbagent debug
-                if cmbagent_debug:
-                    print('\n\n in oai/client.py response: ', response)
-                    # if required_function_name:
-                    #     import sys
-                    #     sys.exit()
-                # print("\n response created: ", response)
             except Exception as e:
                 if openai_result.is_successful:
                     if APITimeoutError is not None and isinstance(e, APITimeoutError):
