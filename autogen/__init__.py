@@ -25,7 +25,7 @@ from .agentchat import (
 from .agentchat.group.context_expression import ContextExpression
 from .code_utils import DEFAULT_MODEL, FAST_MODEL
 # from .code_utils import cmbagent_debug
-from .cmbagent_utils import cmbagent_debug, file_search_max_num_results, cmbagent_disable_display
+from .cmbagent_utils import cmbagent_debug, cmbagent_disable_display
 from .exception_utils import (
     AgentNameConflictError,
     InvalidCarryOverTypeError,

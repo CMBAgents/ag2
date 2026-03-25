@@ -17,7 +17,7 @@ from ...oai.openai_utils import create_gpt_assistant, retrieve_assistants_by_nam
 from ...runtime_logging import log_new_agent, logging_enabled
 from ..agent import Agent
 from ..assistant_agent import AssistantAgent, ConversableAgent
-from ...cmbagent_utils import cmbagent_debug, file_search_max_num_results, cmbagent_disable_display
+from ...cmbagent_utils import cmbagent_debug, cmbagent_disable_display
 from ...agentchat.conversable_agent import UpdateSystemMessage
 
 import re
@@ -282,12 +282,7 @@ class GPTAssistantAgent(ConversableAgent):
             assistant_id=self._openai_assistant.id,
             # pass the latest system message as instructions
             instructions=self.system_message,
-            # tool_resources=self._openai_assistant.tool_resources, ## doesnt work
-            tools=[{ ## cmbagent added this
-                'type': 'file_search', ## cmbagent added this
-                'file_search': {'max_num_results': file_search_max_num_results} ## cmbagent added this
-            }], ## cmbagent added this
-            tool_choice={"type": "file_search", "function": {"name": "file_search"}} ## cmbagent added this to force tool call
+            # tool_resources=self._openai_assistant.tool_resources,
         )
 
 

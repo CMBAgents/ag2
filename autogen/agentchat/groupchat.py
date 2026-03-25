@@ -39,41 +39,7 @@ from .conversable_agent import ConversableAgent
 from ..cmbagent_utils import cmbagent_debug
 
 import re
-# cmbagent addition:
-def extract_python_code_blocks(text: str) -> str:
-    """
-    Extracts the first Python code block from a string formatted with triple backticks.
-    Returns only the code content, excluding any Markdown or surrounding explanation.
-    """
-    match = re.search(r"```python(.*?)```", text, re.DOTALL)
-    return match.group(1).strip() if match else ""
 
-
-
-
-## cmbagent addition:
-def extract_next_agent_suggestion(message):
-    """
-    Extracts the text under '**Next Agent Suggestion:**' from the given message.
-
-    Args:
-        message (str): The input message string.
-
-    Returns:
-        str or None: The extracted agent name if found, otherwise None.
-    """
-    # Define a regex pattern to match '**Next Agent Suggestion:**' followed by the agent name
-    pattern = r'\*\*Next Agent Suggestion:\*\*\s*(.+)'
-    
-    # Search for the pattern in the message
-    match = re.search(pattern, message, re.IGNORECASE)
-    
-    if match:
-        # Return the captured group, stripped of leading/trailing whitespace
-        return match.group(1).strip()
-    else:
-        # Return None if the pattern is not found
-        return None
 
 logger = logging.getLogger(__name__)
 
@@ -1338,9 +1304,6 @@ class GroupChatManager(ConversableAgent):
         if cmbagent_debug:
             groupchat.verbose = True
 
-        executed_code_str = None # tmp variable to collect the executed code from engineer_response_formatter in the nested chat 
-        
-
         self.chat_output_filename = None # cmbagent add on...
         for i in range(groupchat.max_round):
             # self.name is the name of the groupchat manager, main_cmbagent_chat, or engineer_nested_chat
@@ -1379,21 +1342,6 @@ class GroupChatManager(ConversableAgent):
 
 
 
-            # print("...logging messages...")
-            # for agent in groupchat.agents:
-            #     print(f"in groupchat.py groupchat manager: {self.name}, agent.name: {agent.name}, speaker.name: {speaker.name}")
-            # print(f"{speaker.name} cost: {speaker.cost_dict}")
-            # print(f"{speaker.name} chat_output_filename: {self.chat_output_filename}")
-            # print("...logging done...")
-            #         agent.reset()
-            # cmbagent debug -- print all messages
-            # print("\n\n\n-----------------------------------\n")
-            # print("\n in groupchat.py i: ", i)
-            # if cmbagent_debug:  
-            # print("\n\n\n-----------------------------------\n")
-            # print("\n in groupchat.py messages: ")
-            # import pprint; pprint.pprint(messages)
-            # print("\n\n\n-----------------------------------\n")
             self._last_speaker = speaker
 
 
@@ -1402,28 +1350,7 @@ class GroupChatManager(ConversableAgent):
 
 
 
-            # last_agent_for_sub_task = self.get_context("agent_for_sub_task")
-            # last_plan_step = self.get_context("current_plan_step_number")
-
-                # import sys; sys.exit()
-
-            # # Print engineer_nest messages
-            # if speaker.name == "executor_response_formatter":
-            #     # we can reset the engineer here
-            #     print("\n in groupchat.py resetting engineer")
-                # groupchat.agent_by_name("engineer").reset()
-                # for agent in groupchat.agents:
-                #     if agent.name == "engineer":
-                #         agent.reset()
-            #     print("\n=== executor_response_formatter ===\n")
-            #     # print(f"Content: {message.get('content', '')}")
-            #     # print(executed_code_str)
-            #     print("\n\n\n-----------------------------------\n")
-            #     print(messages)
-            #     print("\n\n\n-----------------------------------\n")
-                # import sys; sys.exit()
-
-            # cmbagent add on...
+            # cmbagent: save messages to JSON file for debugging/tracing
             if self.chat_output_filename is not None:
                 import os
                 from datetime import datetime
@@ -1449,51 +1376,8 @@ class GroupChatManager(ConversableAgent):
                 with open(self.chat_output_filename, "w") as f:
                     json.dump(existing_messages, f, indent=2)
 
-            if speaker.name == "engineer_response_formatter":
-                # print("\n=== Engineer Response Formatter Message ===\n")
-                # print(f"Content: {message.get('content', '')}")
-                executed_code_str = extract_python_code_blocks(message['content']) # set the global variable
-
-            # set engineer_nest messages, which is what the groupchat returns
-            if speaker.name == "executor":
-                # print("\n=== Executor Message ===\n")
-                # print(f"Content: {message.get('content', '')}")
-
-                for msg in messages[::-1]:
-                    #print messages of engineer_nest
-                    if msg['name'] == "engineer_nest":
-                        # print("XXXXXXXXXX==========  in groupchat.py messages: ", msg['content'])
-                        #overwrite the content with executor's response
-                        msg['content'] = rf"""
-The executed code was:
-
-```python
-{executed_code_str}
-```
-
-================================================    
-
-The output of the executed code was:
-
-{message['content']}
-
-================================================    
-                        """
-                        # reset the executed_code_str
-                        executed_code_str = None
-                        break
-
-
-            if speaker.name == "idea_maker_response_formatter":
-                generated_ideas = message['content']
-                # print("\n in groupchat.py generated_ideas: ", generated_ideas)
-                # import sys; sys.exit()
-
-            # if speaker.name == "idea_saver":
-            #     for msg in messages[::-1]:
-            #         if msg['name'] == "idea_maker_nest":
-            #             msg['content'] = generated_ideas
-            #             break
+            # Note: code/output capture is now handled by execution_recorder agent
+            # in cmbagent, not by message mutation in groupchat.py
 
 
 
@@ -1531,17 +1415,6 @@ The output of the executed code was:
 
                 # reset the entire groupchat
                 groupchat.reset()
-
-                ## here we can post-process the messages of the nested chat
-                if speaker.name == "executor":
-                    for agent in groupchat.agents:                        
-                        if agent.name != "engineer_nest":
-                            agent.reset()
-
-                if speaker.name == "idea_saver":
-                    for agent in groupchat.agents:
-                        if agent.name != "idea_maker_nest":
-                            agent.reset()
 
                 break
             try:

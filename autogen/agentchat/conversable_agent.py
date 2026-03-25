@@ -2639,25 +2639,9 @@ class ConversableAgent(LLMAgent):
                 all_messages.append(message)
 
 
-        # Map agent names to their required function names
-        agent_function_map = {
-            'plan_setter': 'record_plan_constraints',
-            'controller': 'record_status',
-            'control_starter': 'record_status_starter',
-            'executor_response_formatter': 'post_execution_transfer',
-            'plan_recorder': 'record_plan',
-            'review_recorder': 'record_review',
-            'terminator': 'terminate_session',
-            'task_recorder': 'record_improved_task',
-            'aas_keyword_finder': 'record_aas_keywords',
-            'idea_saver': 'record_ideas',
-            'plan_comparator': 'record_plan_comparator',
-            'image_review_recorder': 'record_image_review',
-            'adaptive_reviewer': 'record_adaptive_review',
-        }
-
+        # If the agent has a forced_tool_call attribute, force the LLM to call that function
         force_tool_call = False
-        function_name = agent_function_map.get(self.name)
+        function_name = getattr(self, 'forced_tool_call', None)
         if function_name:
             force_tool_call = True
             tool_choice = {"type": "function", "function": {"name": function_name}}

@@ -880,8 +880,6 @@ def create_gpt_assistant(
     if cmbagent_debug:
         print('in openai_utils.py create_gpt_assistant assistant_create_kwargs: ', assistant_create_kwargs)
         print('in openai_utils.py create_gpt_assistant assistant_config: ', assistant_config)
-    assistant_create_kwargs["tool_choice"] =  {"type": "function", "function": {"name": "file_search"}} ## cmbagent added this
-
     logging.info(f"Creating assistant with config: {assistant_create_kwargs}")
     return client.beta.assistants.create(name=name, instructions=instructions, model=model, **assistant_create_kwargs)
 
