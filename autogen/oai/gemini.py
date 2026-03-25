@@ -693,6 +693,7 @@ class GeminiClient:
                             ),
                             thought_signature=thought_sig,
                         )
+                    )
 
             return rst, "tool_call"
 
