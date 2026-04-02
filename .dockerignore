@@ -1,0 +1,6 @@
+.git/
+test/
+notebook/
+website/
+__pycache__/
+*.egg-info/
