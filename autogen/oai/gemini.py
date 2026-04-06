@@ -173,13 +173,13 @@ class GeminiClient:
     def _is_google_ai_model(model_name: str) -> bool:
         """Determine if a model should use Google AI (standard API) vs Vertex AI.
 
-        Gemini 3+ models use Google AI by default, older models use Vertex AI.
+        Gemini 2+ models use Google AI by default, older models use Vertex AI.
         """
         name = model_name.lower()
-        # Match gemini-3, gemini-4, etc. (major version >= 3)
+        # Match gemini-2, gemini-3, gemini-4, etc. (major version >= 2)
         if re.match(r"gemini-(\d+)", name):
             major_version = int(re.match(r"gemini-(\d+)", name).group(1))
-            return major_version >= 3
+            return major_version >= 2
         return False
 
     def _initialize_vertexai(self, **params: Unpack[GeminiEntryDict]):
