@@ -330,6 +330,18 @@ class GroupToolExecutor(ConversableAgent):
                 if function_name == "__structured_output":
                     return True, tool_call.get("function", {}).get("arguments", {})
 
+                # Fail fast on unknown tool names. Without this, the executor would
+                # return "Error: Function X not found." as a normal tool result and
+                # the calling LLM would just re-emit the same hallucinated call,
+                # burning tokens until max_rounds / outer timeout.
+                if function_name and function_name not in self._function_map:
+                    raise ValueError(
+                        f"Unknown tool {function_name!r} called by "
+                        f"{self.get_tool_call_originator() or 'unknown'!r}. "
+                        f"Available tools: {sorted(self._function_map.keys())}. "
+                        f"Aborting group chat."
+                    )
+
                 # Ensure we are only executing the one tool at a time
                 message_copy["tool_calls"] = [tool_call]
 
@@ -409,6 +421,15 @@ class GroupToolExecutor(ConversableAgent):
                 function_name = tool_call.get("function", {}).get("name", "")
                 if function_name == "__structured_output":
                     return True, tool_call.get("function", {}).get("arguments", {})
+
+                # Fail fast on unknown tool names (see sync variant for rationale).
+                if function_name and function_name not in self._function_map:
+                    raise ValueError(
+                        f"Unknown tool {function_name!r} called by "
+                        f"{self.get_tool_call_originator() or 'unknown'!r}. "
+                        f"Available tools: {sorted(self._function_map.keys())}. "
+                        f"Aborting group chat."
+                    )
 
                 message_copy["tool_calls"] = [tool_call]
 
